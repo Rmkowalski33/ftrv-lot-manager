@@ -117,24 +117,24 @@ var Sync = (function () {
           method: "POST",
           headers: { "Content-Type": "text/plain" },
           redirect: "follow",
+          mode: "no-cors",
           body: JSON.stringify(payload),
         })
-          .then(function (res) { return res.json(); })
-          .then(function (result) {
-            if (result.success) {
-              return DB.markNoteSent(note.id).then(function () {
-                return DB.addToHistory({
-                  timestamp: note.queued_at,
-                  user: note.user,
-                  entry_type: note.entry_type,
-                  stock: note.stock,
-                  description: note.description,
-                  zone: note.zone,
-                  verified: note.verified,
-                  status: "Submitted",
-                });
+          .then(function () {
+            // Apps Script 302 redirects make the response opaque (no-cors),
+            // so we can't read result.success. Treat non-error as success.
+            return DB.markNoteSent(note.id).then(function () {
+              return DB.addToHistory({
+                timestamp: note.queued_at,
+                user: note.user,
+                entry_type: note.entry_type,
+                stock: note.stock,
+                description: note.description,
+                zone: note.zone,
+                verified: note.verified,
+                status: "Submitted",
               });
-            }
+            });
           })
           .catch(function (err) {
             console.warn("Note push failed:", err.message);
