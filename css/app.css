@@ -562,10 +562,9 @@ body {
   letter-spacing: .5px;
 }
 .cov-th-sticky {
-  position: sticky; left: 0; z-index: 3;
-  background: var(--surface-2); min-width: 160px; white-space: normal;
+  background: var(--surface-2); white-space: nowrap;
 }
-thead .cov-th-sticky { background: var(--surface-3); z-index: 4; }
+thead .cov-th-sticky { background: var(--surface-3); }
 
 /* Make group header rows */
 .cov-make-row td {
@@ -573,7 +572,7 @@ thead .cov-th-sticky { background: var(--surface-3); z-index: 4; }
   color: var(--text); border-bottom: 2px solid var(--copper);
   padding: 10px; white-space: normal;
 }
-.cov-make-row .cov-th-sticky { background: #1a2744; white-space: normal; }
+.cov-make-row .cov-th-sticky { background: #1a2744; white-space: nowrap; }
 .cov-vt-badge {
   display: inline-block; padding: 2px 7px; border-radius: 4px;
   font-size: 11px; font-weight: 800; letter-spacing: .5px;
@@ -596,10 +595,8 @@ thead .cov-th-sticky { background: var(--surface-3); z-index: 4; }
 .cov-gap-text { color: var(--red); font-weight: 700; font-size: 13px; }
 
 /* Row-level gap highlighting */
-.cov-gap-warn td { border-left: 3px solid var(--orange); }
-.cov-gap-warn .cov-th-sticky { border-left: 3px solid var(--orange); }
-.cov-gap-critical td { border-left: 3px solid var(--red); }
-.cov-gap-critical .cov-th-sticky { border-left: 3px solid var(--red); }
+.cov-gap-warn td:first-child { border-left: 3px solid var(--orange); }
+.cov-gap-critical td:first-child { border-left: 3px solid var(--red); }
 
 /* Zone map wider table */
 .cov-table-zone th, .cov-table-zone td { padding: 8px 6px; min-width: 36px; }

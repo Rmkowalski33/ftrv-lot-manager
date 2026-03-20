@@ -18,16 +18,19 @@ var App = (function () {
   }
 
   // ── Root views (no back button) ────────────────────────────────
-  var ROOT_VIEWS = ["home", "lots", "status", "makes", "more"];
+  var ROOT_VIEWS = ["home", "notes", "audit", "coverage"];
 
   // ── Tab mapping: view → which tab to highlight ─────────────────
   var TAB_MAP = {
     "home": "home", "search": "home", "detail": "home",
-    "lots": "lots", "area-detail": "lots", "zone-detail": "lots",
-    "status": "status", "status-cat": "status", "status-units": "status",
-    "makes": "makes", "make-detail": "makes", "model-units": "makes",
-    "more": "more", "shop": "more", "shop-body": "more", "shop-layout": "more",
-    "notes": "more", "note-form": "more", "audit": "more", "coverage": "more", "zone-map": "more",
+    "lots": "home", "area-detail": "home", "zone-detail": "home",
+    "status": "home", "status-cat": "home", "status-units": "home",
+    "makes": "home", "make-detail": "home", "model-units": "home",
+    "shop": "home", "shop-body": "home", "shop-layout": "home",
+    "notes": "notes", "note-form": "notes",
+    "audit": "audit",
+    "coverage": "coverage", "coverage-matrix": "coverage", "zone-map": "coverage",
+    "overflow-only": "coverage", "hierarchy": "coverage",
   };
 
   // ── Initialize ─────────────────────────────────────────────────
@@ -148,14 +151,20 @@ var App = (function () {
       case "shop-layout":
         renderPromise = Views.shopLayoutView(param, param2);
         break;
-      case "more":
-        renderPromise = Views.moreView();
-        break;
       case "coverage":
+        renderPromise = Views.coverageTabView();
+        break;
+      case "coverage-matrix":
         renderPromise = Views.coverageView();
         break;
       case "zone-map":
         renderPromise = Views.zoneMapView();
+        break;
+      case "overflow-only":
+        renderPromise = Views.overflowOnlyView();
+        break;
+      case "hierarchy":
+        renderPromise = Views.hierarchyView();
         break;
       case "notes":
         renderPromise = Views.notesView();

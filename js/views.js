@@ -1027,26 +1027,52 @@ var Views = (function () {
 
 
   // ══════════════════════════════════════════════════════════════
-  // MORE VIEW — Links to Notes, Audit, Coverage, Shop
+  // COVERAGE TAB — Landing page for coverage tools
   // ══════════════════════════════════════════════════════════════
-  function moreView() {
-    return DB.getPendingNotes().then(function (pending) {
+  function coverageTabView() {
+    return DB.getAllUnits().then(function (units) {
+      var cov = buildCoverageData(units);
+      var totalModels = Object.keys(cov.modelData).length;
+      var gapCount = 0;
+      var keys = Object.keys(cov.modelData);
+      for (var i = 0; i < keys.length; i++) {
+        var md = cov.modelData[keys[i]];
+        if (md.showroom === 0 || md.display === 0) gapCount++;
+      }
+
       var h = '<div class="view">';
-      h += '<div class="section-header" style="margin-top:0;">Tools</div>';
 
-      h += '<a class="note-type-card" href="#notes">'
-        + '<div class="note-type-icon" style="background:var(--green-dim);color:var(--green);">&#128221;</div>'
-        + '<div><div class="note-type-label">Field Notes</div>'
-        + '<div class="note-type-desc">Submit verifications, holes, reorgs'
-        + (pending.length > 0 ? ' <span style="color:var(--orange);font-weight:700;">(' + pending.length + ' pending)</span>' : '')
-        + '</div></div></a>';
+      h += '<div class="stats-row">'
+        + '<div class="stat-pill"><div class="stat-val text-blue">' + totalModels + '</div><div class="stat-label">Models</div></div>'
+        + '<div class="stat-pill"><div class="stat-val text-orange">' + gapCount + '</div><div class="stat-label">Gaps</div></div>'
+        + '</div>';
 
-      h += '<a class="note-type-card" href="#audit">'
-        + '<div class="note-type-icon" style="background:var(--red-dim);color:var(--red);">&#128737;</div>'
-        + '<div><div class="note-type-label">Audit</div>'
-        + '<div class="note-type-desc">Data quality flags and alerts</div></div></a>';
+      h += '<div class="section-header">Coverage Tools</div>';
 
-      h += '<a class="note-type-card" href="#coverage">'
+      // Count overflow-only units
+      var mmInShr = {}, mmInDsp = {}, ovrUnits = [];
+      var active = [];
+      for (var i = 0; i < units.length; i++) {
+        var st = (units[i].status || "").toUpperCase();
+        var isT = false;
+        for (var t = 0; t < TERMINAL_STATUSES.length; t++) { if (st === TERMINAL_STATUSES[t]) { isT = true; break; } }
+        if (!isT) active.push(units[i]);
+      }
+      for (var i = 0; i < active.length; i++) {
+        var u = active[i];
+        var mk = (u.make || "") + "|" + (u.model || "");
+        var b = lotBucket(u.lot_location || "");
+        if (b === "SHOWROOM") mmInShr[mk] = true;
+        else if (b !== "OVERFLOW" && b !== "OTHER") mmInDsp[mk] = true;
+        else if (b === "OVERFLOW") ovrUnits.push(u);
+      }
+      var ovrOnly = 0;
+      for (var i = 0; i < ovrUnits.length; i++) {
+        var mk = (ovrUnits[i].make || "") + "|" + (ovrUnits[i].model || "");
+        if (!mmInShr[mk] && !mmInDsp[mk]) ovrOnly++;
+      }
+
+      h += '<a class="note-type-card" href="#coverage-matrix">'
         + '<div class="note-type-icon" style="background:var(--blue-dim);color:var(--blue);">&#128200;</div>'
         + '<div><div class="note-type-label">Coverage Matrix</div>'
         + '<div class="note-type-desc">Model placement gaps — what needs displayed</div></div></a>';
@@ -1056,10 +1082,17 @@ var Views = (function () {
         + '<div><div class="note-type-label">Zone Map</div>'
         + '<div class="note-type-desc">Per-zone model grid — what needs reorganized</div></div></a>';
 
-      h += '<a class="note-type-card" href="#shop">'
-        + '<div class="note-type-icon" style="background:var(--purple-dim);color:var(--purple);">&#128722;</div>'
-        + '<div><div class="note-type-label">Shop by Layout</div>'
-        + '<div class="note-type-desc">Browse by type, body style, floor plan</div></div></a>';
+      h += '<a class="note-type-card" href="#overflow-only">'
+        + '<div class="note-type-icon" style="background:var(--orange-dim);color:var(--orange);">&#128230;</div>'
+        + '<div><div class="note-type-label">Overflow Only</div>'
+        + '<div class="note-type-desc">Units in overflow with no showroom or display presence'
+        + (ovrOnly > 0 ? ' <span style="color:var(--orange);font-weight:700;">(' + ovrOnly + ')</span>' : '')
+        + '</div></div></a>';
+
+      h += '<a class="note-type-card" href="#hierarchy">'
+        + '<div class="note-type-icon" style="background:var(--purple-dim);color:var(--purple);">&#128736;</div>'
+        + '<div><div class="note-type-label">Product Hierarchy</div>'
+        + '<div class="note-type-desc">Missing or inconsistent product data</div></div></a>';
 
       h += '</div>';
       return h;
@@ -1175,7 +1208,7 @@ var Views = (function () {
       var modelData = cov.modelData, makeGroups = cov.makeGroups, sortedMakeKeys = cov.sortedMakeKeys;
 
       var h = '<div class="view">';
-      h += backBtn("more", "More");
+      h += backBtn("coverage", "Coverage");
       h += '<div class="section-header" style="margin-top:0;">Coverage Matrix</div>'
         + '<div style="font-size:18px;color:var(--text-3);margin-bottom:12px;">Which models are on display vs. sitting in overflow or missing entirely</div>';
 
@@ -1192,10 +1225,9 @@ var Views = (function () {
         var gTotal = 0;
         for (var ki = 0; ki < gKeys.length; ki++) gTotal += modelData[gKeys[ki]].total;
 
-        h += '<tr class="cov-make-row"><td class="cov-th-sticky">'
+        h += '<tr class="cov-make-row"><td colspan="8" class="cov-th-sticky">'
           + '<span class="cov-vt-badge">' + esc(gVt) + '</span> '
-          + esc(gMake) + ' <span class="cov-make-count">(' + gTotal + ')</span></td>'
-          + '<td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>';
+          + esc(gMake) + ' <span class="cov-make-count">(' + gTotal + ')</span></td></tr>';
 
         for (var ki = 0; ki < gKeys.length; ki++) {
           var md = modelData[gKeys[ki]];
@@ -1240,7 +1272,7 @@ var Views = (function () {
       var modelData = cov.modelData, makeGroups = cov.makeGroups, sortedMakeKeys = cov.sortedMakeKeys;
 
       var h = '<div class="view">';
-      h += backBtn("more", "More");
+      h += backBtn("coverage", "Coverage");
       h += '<div class="section-header" style="margin-top:0;">Zone Map</div>'
         + '<div style="font-size:18px;color:var(--text-3);margin-bottom:12px;">Where each model sits across display zones — find what needs reorganized</div>';
 
@@ -1262,11 +1294,9 @@ var Views = (function () {
         for (var ki = 0; ki < gKeys.length; ki++) gTotal += modelData[gKeys[ki]].total;
 
         var nCols = 3 + DISP_LABELS.length;
-        h += '<tr class="cov-make-row"><td class="cov-th-sticky">'
+        h += '<tr class="cov-make-row"><td colspan="' + nCols + '" class="cov-th-sticky">'
           + '<span class="cov-vt-badge">' + esc(gVt) + '</span> '
-          + esc(gMake) + ' <span class="cov-make-count">(' + gTotal + ')</span></td>';
-        for (var ci = 0; ci < nCols - 1; ci++) h += '<td></td>';
-        h += '</tr>';
+          + esc(gMake) + ' <span class="cov-make-count">(' + gTotal + ')</span></td></tr>';
 
         for (var ki = 0; ki < gKeys.length; ki++) {
           var md = modelData[gKeys[ki]];
@@ -1308,7 +1338,6 @@ var Views = (function () {
     return DB.getPendingNotes().then(function (pending) {
       return DB.getNotesHistory(20).then(function (history) {
         var h = '<div class="view">';
-        h += backBtn("more", "More");
 
         // Pending queue
         if (pending.length > 0) {
@@ -1493,7 +1522,6 @@ var Views = (function () {
       var flags = computeAuditFlags(units);
 
       var h = '<div class="view">';
-      h += backBtn("more", "More");
 
       var critical = flags.filter(function (f) { return f.severity === "CRITICAL"; }).length;
       var warning = flags.filter(function (f) { return f.severity === "WARNING"; }).length;
@@ -1583,6 +1611,154 @@ var Views = (function () {
 
 
   // ══════════════════════════════════════════════════════════════
+  // OVERFLOW ONLY VIEW — Units in overflow with no SHR/DSP presence
+  // ══════════════════════════════════════════════════════════════
+  function overflowOnlyView() {
+    return DB.getAllUnits().then(function (units) {
+      var active = [];
+      for (var i = 0; i < units.length; i++) {
+        var st = (units[i].status || "").toUpperCase();
+        var isT = false;
+        for (var t = 0; t < TERMINAL_STATUSES.length; t++) { if (st === TERMINAL_STATUSES[t]) { isT = true; break; } }
+        if (!isT) active.push(units[i]);
+      }
+
+      // Build sets of make|model that have showroom/display presence
+      var mmInShr = {}, mmInDsp = {}, ovrUnits = [];
+      for (var i = 0; i < active.length; i++) {
+        var u = active[i];
+        var mk = (u.make || "") + "|" + (u.model || "");
+        var b = lotBucket(u.lot_location || "");
+        if (b === "SHOWROOM") mmInShr[mk] = true;
+        else if (b !== "OVERFLOW" && b !== "OTHER") mmInDsp[mk] = true;
+        else if (b === "OVERFLOW") ovrUnits.push(u);
+      }
+
+      // Filter to only overflow units whose model has NO showroom/display
+      var filtered = [];
+      for (var i = 0; i < ovrUnits.length; i++) {
+        var mk = (ovrUnits[i].make || "") + "|" + (ovrUnits[i].model || "");
+        if (!mmInShr[mk] && !mmInDsp[mk]) filtered.push(ovrUnits[i]);
+      }
+
+      // Sort by make → model → age desc
+      filtered.sort(function (a, b) {
+        var cmp = (a.make || "").localeCompare(b.make || "");
+        if (cmp !== 0) return cmp;
+        cmp = (a.model || "").localeCompare(b.model || "");
+        if (cmp !== 0) return cmp;
+        return (parseInt(b.age) || 0) - (parseInt(a.age) || 0);
+      });
+
+      var h = '<div class="view">';
+      h += backBtn("coverage", "Coverage");
+      h += '<div class="section-header" style="margin-top:0;">Overflow Only</div>'
+        + '<div style="font-size:18px;color:var(--text-3);margin-bottom:12px;">Units in overflow with no showroom or display presence — candidates to move onto the floor</div>';
+
+      h += '<div class="stats-row">'
+        + '<div class="stat-pill"><div class="stat-val text-orange">' + filtered.length + '</div><div class="stat-label">Units</div></div>'
+        + '</div>';
+
+      // Group by make
+      var byMake = {};
+      for (var i = 0; i < filtered.length; i++) {
+        var m = filtered[i].make || "UNKNOWN";
+        if (!byMake[m]) byMake[m] = [];
+        byMake[m].push(filtered[i]);
+      }
+      var makeKeys = Object.keys(byMake).sort();
+
+      for (var mi = 0; mi < makeKeys.length; mi++) {
+        var make = makeKeys[mi];
+        var mu = byMake[make];
+        h += '<div class="card"><div class="card-title">' + esc(make) + ' (' + mu.length + ')</div>';
+        for (var j = 0; j < mu.length; j++) {
+          var u = mu[j];
+          h += '<div class="result-card" style="margin-bottom:8px;padding:12px 16px;border-left:3px solid var(--orange);" data-action="detail" data-stock="' + esc(u.stock_num) + '">'
+            + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+            + '<span style="font-size:20px;font-weight:700;">' + esc(u.model) + ' ' + esc(u.floor_layout || "") + '</span>'
+            + (fmtPrice(u.retail_price) ? '<span style="font-size:18px;font-weight:700;color:var(--green);">' + fmtPrice(u.retail_price) + '</span>' : '')
+            + '</div>'
+            + '<div style="font-size:18px;color:var(--text-2);margin-top:4px;">'
+            + 'Stk# ' + esc(u.stock_num) + ' &middot; ' + esc(u.lot_location || "") + ' &middot; ' + esc(u.age || "?") + ' days'
+            + '</div></div>';
+        }
+        h += '</div>';
+      }
+
+      if (filtered.length === 0) {
+        h += '<div class="empty-state"><div class="empty-icon">&#9989;</div>'
+          + '<div class="empty-title">All Clear</div>'
+          + '<div class="empty-desc">Every model in overflow has showroom or display representation</div></div>';
+      }
+      h += '</div>';
+      return h;
+    });
+  }
+
+
+  // ══════════════════════════════════════════════════════════════
+  // PRODUCT HIERARCHY VIEW — Missing/inconsistent product data
+  // ══════════════════════════════════════════════════════════════
+  function hierarchyView() {
+    return DB.getAllUnits().then(function (units) {
+      var active = [];
+      for (var i = 0; i < units.length; i++) {
+        var st = (units[i].status || "").toUpperCase();
+        var isT = false;
+        for (var t = 0; t < TERMINAL_STATUSES.length; t++) { if (st === TERMINAL_STATUSES[t]) { isT = true; break; } }
+        if (!isT) active.push(units[i]);
+      }
+
+      var flags = [];
+      for (var i = 0; i < active.length; i++) {
+        var u = active[i];
+        var issues = [];
+        if (!u.veh_type) issues.push("Missing Vehicle Type");
+        if (!u.body_style) issues.push("Missing Body Style");
+        if (!u.manufacturer) issues.push("Missing Manufacturer");
+        if (!u.make) issues.push("Missing Make");
+        if (!u.model) issues.push("Missing Model");
+        if (!u.floor_layout) issues.push("Missing Floor Layout");
+        if (!u.year) issues.push("Missing Year");
+        if (issues.length > 0) {
+          flags.push({ stock_num: u.stock_num, make: u.make || "?", model: u.model || "?", year: u.year || "?", issues: issues });
+        }
+      }
+
+      var h = '<div class="view">';
+      h += backBtn("coverage", "Coverage");
+      h += '<div class="section-header" style="margin-top:0;">Product Hierarchy</div>'
+        + '<div style="font-size:18px;color:var(--text-3);margin-bottom:12px;">Units with missing or incomplete product data</div>';
+
+      h += '<div class="stats-row">'
+        + '<div class="stat-pill"><div class="stat-val text-purple">' + flags.length + '</div><div class="stat-label">Issues</div></div>'
+        + '<div class="stat-pill"><div class="stat-val text-blue">' + active.length + '</div><div class="stat-label">Active Units</div></div>'
+        + '</div>';
+
+      for (var i = 0; i < flags.length; i++) {
+        var f = flags[i];
+        h += '<div class="card card-interactive" data-action="detail" data-stock="' + esc(f.stock_num) + '">'
+          + '<div style="font-size:20px;font-weight:700;">' + esc(f.stock_num) + ' — ' + esc(f.year) + ' ' + esc(f.make) + ' ' + esc(f.model) + '</div>'
+          + '<div style="margin-top:6px;">';
+        for (var j = 0; j < f.issues.length; j++) {
+          h += '<span class="flag-badge flag-warning" style="margin-right:6px;margin-bottom:4px;">' + esc(f.issues[j]) + '</span>';
+        }
+        h += '</div></div>';
+      }
+
+      if (flags.length === 0) {
+        h += '<div class="empty-state"><div class="empty-icon">&#9989;</div>'
+          + '<div class="empty-title">All Clear</div>'
+          + '<div class="empty-desc">All active units have complete product data</div></div>';
+      }
+      h += '</div>';
+      return h;
+    });
+  }
+
+
+  // ══════════════════════════════════════════════════════════════
   // PUBLIC API
   // ══════════════════════════════════════════════════════════════
   return {
@@ -1601,9 +1777,11 @@ var Views = (function () {
     shopView: shopView,
     shopBodyView: shopBodyView,
     shopLayoutView: shopLayoutView,
-    moreView: moreView,
+    coverageTabView: coverageTabView,
     coverageView: coverageView,
     zoneMapView: zoneMapView,
+    overflowOnlyView: overflowOnlyView,
+    hierarchyView: hierarchyView,
     notesView: notesView,
     noteFormView: noteFormView,
     auditView: auditView,
