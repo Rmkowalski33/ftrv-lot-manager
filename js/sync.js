@@ -54,19 +54,10 @@ var Sync = (function () {
 
     if (!silent) showSyncBar("Syncing inventory...");
 
-    return fetch(JSON_URL, { redirect: "follow" })
+    return fetch(JSON_URL)
       .then(function (res) {
         if (!res.ok) throw new Error("HTTP " + res.status);
-        return res.text();
-      })
-      .then(function (text) {
-        // Apps Script may return HTML wrapper; extract JSON
-        try { return JSON.parse(text); } catch (e) {
-          // If wrapped in HTML, try to find JSON in the response
-          var match = text.match(/\{[\s\S]*\}/);
-          if (match) return JSON.parse(match[0]);
-          throw new Error("Invalid JSON response");
-        }
+        return res.json();
       })
       .then(function (data) {
         // data.units is { stock_or_vin: {unit}, ... }

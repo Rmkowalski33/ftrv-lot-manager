@@ -10,9 +10,9 @@ var App = (function () {
   var _searchDebounce = null;
 
   // ── Data source URLs ────────────────────────────────────────────
+  // Data served from the same GitHub Pages domain — no CORS issues
+  var JSON_URL_PROD = "data.json";
   var APPS_SCRIPT_BASE = "https://script.google.com/a/macros/funtownrv.com/s/AKfycbwx7RyEKHSdBIU2yn-tU33Z5Q1Hbwhog1OGABalHIZGGhJlFRwnOM9GlZAmyqNDcrk/exec";
-  var API_KEY = "FTRV-LOT-2026";
-  var JSON_URL_PROD = APPS_SCRIPT_BASE + "?action=pwa_data&key=" + API_KEY;
   var APPS_SCRIPT_URL = APPS_SCRIPT_BASE;
 
   function isLocal() {
