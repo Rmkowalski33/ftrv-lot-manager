@@ -186,7 +186,7 @@ var Views = (function () {
 
   var ZONE_GROUPS = [
     { type: "SHR",  label: "Showroom", codes: ["SHR01","SHR02","SHR03","SHR04","SHR05"] },
-    { type: "DSP",  label: "Display",  codes: ["DSP01","DSP02","DSP03","DSP04","DSP05","DSP06","DSP07","DSP08","DSP10","DSP11"] },
+    { type: "DISP", label: "Display",  codes: ["DISP01","DISP02","DISP03","DISP04","DISP05","DISP06","DISP07","DISP08","DISP10","DISP11"] },
     { type: "OVR",  label: "Overflow", codes: ["OVR01","OVR02","OVR03","OVR20","OVR21"] },
     { type: "PDI",  label: "PDI Bay",  codes: ["PDI01","PDI02","PDI03","PDI04","PDI05","PDI06","PDI07","PDI08","PDI09","PDI10","PDI11","PDI12","PDI13","PDI14","PDI15","PDI16","PDI17","PDI18","PDI19","PDI20"] },
     { type: "QAC",  label: "QAC Bay",  codes: ["QAC01","QAC02","QAC03","QAC04","QAC05","QAC06","QAC07","QAC08","QAC09","QAC10"] },
@@ -468,7 +468,7 @@ var Views = (function () {
       // Display zone grid
       h += '<div class="section-header">Display Zones</div>';
       h += '<div class="lot-grid">';
-      var displayCodes = ["SHR01","SHR02","SHR03","DSP01","DSP02","DSP03","DSP04","DSP05","DSP06","DSP07","DSP08"];
+      var displayCodes = ["SHR01","SHR02","SHR03","DISP01","DISP02","DISP03","DISP04","DISP05","DISP06","DISP07","DISP08","DISP10","DISP11"];
       for (var di = 0; di < displayCodes.length; di++) {
         var code = displayCodes[di];
         var count = 0;
@@ -476,7 +476,7 @@ var Views = (function () {
           var lot = (units[j].lot_location || "").toUpperCase().replace("CLE-", "");
           if (lot.indexOf(code) === 0) count++;
         }
-        var shortCode = code.replace("DSP", "Z").replace("SHR", "SR");
+        var shortCode = code;
         h += '<div class="lot-cell" data-action="zone-detail" data-zone="' + code + '">'
           + '<div class="lot-cell-code">' + shortCode + '</div>'
           + '<div class="lot-cell-count">' + count + '</div>'
@@ -558,9 +558,8 @@ var Views = (function () {
 
       var h = '<div class="view">';
       h += backBtn("lots", "Lots");
-      var shortCode = zoneCode.replace("DSP", "Zone ").replace("SHR", "Showroom ");
       h += '<div class="zone-banner">'
-        + '<div class="zone-banner-name">' + shortCode + '</div>'
+        + '<div class="zone-banner-name">' + zoneCode + '</div>'
         + '<div class="zone-banner-desc">' + esc(ZONE_INFO[zoneCode] || "") + '</div>'
         + '<div class="zone-banner-count">' + zoneUnits.length + '</div>'
         + '</div>';
@@ -1049,7 +1048,7 @@ var Views = (function () {
       h += '<div class="section-header" style="margin-top:0;">Display Zone Coverage</div>';
 
       // Only display/showroom zones
-      var displayZones = ["SHR01","SHR02","SHR03","DSP01","DSP02","DSP03","DSP04","DSP05","DSP06","DSP07","DSP08"];
+      var displayZones = ["SHR01","SHR02","SHR03","DISP01","DISP02","DISP03","DISP04","DISP05","DISP06","DISP07","DISP08","DISP10","DISP11"];
 
       for (var di = 0; di < displayZones.length; di++) {
         var zoneCode = displayZones[di];
@@ -1058,12 +1057,11 @@ var Views = (function () {
           return lot.indexOf(zoneCode) === 0;
         });
 
-        var shortCode = zoneCode.replace("DSP", "Zone ").replace("SHR", "Showroom ");
-        var zoneName = ZONE_INFO[zoneCode] || shortCode;
+        var zoneName = ZONE_INFO[zoneCode] || zoneCode;
 
         h += '<div class="card">'
           + '<div style="display:flex;justify-content:space-between;align-items:center;">'
-          + '<div><div style="font-size:20px;font-weight:700;">' + shortCode + '</div>'
+          + '<div><div style="font-size:20px;font-weight:700;">' + zoneCode + '</div>'
           + '<div style="font-size:18px;color:var(--text-3);">' + esc(zoneName) + '</div></div>'
           + '<span class="stat-val text-blue" style="font-size:28px;">' + zoneUnits.length + '</span>'
           + '</div>';
