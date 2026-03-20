@@ -954,7 +954,7 @@ var Views = (function () {
     });
   }
 
-  // Floor Layout → unit tiles with status
+  // Floor Layout → units grouped by sub_floorplan, with status on tiles
   function shopLayoutView(vehType, floorLayout) {
     return DB.getAllUnits().then(function (units) {
       var filtered = units.filter(function (u) {
@@ -973,27 +973,46 @@ var Views = (function () {
         + '<div class="zone-banner-desc">' + esc(vehType) + '</div>'
         + '<div class="zone-banner-count">' + filtered.length + '</div></div>';
 
-      // Sort by make then price
-      filtered.sort(function (a, b) {
-        var cmp = (a.make || "").localeCompare(b.make || "");
-        return cmp !== 0 ? cmp : priceNum(a.retail_price) - priceNum(b.retail_price);
+      // Group by sub_floorplan, then sort units by make → price within each group
+      var bySub = {};
+      for (var i = 0; i < filtered.length; i++) {
+        var sf = filtered[i].sub_floorplan || "(No Sub Layout)";
+        if (!bySub[sf]) bySub[sf] = [];
+        bySub[sf].push(filtered[i]);
+      }
+      // Sort groups: named groups alphabetically, "(No Sub Layout)" last
+      var subKeys = Object.keys(bySub).sort(function (a, b) {
+        if (a === "(No Sub Layout)") return 1;
+        if (b === "(No Sub Layout)") return -1;
+        return a < b ? -1 : a > b ? 1 : 0;
       });
 
-      for (var j = 0; j < filtered.length; j++) {
-        var u = filtered[j];
-        var cat = statusCat(u.status);
-        var catColor = statusCatColor(cat);
-        h += '<div class="result-card" style="margin-bottom:8px;padding:14px 16px;" data-action="detail" data-stock="' + esc(u.stock_num) + '">'
-          + '<div style="display:flex;justify-content:space-between;align-items:center;">'
-          + '<span style="font-size:20px;font-weight:700;">' + esc(u.year) + ' ' + esc(u.make) + ' ' + esc(u.model) + '</span>'
-          + (fmtPrice(u.retail_price) ? '<span style="font-size:18px;font-weight:700;color:var(--green);">' + fmtPrice(u.retail_price) + '</span>' : '')
-          + '</div>'
-          + '<div style="font-size:18px;color:var(--text-2);margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
-          + '<span>Stk# ' + esc(u.stock_num) + '</span><span class="sep">&middot;</span>'
-          + '<span class="status-badge status-' + catColor + '" style="font-size:12px;">' + esc(u.status) + '</span>'
-          + '<span class="sep">&middot;</span>'
-          + '<span>' + esc(u.lot_location || "No Lot") + '</span>'
-          + '</div></div>';
+      for (var si = 0; si < subKeys.length; si++) {
+        var sub = subKeys[si];
+        var su = bySub[sub];
+        su.sort(function (a, b) {
+          var cmp = (a.make || "").localeCompare(b.make || "");
+          return cmp !== 0 ? cmp : priceNum(a.retail_price) - priceNum(b.retail_price);
+        });
+
+        h += '<div class="card"><div class="card-title">' + esc(sub) + ' (' + su.length + ')</div>';
+        for (var j = 0; j < su.length; j++) {
+          var u = su[j];
+          var cat = statusCat(u.status);
+          var catColor = statusCatColor(cat);
+          h += '<div class="result-card" style="margin-bottom:8px;padding:14px 16px;" data-action="detail" data-stock="' + esc(u.stock_num) + '">'
+            + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+            + '<span style="font-size:20px;font-weight:700;">' + esc(u.year) + ' ' + esc(u.make) + ' ' + esc(u.model) + '</span>'
+            + (fmtPrice(u.retail_price) ? '<span style="font-size:18px;font-weight:700;color:var(--green);">' + fmtPrice(u.retail_price) + '</span>' : '')
+            + '</div>'
+            + '<div style="font-size:18px;color:var(--text-2);margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+            + '<span>Stk# ' + esc(u.stock_num) + '</span><span class="sep">&middot;</span>'
+            + '<span class="status-badge status-' + catColor + '" style="font-size:12px;">' + esc(u.status) + '</span>'
+            + '<span class="sep">&middot;</span>'
+            + '<span>' + esc(u.lot_location || "No Lot") + '</span>'
+            + '</div></div>';
+        }
+        h += '</div>';
       }
 
       if (filtered.length === 0) {
