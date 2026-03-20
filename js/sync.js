@@ -77,6 +77,7 @@ var Sync = (function () {
             DB.setMeta("last_sync", ts),
             DB.setMeta("unit_count", count),
             DB.setMeta("exported_at", data.exported_at || ""),
+            DB.setMeta("retail_sold_today", data.retail_sold_today || []),
           ]).then(function () {
             if (!silent) {
               showSyncBar(count + " units synced");

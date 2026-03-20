@@ -1972,11 +1972,214 @@ var Views = (function () {
 
 
   // ══════════════════════════════════════════════════════════════
-  // PUBLIC API
-  // ══════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════
+  // SALES TAB
+  // ══════════════════════════════════════════════════════════════════
+
+  function _getSalePendingToday(units) {
+    var results = [];
+    for (var i = 0; i < units.length; i++) {
+      var u = units[i];
+      var st = (u.status || "").toUpperCase();
+      if (st === "SALE PENDING" && (u.status_days === 0 || u.status_days === "0")) {
+        results.push(u);
+      }
+    }
+    return results;
+  }
+
+  function _fmtPrice(val) {
+    if (!val) return "";
+    var n = typeof val === "string" ? parseFloat(val.replace(/[$,]/g, "")) : val;
+    if (isNaN(n)) return "";
+    return "$" + n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  }
+
+  function salesView() {
+    return Promise.all([
+      DB.getAllUnits(),
+      DB.getMeta("retail_sold_today"),
+      DB.getMeta("exported_at")
+    ]).then(function (results) {
+      var units = results[0];
+      var retailSold = results[1] || [];
+      var exportedAt = results[2] || "";
+
+      var spToday = _getSalePendingToday(units);
+      var soldToday = retailSold;
+
+      function countBy(list, field) {
+        var counts = {};
+        for (var i = 0; i < list.length; i++) {
+          var val = (list[i][field] || "Other");
+          if (field === "veh_type") val = val.toUpperCase();
+          counts[val] = (counts[val] || 0) + 1;
+        }
+        return counts;
+      }
+
+      var spByType = countBy(spToday, "veh_type");
+      var spByMake = countBy(spToday, "make");
+      var soldByType = countBy(soldToday, "veh_type");
+      var soldByMake = countBy(soldToday, "make");
+
+      var h = '<div class="section-title">TODAY\'S SALES ACTIVITY</div>';
+      h += '<p style="color:var(--text-3);font-size:13px;margin:0 0 16px;">Data as of ' + esc(exportedAt) + '</p>';
+
+      // ── KPI pills ──
+      h += '<div class="stats-row">';
+      h += '<div class="stat-pill"><div class="stat-val" style="color:var(--orange);">' + spToday.length + '</div><div class="stat-label">PENDING</div></div>';
+      h += '<div class="stat-pill"><div class="stat-val" style="color:var(--green);">' + soldToday.length + '</div><div class="stat-label">SOLD</div></div>';
+      h += '<div class="stat-pill"><div class="stat-val" style="color:var(--blue);">' + (spToday.length + soldToday.length) + '</div><div class="stat-label">TOTAL</div></div>';
+      h += '</div>';
+
+      // ── Helper: render by-type + by-make card groups ──
+      function renderGroup(label, byType, byMake, section, accentColor) {
+        var total = 0;
+        var typeKeys = Object.keys(byType).sort();
+        for (var t = 0; t < typeKeys.length; t++) total += byType[typeKeys[t]];
+
+        var out = '<div class="section-title" style="margin-top:20px;">' + label + ' <span style="color:' + accentColor + ';">(' + total + ')</span></div>';
+
+        if (total === 0) {
+          out += '<div style="color:var(--text-3);padding:12px 0;">None today</div>';
+          return out;
+        }
+
+        // By Type
+        out += '<div style="margin-bottom:8px;color:var(--text-3);font-size:12px;text-transform:uppercase;letter-spacing:1px;">By Type</div>';
+        for (var t = 0; t < typeKeys.length; t++) {
+          out += '<a class="card card-interactive" href="#sales-section/' + section + '/' + encodeURIComponent(typeKeys[t]) + '" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">'
+            + '<span style="font-size:18px;font-weight:600;">' + esc(typeKeys[t]) + '</span>'
+            + '<span class="stat-val" style="font-size:24px;color:' + accentColor + ';">' + byType[typeKeys[t]] + '</span>'
+            + '</a>';
+        }
+
+        // By Make
+        var makeKeys = Object.keys(byMake).sort();
+        out += '<div style="margin:14px 0 8px;color:var(--text-3);font-size:12px;text-transform:uppercase;letter-spacing:1px;">By Make</div>';
+        for (var m = 0; m < makeKeys.length; m++) {
+          out += '<a class="card card-interactive" href="#sales-make/' + section + '/' + encodeURIComponent(makeKeys[m]) + '" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">'
+            + '<span style="font-size:18px;font-weight:600;">' + esc(makeKeys[m]) + '</span>'
+            + '<span class="stat-val" style="font-size:24px;color:' + accentColor + ';">' + byMake[makeKeys[m]] + '</span>'
+            + '</a>';
+        }
+        return out;
+      }
+
+      h += renderGroup("SALE PENDING TODAY", spByType, spByMake, "pending", "var(--orange)");
+      h += renderGroup("RETAIL SOLD TODAY", soldByType, soldByMake, "sold", "var(--green)");
+
+      return h;
+    });
+  }
+
+  function _getSalesListBySection(section) {
+    if (section === "pending") {
+      return DB.getAllUnits().then(function (units) {
+        return _getSalePendingToday(units);
+      });
+    } else {
+      return DB.getMeta("retail_sold_today").then(function (sold) {
+        return sold || [];
+      });
+    }
+  }
+
+  function salesSectionView(section, vehType) {
+    return _getSalesListBySection(section).then(function (list) {
+      var filtered = [];
+      for (var i = 0; i < list.length; i++) {
+        if ((list[i].veh_type || "").toUpperCase() === vehType.toUpperCase()) filtered.push(list[i]);
+      }
+      var label = section === "pending" ? "Sale Pending" : "Retail Sold";
+      return _renderSalesUnitList(filtered, label + " — " + vehType, section);
+    });
+  }
+
+  function salesMakeView(section, make) {
+    return _getSalesListBySection(section).then(function (list) {
+      var filtered = [];
+      for (var i = 0; i < list.length; i++) {
+        if ((list[i].make || "") === make) filtered.push(list[i]);
+      }
+      var label = section === "pending" ? "Sale Pending" : "Retail Sold";
+      return _renderSalesUnitList(filtered, label + " — " + make, section);
+    });
+  }
+
+  function salesUnitsView(section, stockNum) {
+    // Show detail for a specific unit from the sales list
+    if (section === "pending") {
+      return DB.getUnit(stockNum).then(function (u) {
+        if (!u) return '<div class="empty-state">Unit not found</div>';
+        return DB.getAllUnits().then(function (all) { return renderUnitDetail(u, all); });
+      });
+    } else {
+      // Sold unit — may not be in active inventory, render from retail_sold_today
+      return DB.getMeta("retail_sold_today").then(function (sold) {
+        var unit = null;
+        for (var i = 0; i < (sold || []).length; i++) {
+          if (sold[i].stock_num === stockNum) { unit = sold[i]; break; }
+        }
+        if (!unit) return '<div class="empty-state">Unit not found</div>';
+
+        var h = '<div class="section-title">SOLD UNIT DETAIL</div>';
+        h += '<div class="detail-card">';
+        h += '<div class="detail-header">' + esc(unit.year || "") + ' ' + esc(unit.make || "") + ' ' + esc(unit.model || "") + '</div>';
+        h += '<div class="detail-grid">';
+        h += '<div class="detail-item"><span class="detail-label">Stock#</span><span class="detail-value">' + esc(unit.stock_num || "") + '</span></div>';
+        h += '<div class="detail-item"><span class="detail-label">VIN</span><span class="detail-value" style="font-size:11px;">' + esc(unit.vin || "") + '</span></div>';
+        h += '<div class="detail-item"><span class="detail-label">Type</span><span class="detail-value">' + esc(unit.veh_type || "") + '</span></div>';
+        h += '<div class="detail-item"><span class="detail-label">Condition</span><span class="detail-value">' + esc(unit.condition || "") + '</span></div>';
+        h += '<div class="detail-item"><span class="detail-label">Sold Date</span><span class="detail-value">' + esc(unit.sold_date || "") + '</span></div>';
+        h += '<div class="detail-item"><span class="detail-label">Floor Layout</span><span class="detail-value">' + esc(unit.floor_layout || "") + '</span></div>';
+        if (unit.retail_price) h += '<div class="detail-item"><span class="detail-label">Retail Price</span><span class="detail-value">' + _fmtPrice(unit.retail_price) + '</span></div>';
+        if (unit.deal_selling_price) h += '<div class="detail-item"><span class="detail-label">Selling Price</span><span class="detail-value">' + _fmtPrice(unit.deal_selling_price) + '</span></div>';
+        if (unit.age) h += '<div class="detail-item"><span class="detail-label">Age at Sale</span><span class="detail-value">' + unit.age + ' days</span></div>';
+        h += '</div></div>';
+        return h;
+      });
+    }
+  }
+
+  function _renderSalesUnitList(units, title, section) {
+    var h = '<div class="section-title">' + esc(title) + ' <span style="color:var(--text-3);">(' + units.length + ')</span></div>';
+
+    if (units.length === 0) {
+      h += '<div style="color:var(--text-3);padding:12px 0;">No units</div>';
+      return h;
+    }
+
+    units.sort(function (a, b) {
+      var cmp = (a.make || "").localeCompare(b.make || "");
+      return cmp !== 0 ? cmp : (a.model || "").localeCompare(b.model || "");
+    });
+
+    for (var i = 0; i < units.length; i++) {
+      var u = units[i];
+      var detailTarget = section === "pending"
+        ? "detail/" + encodeURIComponent(u.stock_num)
+        : "sales-units/sold/" + encodeURIComponent(u.stock_num);
+      var statusColor = section === "pending" ? "var(--orange)" : "var(--green)";
+      var statusLabel = section === "pending" ? "PENDING" : "SOLD";
+
+      h += '<a class="card card-interactive" href="#' + detailTarget + '" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">';
+      h += '<div>';
+      h += '<div style="font-size:18px;font-weight:600;">' + esc(u.year || "") + ' ' + esc(u.make || "") + ' ' + esc(u.model || "") + '</div>';
+      h += '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">' + esc(u.stock_num || "") + ' · ' + esc(u.veh_type || "") + (u.floor_layout ? ' · ' + esc(u.floor_layout) : '') + '</div>';
+      h += '</div>';
+      h += '<div style="text-align:right;">';
+      if (u.retail_price) h += '<div style="font-size:14px;color:var(--text-2);">' + _fmtPrice(u.retail_price) + '</div>';
+      h += '<div style="font-size:12px;font-weight:700;color:' + statusColor + ';">' + statusLabel + '</div>';
+      h += '</div></a>';
+    }
+    return h;
+  }
+
+  // ── Module Exports ──────────────────────────────────────────────
   return {
     homeView: homeView,
-    renderSearchResults: renderSearchResults,
     unitDetailView: unitDetailView,
     lotsView: lotsView,
     areaDetailView: areaDetailView,
@@ -2000,6 +2203,10 @@ var Views = (function () {
     noteFormView: noteFormView,
     auditTabView: auditTabView,
     auditStatusView: auditStatusView,
+    salesView: salesView,
+    salesSectionView: salesSectionView,
+    salesMakeView: salesMakeView,
+    salesUnitsView: salesUnitsView,
     renderAuditFlags: renderAuditFlags,
     computeAuditFlags: computeAuditFlags,
     esc: esc,

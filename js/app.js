@@ -18,7 +18,7 @@ var App = (function () {
   }
 
   // ── Root views (no back button) ────────────────────────────────
-  var ROOT_VIEWS = ["home", "notes", "audit", "coverage"];
+  var ROOT_VIEWS = ["home", "notes", "audit", "sales", "coverage"];
 
   // ── Tab mapping: view → which tab to highlight ─────────────────
   var TAB_MAP = {
@@ -29,6 +29,7 @@ var App = (function () {
     "shop": "home", "shop-body": "home", "shop-layout": "home",
     "notes": "notes", "note-form": "notes",
     "audit": "audit", "audit-status": "audit", "hierarchy": "audit", "hierarchy-detail": "audit",
+    "sales": "sales", "sales-section": "sales", "sales-make": "sales", "sales-units": "sales",
     "coverage": "coverage", "coverage-matrix": "coverage", "zone-map": "coverage",
     "overflow-only": "coverage",
   };
@@ -180,6 +181,18 @@ var App = (function () {
         break;
       case "audit-status":
         renderPromise = Views.auditStatusView();
+        break;
+      case "sales":
+        renderPromise = Views.salesView();
+        break;
+      case "sales-section":
+        renderPromise = Views.salesSectionView(param, param2);
+        break;
+      case "sales-make":
+        renderPromise = Views.salesMakeView(param, param2);
+        break;
+      case "sales-units":
+        renderPromise = Views.salesUnitsView(param, param2);
         break;
       default:
         renderPromise = Views.homeView();
