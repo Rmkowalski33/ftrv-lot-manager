@@ -4,7 +4,7 @@
    by IndexedDB (see db.js), not the SW cache.
    ================================================================ */
 
-var CACHE_NAME = "ftrv-lot-v6";
+var CACHE_NAME = "ftrv-lot-v7";
 var APP_SHELL = [
   "./",
   "./index.html",

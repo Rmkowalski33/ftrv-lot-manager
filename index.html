@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#09090b">
+  <meta name="theme-color" content="#0a0f1a">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.svg">
   <title>FTRV Lot Manager</title>
@@ -26,6 +26,7 @@
              autocomplete="off" autocapitalize="characters" spellcheck="false">
       <div id="gateError" class="gate-error" style="display:none;">Invalid code. Try again.</div>
       <button id="gateSubmit" class="gate-btn">Enter</button>
+      <div class="gate-rayi">RAY.i</div>
     </div>
   </div>
 
@@ -42,9 +43,14 @@
 
     <!-- ── App header ── -->
     <header class="app-header">
-      <div class="header-brand">
-        <span class="brand-fun">FUN TOWN</span>
-        <span class="brand-rv">RV</span>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button id="headerBack" class="header-back" style="display:none;" onclick="history.back()">
+          <svg viewBox="0 0 24 24" width="22" height="22"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+        </button>
+        <div class="header-brand">
+          <span class="brand-fun">FUN TOWN</span>
+          <span class="brand-rv">RV</span>
+        </div>
       </div>
       <div class="header-meta">
         <span id="headerBadge" class="header-badge">CLE</span>
@@ -52,28 +58,31 @@
       </div>
     </header>
 
-    <!-- ── View container (single-page views swap here) ── -->
+    <!-- ── View container ── -->
     <main id="viewContainer" class="view-container">
-      <!-- Views rendered dynamically by app.js -->
     </main>
 
-    <!-- ── Bottom tab bar ── -->
+    <!-- ── Bottom tab bar (5 tabs) ── -->
     <nav class="tab-bar">
-      <a class="tab active" data-view="search" href="#search">
-        <svg class="tab-icon" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="7" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="15.5" y1="15.5" x2="21" y2="21" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
-        <span class="tab-label">Search</span>
+      <a class="tab active" data-view="home" href="#home">
+        <svg class="tab-icon" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="tab-label">Home</span>
       </a>
       <a class="tab" data-view="lots" href="#lots">
         <svg class="tab-icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="14" y="14" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>
         <span class="tab-label">Lots</span>
       </a>
-      <a class="tab" data-view="notes" href="#notes">
-        <svg class="tab-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" fill="none" stroke="currentColor" stroke-width="2"/><polyline points="14,2 14,8 20,8" fill="none" stroke="currentColor" stroke-width="2"/><line x1="8" y1="13" x2="16" y2="13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="8" y1="17" x2="13" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        <span class="tab-label">Notes</span>
+      <a class="tab" data-view="status" href="#status">
+        <svg class="tab-icon" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <span class="tab-label">Status</span>
       </a>
-      <a class="tab" data-view="audit" href="#audit">
-        <svg class="tab-icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-        <span class="tab-label">Audit</span>
+      <a class="tab" data-view="makes" href="#makes">
+        <svg class="tab-icon" viewBox="0 0 24 24"><path d="M7 7h10M7 12h10M7 17h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="2" y="3" width="20" height="18" rx="3" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+        <span class="tab-label">Makes</span>
+      </a>
+      <a class="tab" data-view="more" href="#more">
+        <svg class="tab-icon" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="19" r="2" fill="currentColor"/></svg>
+        <span class="tab-label">More</span>
       </a>
     </nav>
 

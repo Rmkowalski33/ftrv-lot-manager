@@ -5,12 +5,10 @@
 
 var App = (function () {
 
-  var _currentView = "search";
-  var _viewHistory = [];
+  var _currentView = "home";
   var _searchDebounce = null;
 
   // ── Data source URLs ────────────────────────────────────────────
-  // Data served from the same GitHub Pages domain — no CORS issues
   var JSON_URL_PROD = "data.json";
   var APPS_SCRIPT_BASE = "https://script.google.com/a/macros/funtownrv.com/s/AKfycbwx7RyEKHSdBIU2yn-tU33Z5Q1Hbwhog1OGABalHIZGGhJlFRwnOM9GlZAmyqNDcrk/exec";
   var APPS_SCRIPT_URL = APPS_SCRIPT_BASE;
@@ -19,10 +17,22 @@ var App = (function () {
     return location.hostname === "localhost" || location.hostname === "127.0.0.1";
   }
 
+  // ── Root views (no back button) ────────────────────────────────
+  var ROOT_VIEWS = ["home", "lots", "status", "makes", "more"];
+
+  // ── Tab mapping: view → which tab to highlight ─────────────────
+  var TAB_MAP = {
+    "home": "home", "search": "home", "detail": "home",
+    "lots": "lots", "area-detail": "lots", "zone-detail": "lots",
+    "status": "status", "status-cat": "status", "status-units": "status",
+    "makes": "makes", "make-detail": "makes", "model-units": "makes",
+    "more": "more", "shop": "more", "shop-body": "more", "shop-layout": "more",
+    "notes": "more", "note-form": "more", "audit": "more", "coverage": "more",
+  };
+
   // ── Initialize ─────────────────────────────────────────────────
   function init() {
     DB.open().then(function () {
-      // Use local demo data on localhost, Google Drive in production
       var jsonUrl = isLocal() ? "demo_data.json" : JSON_URL_PROD;
       Sync.configure({
         jsonUrl: jsonUrl,
@@ -30,27 +40,18 @@ var App = (function () {
       });
       Sync.init();
 
-      // Route from hash
       routeFromHash();
-
-      // Listen for hash changes
       window.addEventListener("hashchange", routeFromHash);
-
-      // Delegate all clicks
       document.addEventListener("click", handleClick);
 
-      // Initial sync
       Sync.fullSync(false).then(function () {
-        // Re-render current view after sync
         routeFromHash();
         Sync.startAutoSync();
       });
 
-      // Update queue badge
       Sync.updateQueueBadge();
     });
 
-    // Register service worker
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("sw.js").catch(function (err) {
         console.warn("SW registration failed:", err);
@@ -61,11 +62,14 @@ var App = (function () {
 
   // ── Routing ────────────────────────────────────────────────────
   function routeFromHash() {
-    var hash = (location.hash || "#search").substring(1);
+    var hash = (location.hash || "#home").substring(1);
     var parts = hash.split("/");
-    var view = parts[0] || "search";
-    var param = parts[1] || "";
-    var param2 = parts[2] || "";
+    var view = parts[0] || "home";
+    var param = decodeURIComponent(parts[1] || "");
+    var param2 = decodeURIComponent(parts[2] || "");
+
+    // Backward compat: "search" → "home"
+    if (view === "search") view = "home";
 
     navigate(view, param, param2, true);
   }
@@ -74,21 +78,25 @@ var App = (function () {
     _currentView = view;
 
     // Update tab bar
+    var activeTab = TAB_MAP[view] || "home";
     var tabs = document.querySelectorAll(".tab");
     for (var i = 0; i < tabs.length; i++) {
       var tabView = tabs[i].getAttribute("data-view");
-      if (tabView === view || (view === "detail" && tabView === "search")
-          || (view === "zone-detail" && tabView === "lots")
-          || (view === "area-detail" && tabView === "lots")
-          || (view === "note-form" && tabView === "notes")) {
+      if (tabView === activeTab) {
         tabs[i].classList.add("active");
       } else {
         tabs[i].classList.remove("active");
       }
     }
 
-    // Update hash without triggering re-route
-    var newHash = "#" + view + (param ? "/" + param : "") + (param2 ? "/" + param2 : "");
+    // Back button visibility
+    var backBtn = document.getElementById("headerBack");
+    if (backBtn) {
+      backBtn.style.display = ROOT_VIEWS.indexOf(view) === -1 ? "" : "none";
+    }
+
+    // Update hash
+    var newHash = "#" + view + (param ? "/" + encodeURIComponent(param) : "") + (param2 ? "/" + encodeURIComponent(param2) : "");
     if (!fromHash) {
       history.pushState(null, "", newHash);
     }
@@ -98,8 +106,8 @@ var App = (function () {
     var renderPromise;
 
     switch (view) {
-      case "search":
-        renderPromise = Views.searchView();
+      case "home":
+        renderPromise = Views.homeView();
         break;
       case "detail":
         renderPromise = Views.unitDetailView(param);
@@ -107,8 +115,44 @@ var App = (function () {
       case "lots":
         renderPromise = Views.lotsView();
         break;
+      case "area-detail":
+        renderPromise = Views.areaDetailView(param);
+        break;
       case "zone-detail":
         renderPromise = Views.zoneDetailView(param);
+        break;
+      case "status":
+        renderPromise = Views.statusView();
+        break;
+      case "status-cat":
+        renderPromise = Views.statusCategoryView(param);
+        break;
+      case "status-units":
+        renderPromise = Views.statusUnitsView(param);
+        break;
+      case "makes":
+        renderPromise = Views.makesView();
+        break;
+      case "make-detail":
+        renderPromise = Views.makeDetailView(param);
+        break;
+      case "model-units":
+        renderPromise = Views.modelUnitsView(param, param2);
+        break;
+      case "shop":
+        renderPromise = Views.shopView();
+        break;
+      case "shop-body":
+        renderPromise = Views.shopBodyView(param);
+        break;
+      case "shop-layout":
+        renderPromise = Views.shopLayoutView(param, param2);
+        break;
+      case "more":
+        renderPromise = Views.moreView();
+        break;
+      case "coverage":
+        renderPromise = Views.coverageView();
         break;
       case "notes":
         renderPromise = Views.notesView();
@@ -120,10 +164,10 @@ var App = (function () {
         renderPromise = Views.auditView();
         break;
       default:
-        renderPromise = Views.searchView();
+        renderPromise = Views.homeView();
     }
 
-    // Show skeleton while loading
+    // Skeleton while loading
     container.innerHTML = '<div style="padding:20px;">'
       + '<div class="skeleton" style="height:60px;margin-bottom:12px;"></div>'
       + '<div class="skeleton" style="height:120px;margin-bottom:12px;"></div>'
@@ -134,7 +178,7 @@ var App = (function () {
       container.scrollTop = 0;
 
       // Post-render hooks
-      if (view === "search") initSearch();
+      if (view === "home") initSearch();
       if (view === "detail") loadDupes(param);
       if (view === "note-form") initNoteForm();
       if (view === "audit") initAuditFilters();
@@ -145,7 +189,7 @@ var App = (function () {
   function handleClick(e) {
     var el = e.target;
 
-    // Result card / interactive card → detail
+    // Action cards
     var card = el.closest("[data-action]");
     if (card) {
       e.preventDefault();
@@ -156,7 +200,19 @@ var App = (function () {
       } else if (action === "zone-detail") {
         navigate("zone-detail", card.getAttribute("data-zone"));
       } else if (action === "area-detail") {
-        navigate("lots");  // For now, stay on lots
+        navigate("area-detail", card.getAttribute("data-area"));
+      } else if (action === "status-cat") {
+        navigate("status-cat", card.getAttribute("data-category"));
+      } else if (action === "status-units") {
+        navigate("status-units", card.getAttribute("data-status"));
+      } else if (action === "make-detail") {
+        navigate("make-detail", card.getAttribute("data-manufacturer"));
+      } else if (action === "model-units") {
+        navigate("model-units", card.getAttribute("data-make"), card.getAttribute("data-manufacturer") || "");
+      } else if (action === "shop-body") {
+        navigate("shop-body", card.getAttribute("data-type"));
+      } else if (action === "shop-layout") {
+        navigate("shop-layout", card.getAttribute("data-type"), card.getAttribute("data-body"));
       } else if (action === "note-form") {
         navigate("note-form", card.getAttribute("data-type"), card.getAttribute("data-stock") || "");
       } else if (action === "verify-note") {
@@ -210,7 +266,6 @@ var App = (function () {
         DB.searchUnits(q).then(function (matches) {
           dashboard.style.display = matches.length > 0 ? "none" : "";
 
-          // Exact match → go to detail
           if (matches.length === 1 && (
             matches[0].stock_num.toUpperCase() === q.toUpperCase()
             || (matches[0].vin && matches[0].vin.toUpperCase() === q.toUpperCase())
@@ -232,7 +287,6 @@ var App = (function () {
       input.focus();
     });
 
-    // Enter key
     input.addEventListener("keydown", function (e) {
       if (e.key === "Enter") {
         e.preventDefault();
@@ -271,7 +325,7 @@ var App = (function () {
         h += '<div class="result-card" style="margin-bottom:8px;padding:12px 16px;" data-action="detail" data-stock="' + Views.esc(d.stock_num) + '">'
           + '<div style="display:flex;justify-content:space-between;align-items:center;">'
           + '<span style="font-size:20px;font-weight:700;">Stk# ' + Views.esc(d.stock_num) + '</span>'
-          + '<span class="status-badge ' + (function(s){ var c=["READY FOR SALE","RVASAP","SHOWROOM","RESTOCK","RV SHOW UNIT","RV SHOW BACKUP","AS IS","STORM DAMAGE"]; return c.indexOf((s||"").toUpperCase())!==-1?"status-stock":"status-dead"; })(d.status) + '">' + Views.esc(d.status) + '</span>'
+          + '<span class="status-badge ' + (function(s){ var stock=["READY FOR SALE","RVASAP","SHOWROOM","RESTOCK","RV SHOW UNIT","RV SHOW BACKUP","AS IS","STORM DAMAGE"]; return stock.indexOf((s||"").toUpperCase())!==-1?"status-stock":"status-dead"; })(d.status) + '">' + Views.esc(d.status) + '</span>'
           + '</div>'
           + '<div style="font-size:18px;color:var(--text-2);margin-top:4px;">'
           + Views.esc(d.lot_location || "No lot") + ' &middot; ' + Views.esc(d.age || "?") + ' days'
@@ -326,9 +380,17 @@ var App = (function () {
       data.entry_type = form.getAttribute("data-type") === "verify" ? "Verify"
         : form.getAttribute("data-type") === "hole" ? "Hole" : "Reorg";
 
-      // Queue locally
+      // For reorg: combine from/to zones into the zone field
+      if (data.zone_from || data.zone_to) {
+        var parts = [];
+        if (data.zone_from) parts.push("From: CLE-" + data.zone_from);
+        if (data.zone_to) parts.push("To: CLE-" + data.zone_to);
+        data.zone = parts.join(" → ");
+        delete data.zone_from;
+        delete data.zone_to;
+      }
+
       DB.queueNote(data).then(function () {
-        // Also add to local history
         return DB.addToHistory({
           timestamp: new Date().toISOString(),
           user: data.user,
@@ -337,14 +399,20 @@ var App = (function () {
           description: data.description || data.notes || "",
           zone: data.zone || "",
           verified: data.verified || "",
-          status: "Queued",
+          status: "Submitted",
         });
       }).then(function () {
-        // Try to push immediately if online
+        // Show success feedback
+        btn.textContent = "Submitted!";
+        btn.style.background = "var(--green)";
+
         Sync.pushPendingNotes().then(function () {
           Sync.updateQueueBadge();
         });
-        navigate("notes");
+
+        setTimeout(function () {
+          navigate("notes");
+        }, 1200);
       }).catch(function (err) {
         btn.textContent = "Error: " + err.message;
         btn.disabled = false;
@@ -378,7 +446,6 @@ var App = (function () {
     el.classList.add("selected");
     el.querySelector("input").checked = true;
 
-    // Show/hide actual location field
     var val = el.querySelector("input").value;
     var wrap = document.getElementById("actualLocWrap");
     if (wrap) {
@@ -388,7 +455,7 @@ var App = (function () {
 
   // ── Audit filter chips ─────────────────────────────────────────
   function initAuditFilters() {
-    // Already handled via event delegation in handleClick
+    // Handled via event delegation in handleClick
   }
 
   // ── Public API ─────────────────────────────────────────────────
