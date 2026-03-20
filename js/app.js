@@ -10,12 +10,10 @@ var App = (function () {
   var _searchDebounce = null;
 
   // ── Data source URLs ────────────────────────────────────────────
-  // Google Drive direct download — file is shared "anyone with link"
-  var DRIVE_FILE_ID = "1p9x_nXbAQo0XthjsTrGnhKS-21okkTQp";
-  var JSON_URL_PROD = "https://drive.google.com/uc?id=" + DRIVE_FILE_ID + "&export=download";
-
-  // Apps Script endpoint for field note submission
-  var APPS_SCRIPT_URL = "";  // Set after deployment
+  var APPS_SCRIPT_BASE = "https://script.google.com/a/macros/funtownrv.com/s/AKfycbwx7RyEKHSdBIU2yn-tU33Z5Q1Hbwhog1OGABalHIZGGhJlFRwnOM9GlZAmyqNDcrk/exec";
+  var API_KEY = "FTRV-LOT-2026";
+  var JSON_URL_PROD = APPS_SCRIPT_BASE + "?action=pwa_data&key=" + API_KEY;
+  var APPS_SCRIPT_URL = APPS_SCRIPT_BASE;
 
   function isLocal() {
     return location.hostname === "localhost" || location.hostname === "127.0.0.1";
