@@ -4,7 +4,7 @@
    by IndexedDB (see db.js), not the SW cache.
    ================================================================ */
 
-var CACHE_NAME = "ftrv-lot-v9";
+var CACHE_NAME = "ftrv-lot-v10";
 var APP_SHELL = [
   "./",
   "./index.html",
@@ -42,7 +42,7 @@ self.addEventListener("activate", function (e) {
   );
 });
 
-// Fetch — network-first for API calls, cache-first for app shell
+// Fetch — network-first for data, cache-first for app shell
 self.addEventListener("fetch", function (e) {
   var url = e.request.url;
 
@@ -50,6 +50,25 @@ self.addEventListener("fetch", function (e) {
   if (url.indexOf("googleapis.com") !== -1
       || url.indexOf("script.google.com") !== -1) {
     return;  // Let the browser handle it normally
+  }
+
+  // data.json → network-first so fresh data always loads
+  if (url.indexOf("data.json") !== -1) {
+    e.respondWith(
+      fetch(e.request).then(function (response) {
+        if (response.ok) {
+          var clone = response.clone();
+          caches.open(CACHE_NAME).then(function (cache) {
+            cache.put(e.request, clone);
+          });
+        }
+        return response;
+      }).catch(function () {
+        // Offline — fall back to cached data.json
+        return caches.match(e.request);
+      })
+    );
+    return;
   }
 
   // App shell → cache-first, fallback to network
