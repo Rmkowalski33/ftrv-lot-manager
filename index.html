@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#09090b">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.svg">
+  <title>FTRV Lot Manager</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+  <!-- ── Access Code Gate ── -->
+  <div id="gateScreen" class="gate-screen">
+    <div class="gate-card">
+      <div class="gate-logo">
+        <span class="brand-fun">FUN TOWN</span>
+        <span class="brand-rv">RV</span>
+      </div>
+      <div class="gate-title">Lot Manager</div>
+      <div class="gate-subtitle">Enter your access code to continue</div>
+      <input id="gateInput" class="gate-input" type="text" placeholder="Access Code"
+             autocomplete="off" autocapitalize="characters" spellcheck="false">
+      <div id="gateError" class="gate-error" style="display:none;">Invalid code. Try again.</div>
+      <button id="gateSubmit" class="gate-btn">Enter</button>
+    </div>
+  </div>
+
+  <!-- ── App Shell (hidden until authenticated) ── -->
+  <div id="appShell">
+
+    <!-- ── Status bar (sync indicator) ── -->
+    <div id="syncBar" class="sync-bar hidden">
+      <div class="sync-bar-inner">
+        <span class="sync-spinner"></span>
+        <span id="syncMsg">Syncing inventory...</span>
+      </div>
+    </div>
+
+    <!-- ── App header ── -->
+    <header class="app-header">
+      <div class="header-brand">
+        <span class="brand-fun">FUN TOWN</span>
+        <span class="brand-rv">RV</span>
+      </div>
+      <div class="header-meta">
+        <span id="headerBadge" class="header-badge">CLE</span>
+        <span id="headerOnline" class="online-dot online"></span>
+      </div>
+    </header>
+
+    <!-- ── View container (single-page views swap here) ── -->
+    <main id="viewContainer" class="view-container">
+      <!-- Views rendered dynamically by app.js -->
+    </main>
+
+    <!-- ── Bottom tab bar ── -->
+    <nav class="tab-bar">
+      <a class="tab active" data-view="search" href="#search">
+        <svg class="tab-icon" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="7" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="15.5" y1="15.5" x2="21" y2="21" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+        <span class="tab-label">Search</span>
+      </a>
+      <a class="tab" data-view="lots" href="#lots">
+        <svg class="tab-icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="14" y="14" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+        <span class="tab-label">Lots</span>
+      </a>
+      <a class="tab" data-view="notes" href="#notes">
+        <svg class="tab-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" fill="none" stroke="currentColor" stroke-width="2"/><polyline points="14,2 14,8 20,8" fill="none" stroke="currentColor" stroke-width="2"/><line x1="8" y1="13" x2="16" y2="13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="8" y1="17" x2="13" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <span class="tab-label">Notes</span>
+      </a>
+      <a class="tab" data-view="audit" href="#audit">
+        <svg class="tab-icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+        <span class="tab-label">Audit</span>
+      </a>
+    </nav>
+
+  </div><!-- /appShell -->
+
+  <!-- ── Scripts ── -->
+  <script src="js/db.js"></script>
+  <script src="js/sync.js"></script>
+  <script src="js/views.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/gate.js"></script>
+</body>
+</html>

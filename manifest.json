@@ -1,0 +1,13 @@
+{
+  "name": "FTRV Lot Manager",
+  "short_name": "Lot Manager",
+  "description": "Fun Town RV — Inventory lookup, lot management & field notes",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "icons": [
+    { "src": "icons/icon-192.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
