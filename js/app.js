@@ -28,9 +28,9 @@ var App = (function () {
     "makes": "home", "make-detail": "home", "model-units": "home",
     "shop": "home", "shop-body": "home", "shop-layout": "home",
     "notes": "notes", "note-form": "notes",
-    "audit": "audit",
+    "audit": "audit", "audit-status": "audit", "hierarchy": "audit",
     "coverage": "coverage", "coverage-matrix": "coverage", "zone-map": "coverage",
-    "overflow-only": "coverage", "hierarchy": "coverage",
+    "overflow-only": "coverage",
   };
 
   // ── Initialize ─────────────────────────────────────────────────
@@ -173,7 +173,10 @@ var App = (function () {
         renderPromise = Views.noteFormView(param, param2);
         break;
       case "audit":
-        renderPromise = Views.auditView();
+        renderPromise = Views.auditTabView();
+        break;
+      case "audit-status":
+        renderPromise = Views.auditStatusView();
         break;
       default:
         renderPromise = Views.homeView();
@@ -193,7 +196,7 @@ var App = (function () {
       if (view === "home") initSearch();
       if (view === "detail") loadDupes(param);
       if (view === "note-form") initNoteForm();
-      if (view === "audit") initAuditFilters();
+      if (view === "audit-status") initAuditFilters();
     });
   }
 

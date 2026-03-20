@@ -1089,11 +1089,6 @@ var Views = (function () {
         + (ovrOnly > 0 ? ' <span style="color:var(--orange);font-weight:700;">(' + ovrOnly + ')</span>' : '')
         + '</div></div></a>';
 
-      h += '<a class="note-type-card" href="#hierarchy">'
-        + '<div class="note-type-icon" style="background:var(--purple-dim);color:var(--purple);">&#128736;</div>'
-        + '<div><div class="note-type-label">Product Hierarchy</div>'
-        + '<div class="note-type-desc">Missing or inconsistent product data</div></div></a>';
-
       h += '</div>';
       return h;
     });
@@ -1517,15 +1512,71 @@ var Views = (function () {
   // ══════════════════════════════════════════════════════════════
   // AUDIT VIEW
   // ══════════════════════════════════════════════════════════════
-  function auditView() {
+  // ── AUDIT TAB LANDING — two tiles: Status & Location, Product Hierarchy
+  function auditTabView() {
+    return DB.getAllUnits().then(function (units) {
+      var flags = computeAuditFlags(units);
+      var critical = flags.filter(function (f) { return f.severity === "CRITICAL"; }).length;
+      var warning = flags.filter(function (f) { return f.severity === "WARNING"; }).length;
+      var totalFlags = flags.length;
+
+      // Product hierarchy count
+      var active = [];
+      for (var i = 0; i < units.length; i++) {
+        var st = (units[i].status || "").toUpperCase();
+        var isT = false;
+        for (var t = 0; t < TERMINAL_STATUSES.length; t++) { if (st === TERMINAL_STATUSES[t]) { isT = true; break; } }
+        if (!isT) active.push(units[i]);
+      }
+      var hierCount = 0;
+      for (var i = 0; i < active.length; i++) {
+        var u = active[i];
+        if (!u.veh_type || !u.body_style || !u.manufacturer || !u.make || !u.model || !u.floor_layout || !u.year) hierCount++;
+      }
+
+      var h = '<div class="view">';
+
+      h += '<div class="stats-row">'
+        + '<div class="stat-pill"><div class="stat-val text-red">' + critical + '</div><div class="stat-label">Critical</div></div>'
+        + '<div class="stat-pill"><div class="stat-val text-orange">' + warning + '</div><div class="stat-label">Warning</div></div>'
+        + '<div class="stat-pill"><div class="stat-val text-blue">' + totalFlags + '</div><div class="stat-label">Total Flags</div></div>'
+        + '</div>';
+
+      h += '<div class="section-header">Audit Tools</div>';
+
+      h += '<a class="note-type-card" href="#audit-status">'
+        + '<div class="note-type-icon" style="background:var(--red-dim);color:var(--red);">&#128680;</div>'
+        + '<div><div class="note-type-label">Status &amp; Location</div>'
+        + '<div class="note-type-desc">Dead units on display, stale statuses, missing lot codes'
+        + (critical > 0 ? ' <span style="color:var(--red);font-weight:700;">(' + critical + ' critical)</span>' : '')
+        + '</div></div></a>';
+
+      h += '<a class="note-type-card" href="#hierarchy">'
+        + '<div class="note-type-icon" style="background:var(--purple-dim);color:var(--purple);">&#128736;</div>'
+        + '<div><div class="note-type-label">Product Hierarchy</div>'
+        + '<div class="note-type-desc">Missing or inconsistent product data'
+        + (hierCount > 0 ? ' <span style="color:var(--purple);font-weight:700;">(' + hierCount + ')</span>' : '')
+        + '</div></div></a>';
+
+      h += '</div>';
+      return h;
+    });
+  }
+
+  // ── STATUS & LOCATION AUDIT — the original detailed audit list
+  function auditStatusView() {
     return DB.getAllUnits().then(function (units) {
       var flags = computeAuditFlags(units);
 
       var h = '<div class="view">';
+      h += backBtn("audit", "Audit");
 
       var critical = flags.filter(function (f) { return f.severity === "CRITICAL"; }).length;
       var warning = flags.filter(function (f) { return f.severity === "WARNING"; }).length;
       var info = flags.filter(function (f) { return f.severity === "INFO"; }).length;
+
+      h += '<div class="section-header" style="margin-top:0;">Status &amp; Location Audit</div>'
+        + '<div style="font-size:18px;color:var(--text-3);margin-bottom:12px;">Dead units on display, stale statuses, missing lot codes</div>';
 
       h += '<div class="stats-row">'
         + '<div class="stat-pill"><div class="stat-val text-red">' + critical + '</div><div class="stat-label">Critical</div></div>'
@@ -1727,7 +1778,7 @@ var Views = (function () {
       }
 
       var h = '<div class="view">';
-      h += backBtn("coverage", "Coverage");
+      h += backBtn("audit", "Audit");
       h += '<div class="section-header" style="margin-top:0;">Product Hierarchy</div>'
         + '<div style="font-size:18px;color:var(--text-3);margin-bottom:12px;">Units with missing or incomplete product data</div>';
 
@@ -1784,7 +1835,8 @@ var Views = (function () {
     hierarchyView: hierarchyView,
     notesView: notesView,
     noteFormView: noteFormView,
-    auditView: auditView,
+    auditTabView: auditTabView,
+    auditStatusView: auditStatusView,
     renderAuditFlags: renderAuditFlags,
     computeAuditFlags: computeAuditFlags,
     esc: esc,
