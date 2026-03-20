@@ -1528,15 +1528,20 @@ var Views = (function () {
         for (var t = 0; t < TERMINAL_STATUSES.length; t++) { if (st === TERMINAL_STATUSES[t]) { isT = true; break; } }
         if (!isT) active.push(units[i]);
       }
-      var hierCount = 0;
+      // Filter to new inventory only for hierarchy count
+      var newActive = [];
       for (var i = 0; i < active.length; i++) {
-        var u = active[i];
+        if ((active[i].condition || "").toUpperCase() !== "USED") newActive.push(active[i]);
+      }
+      var hierCount = 0;
+      for (var i = 0; i < newActive.length; i++) {
+        var u = newActive[i];
         if (!u.veh_type || !u.body_style || !u.manufacturer || !u.make || !u.model) hierCount++;
       }
       // Also count consistency issues (Make→Mfr, Make→VehType conflicts)
       var _makeToMfr = {}, _makeToVt = {};
-      for (var i = 0; i < active.length; i++) {
-        var u = active[i];
+      for (var i = 0; i < newActive.length; i++) {
+        var u = newActive[i];
         var mk = (u.make || "").toUpperCase(), mfr = (u.manufacturer || "").toUpperCase(), vt = (u.veh_type || "").toUpperCase();
         if (mk && mfr) { if (!_makeToMfr[mk]) _makeToMfr[mk] = {}; if (!_makeToMfr[mk][mfr]) _makeToMfr[mk][mfr] = []; _makeToMfr[mk][mfr].push(u.stock_num); }
         if (mk && vt) { if (!_makeToVt[mk]) _makeToVt[mk] = {}; if (!_makeToVt[mk][vt]) _makeToVt[mk][vt] = []; _makeToVt[mk][vt].push(u.stock_num); }
@@ -1773,6 +1778,9 @@ var Views = (function () {
     var active = [];
     for (var i = 0; i < units.length; i++) {
       var st = (units[i].status || "").toUpperCase();
+      var cond = (units[i].condition || "").toUpperCase();
+      // Skip terminal statuses and used inventory
+      if (cond === "USED") continue;
       var isT = false;
       for (var t = 0; t < TERMINAL_STATUSES.length; t++) { if (st === TERMINAL_STATUSES[t]) { isT = true; break; } }
       if (!isT) active.push(units[i]);
