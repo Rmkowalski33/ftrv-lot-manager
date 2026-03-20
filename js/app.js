@@ -10,7 +10,7 @@ var App = (function () {
 
   // ── Data source URLs ────────────────────────────────────────────
   var JSON_URL_PROD = "data.json";
-  var APPS_SCRIPT_BASE = "https://script.google.com/a/macros/funtownrv.com/s/AKfycbwx7RyEKHSdBIU2yn-tU33Z5Q1Hbwhog1OGABalHIZGGhJlFRwnOM9GlZAmyqNDcrk/exec";
+  var APPS_SCRIPT_BASE = "https://script.google.com/macros/s/AKfycbwx7RyEKHSdBIU2yn-tU33Z5Q1Hbwhog1OGABalHIZGGhJlFRwnOM9GlZAmyqNDcrk/exec";
   var APPS_SCRIPT_URL = APPS_SCRIPT_BASE;
 
   function isLocal() {
@@ -403,28 +403,30 @@ var App = (function () {
       }
 
       DB.queueNote(data).then(function () {
-        return DB.addToHistory({
-          timestamp: new Date().toISOString(),
-          user: data.user,
-          entry_type: data.entry_type,
-          stock: data.stock || "",
-          description: data.description || data.notes || "",
-          zone: data.zone || "",
-          verified: data.verified || "",
-          status: "Submitted",
-        });
-      }).then(function () {
-        // Show success feedback
-        btn.textContent = "Submitted!";
-        btn.style.background = "var(--green)";
+        // Show queued feedback immediately
+        btn.textContent = "Sending...";
+        btn.style.background = "var(--copper)";
 
-        Sync.pushPendingNotes().then(function () {
+        // Try to push right away
+        return Sync.pushPendingNotes().then(function () {
           Sync.updateQueueBadge();
+          // Check if note was actually sent (no longer pending)
+          return DB.getPendingNotes();
+        }).then(function (pending) {
+          var stillPending = pending.some(function (n) {
+            return n.stock === data.stock && n.entry_type === data.entry_type;
+          });
+          if (stillPending) {
+            btn.textContent = "Queued — will retry";
+            btn.style.background = "var(--warning, #f59e0b)";
+          } else {
+            btn.textContent = "Submitted!";
+            btn.style.background = "var(--green)";
+          }
+          setTimeout(function () {
+            navigate("notes");
+          }, 1500);
         });
-
-        setTimeout(function () {
-          navigate("notes");
-        }, 1200);
       }).catch(function (err) {
         btn.textContent = "Error: " + err.message;
         btn.disabled = false;
