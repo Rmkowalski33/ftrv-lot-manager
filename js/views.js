@@ -1025,7 +1025,12 @@ var Views = (function () {
       h += '<a class="note-type-card" href="#coverage">'
         + '<div class="note-type-icon" style="background:var(--blue-dim);color:var(--blue);">&#128200;</div>'
         + '<div><div class="note-type-label">Coverage Matrix</div>'
-        + '<div class="note-type-desc">Display zone coverage and gaps</div></div></a>';
+        + '<div class="note-type-desc">Model placement gaps — what needs displayed</div></div></a>';
+
+      h += '<a class="note-type-card" href="#zone-map">'
+        + '<div class="note-type-icon" style="background:var(--green-dim);color:var(--green);">&#128506;</div>'
+        + '<div><div class="note-type-label">Zone Map</div>'
+        + '<div class="note-type-desc">Per-zone model grid — what needs reorganized</div></div></a>';
 
       h += '<a class="note-type-card" href="#shop">'
         + '<div class="note-type-icon" style="background:var(--purple-dim);color:var(--purple);">&#128722;</div>'
@@ -1039,76 +1044,232 @@ var Views = (function () {
 
 
   // ══════════════════════════════════════════════════════════════
-  // COVERAGE MATRIX — Display zone coverage analysis
+  // COVERAGE MATRIX — Model placement analysis with two modes
   // ══════════════════════════════════════════════════════════════
+
+  // Classify lot_location into a bucket
+  var SHR_PREFIXES = ["CLE-SHR"];
+  var DISP_ZONES = ["CLE-DISP01","CLE-DISP02","CLE-DISP03","CLE-DISP04","CLE-DISP05",
+                     "CLE-DISP06","CLE-DISP07","CLE-DISP08","CLE-DISP10","CLE-DISP11"];
+  var DISP_LABELS = ["DISP01","DISP02","DISP03","DISP04","DISP05","DISP06","DISP07","DISP08","DISP10","DISP11"];
+  var TRANSIT_STATUSES = ["SHIPPED","DISPATCHED","TRANSFER","STORE-TO-STORE TRANSFER","DRIVER NEEDED","IN TRANSIT",
+                          "ORDERED","PO ISSUED","RETAIL ORDERED"];
+
+  function lotBucket(lot) {
+    if (!lot) return "OTHER";
+    var lc = lot.toUpperCase().trim();
+    // Normalize DSP → DISP
+    if (lc.indexOf("CLE-DSP") === 0 && lc.indexOf("CLE-DISP") !== 0) {
+      lc = lc.replace("CLE-DSP", "CLE-DISP");
+    }
+    // Showroom
+    for (var si = 0; si < SHR_PREFIXES.length; si++) {
+      if (lc.indexOf(SHR_PREFIXES[si]) === 0) return "SHOWROOM";
+    }
+    // Individual display zones
+    for (var di = 0; di < DISP_ZONES.length; di++) {
+      if (lc.indexOf(DISP_ZONES[di]) === 0) return DISP_ZONES[di];
+    }
+    // Overflow
+    if (lc.indexOf("CLE-OVR") === 0) return "OVERFLOW";
+    return "OTHER";
+  }
+
+  // Shared: build coverage model data from units
+  function buildCoverageData(units) {
+    var TYPE_ORDER = { "TT": 0, "FW": 1, "TH": 2, "MH": 3, "FD": 4 };
+    var active = [];
+    for (var i = 0; i < units.length; i++) {
+      var st = (units[i].status || "").toUpperCase();
+      var isTerminal = false;
+      for (var t = 0; t < TERMINAL_STATUSES.length; t++) {
+        if (st === TERMINAL_STATUSES[t]) { isTerminal = true; break; }
+      }
+      if (!isTerminal) active.push(units[i]);
+    }
+
+    var modelData = {};
+    var makeGroups = {};
+
+    for (var i = 0; i < active.length; i++) {
+      var u = active[i];
+      var vt = (u.veh_type || "").toUpperCase();
+      var make = u.make || "UNKNOWN";
+      var model = u.model || "(No Model)";
+      var st = (u.status || "").toUpperCase();
+      if (!vt || !make) continue;
+
+      var key = vt + "|" + make + "|" + model;
+      if (!modelData[key]) {
+        modelData[key] = {
+          vt: vt, make: make, model: model,
+          total: 0, showroom: 0, display: 0, overflow: 0, incoming: 0, other: 0,
+          zones: {}
+        };
+      }
+      var md = modelData[key];
+      md.total++;
+
+      var isIncoming = false;
+      for (var ti = 0; ti < TRANSIT_STATUSES.length; ti++) {
+        if (st === TRANSIT_STATUSES[ti]) { isIncoming = true; break; }
+      }
+      if (isIncoming) {
+        md.incoming++;
+      } else {
+        var bucket = lotBucket(u.lot_location || "");
+        if (bucket === "SHOWROOM") md.showroom++;
+        else if (bucket === "OVERFLOW") md.overflow++;
+        else if (bucket === "OTHER") md.other++;
+        else { md.display++; md.zones[bucket] = (md.zones[bucket] || 0) + 1; }
+      }
+
+      var mgKey = vt + "|" + make;
+      if (!makeGroups[mgKey]) makeGroups[mgKey] = [];
+      if (makeGroups[mgKey].indexOf(key) === -1) makeGroups[mgKey].push(key);
+    }
+
+    var sortedMakeKeys = Object.keys(makeGroups).sort(function (a, b) {
+      var pa = a.split("|"), pb = b.split("|");
+      var ta = TYPE_ORDER[pa[0]] !== undefined ? TYPE_ORDER[pa[0]] : 9;
+      var tb = TYPE_ORDER[pb[0]] !== undefined ? TYPE_ORDER[pb[0]] : 9;
+      if (ta !== tb) return ta - tb;
+      return pa[1] < pb[1] ? -1 : pa[1] > pb[1] ? 1 : 0;
+    });
+    for (var mk in makeGroups) {
+      makeGroups[mk].sort(function (a, b) { return modelData[b].total - modelData[a].total; });
+    }
+
+    return { modelData: modelData, makeGroups: makeGroups, sortedMakeKeys: sortedMakeKeys };
+  }
+
+  // ── COVERAGE MATRIX ──
+  // Shows all models with # in Showroom, Display, Overflow, Incoming, Other + gap flags
   function coverageView() {
     return DB.getAllUnits().then(function (units) {
+      var cov = buildCoverageData(units);
+      var modelData = cov.modelData, makeGroups = cov.makeGroups, sortedMakeKeys = cov.sortedMakeKeys;
+
       var h = '<div class="view">';
       h += backBtn("more", "More");
-      h += '<div class="section-header" style="margin-top:0;">Display Zone Coverage</div>';
+      h += '<div class="section-header" style="margin-top:0;">Coverage Matrix</div>'
+        + '<div style="font-size:18px;color:var(--text-3);margin-bottom:12px;">Which models are on display vs. sitting in overflow or missing entirely</div>';
 
-      // Only display/showroom zones
-      var displayZones = ["SHR01","SHR02","SHR03","DISP01","DISP02","DISP03","DISP04","DISP05","DISP06","DISP07","DISP08","DISP10","DISP11"];
+      h += '<div class="cov-table-wrap"><table class="cov-table">';
+      h += '<thead><tr><th class="cov-th-sticky">Model</th>'
+        + '<th>Tot</th><th>SHR</th><th>DSP</th><th>OVR</th><th>INC</th><th>OTH</th><th>Gap</th>'
+        + '</tr></thead><tbody>';
 
-      for (var di = 0; di < displayZones.length; di++) {
-        var zoneCode = displayZones[di];
-        var zoneUnits = units.filter(function (u) {
-          var lot = (u.lot_location || "").toUpperCase().replace("CLE-", "");
-          return lot.indexOf(zoneCode) === 0;
-        });
+      for (var gi = 0; gi < sortedMakeKeys.length; gi++) {
+        var mgKey = sortedMakeKeys[gi];
+        var parts = mgKey.split("|");
+        var gVt = parts[0], gMake = parts[1];
+        var gKeys = makeGroups[mgKey];
+        var gTotal = 0;
+        for (var ki = 0; ki < gKeys.length; ki++) gTotal += modelData[gKeys[ki]].total;
 
-        var zoneName = ZONE_INFO[zoneCode] || zoneCode;
+        h += '<tr class="cov-make-row"><td class="cov-th-sticky">'
+          + '<span class="cov-vt-badge">' + esc(gVt) + '</span> '
+          + esc(gMake) + ' <span class="cov-make-count">(' + gTotal + ')</span></td>'
+          + '<td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>';
 
-        h += '<div class="card">'
-          + '<div style="display:flex;justify-content:space-between;align-items:center;">'
-          + '<div><div style="font-size:20px;font-weight:700;">' + zoneCode + '</div>'
-          + '<div style="font-size:18px;color:var(--text-3);">' + esc(zoneName) + '</div></div>'
-          + '<span class="stat-val text-blue" style="font-size:28px;">' + zoneUnits.length + '</span>'
-          + '</div>';
+        for (var ki = 0; ki < gKeys.length; ki++) {
+          var md = modelData[gKeys[ki]];
+          var missing = [];
+          if (md.showroom === 0) missing.push("SHR");
+          if (md.display === 0) missing.push("DSP");
+          var gapClass = "";
+          if (md.showroom === 0 && md.display === 0) gapClass = " cov-gap-critical";
+          else if (missing.length > 0) gapClass = " cov-gap-warn";
 
-        if (zoneUnits.length > 0) {
-          // Types present
-          var byType = {}, byMake = {}, models = {};
-          for (var i = 0; i < zoneUnits.length; i++) {
-            var u = zoneUnits[i];
-            byType[u.veh_type || "Other"] = (byType[u.veh_type || "Other"] || 0) + 1;
-            byMake[u.make || "Unknown"] = (byMake[u.make || "Unknown"] || 0) + 1;
-            var mk = (u.make || "") + " " + (u.model || "");
-            models[mk] = (models[mk] || 0) + 1;
-          }
-
-          // Type pills
-          h += '<div class="cov-pills" style="margin-top:10px;">';
-          var typeKeys = Object.keys(byType).sort();
-          for (var ti = 0; ti < typeKeys.length; ti++) {
-            h += '<span class="cov-pill cov-pill-info">' + esc(typeKeys[ti]) + ' (' + byType[typeKeys[ti]] + ')</span>';
-          }
-          h += '</div>';
-
-          // Make pills
-          h += '<div class="cov-pills">';
-          var makeKeys = Object.keys(byMake).sort(function (a, b) { return byMake[b] - byMake[a]; });
-          for (var mi = 0; mi < Math.min(makeKeys.length, 8); mi++) {
-            h += '<span class="cov-pill cov-pill-yes">' + esc(makeKeys[mi]) + ' (' + byMake[makeKeys[mi]] + ')</span>';
-          }
-          if (makeKeys.length > 8) h += '<span class="cov-pill" style="background:var(--surface-3);color:var(--text-3);">+' + (makeKeys.length - 8) + ' more</span>';
-          h += '</div>';
-
-          // Duplicate models (same model shown more than once)
-          var dupeModels = Object.keys(models).filter(function (m) { return models[m] > 1; });
-          if (dupeModels.length > 0) {
-            h += '<div style="margin-top:8px;font-size:18px;color:var(--orange);">Duplicates: ';
-            for (var di2 = 0; di2 < dupeModels.length; di2++) {
-              if (di2 > 0) h += ', ';
-              h += esc(dupeModels[di2].trim()) + ' (' + models[dupeModels[di2]] + ')';
-            }
-            h += '</div>';
-          }
-        } else {
-          h += '<div style="font-size:18px;color:var(--text-3);margin-top:8px;">Empty zone</div>';
+          h += '<tr class="cov-model-row' + gapClass + '">'
+            + '<td class="cov-th-sticky cov-model-name">' + esc(md.model) + '</td>'
+            + '<td class="cov-num">' + md.total + '</td>'
+            + '<td class="cov-num' + (md.showroom > 0 ? ' cov-has' : ' cov-empty') + '">' + (md.showroom || '') + '</td>'
+            + '<td class="cov-num' + (md.display > 0 ? ' cov-has' : ' cov-empty') + '">' + (md.display || '') + '</td>'
+            + '<td class="cov-num' + (md.overflow > 0 ? ' cov-ovr' : '') + '">' + (md.overflow || '') + '</td>'
+            + '<td class="cov-num' + (md.incoming > 0 ? ' cov-inc' : '') + '">' + (md.incoming || '') + '</td>'
+            + '<td class="cov-num">' + (md.other || '') + '</td>'
+            + '<td class="cov-num' + (missing.length > 0 ? ' cov-gap-text' : '') + '">' + (missing.join(", ") || '') + '</td>'
+            + '</tr>';
         }
-        h += '</div>';
       }
+      h += '</tbody></table></div>';
+
+      h += '<div class="cov-legend">'
+        + '<span class="cov-legend-item"><span class="cov-legend-dot" style="background:var(--green);"></span>Stocked</span>'
+        + '<span class="cov-legend-item"><span class="cov-legend-dot" style="background:var(--yellow);"></span>Empty</span>'
+        + '<span class="cov-legend-item"><span class="cov-legend-dot" style="background:var(--orange);"></span>Gap (not displayed)</span>'
+        + '<span class="cov-legend-item"><span class="cov-legend-dot" style="background:var(--red);"></span>Not on floor at all</span>'
+        + '</div>';
+
+      h += '</div>';
+      return h;
+    });
+  }
+
+  // ── ZONE MAP ──
+  // Shows all models with per-zone columns: Showroom | DISP01-11 | Overflow | Other
+  function zoneMapView() {
+    return DB.getAllUnits().then(function (units) {
+      var cov = buildCoverageData(units);
+      var modelData = cov.modelData, makeGroups = cov.makeGroups, sortedMakeKeys = cov.sortedMakeKeys;
+
+      var h = '<div class="view">';
+      h += backBtn("more", "More");
+      h += '<div class="section-header" style="margin-top:0;">Zone Map</div>'
+        + '<div style="font-size:18px;color:var(--text-3);margin-bottom:12px;">Where each model sits across display zones — find what needs reorganized</div>';
+
+      h += '<div class="cov-table-wrap"><table class="cov-table cov-table-zone">';
+      h += '<thead><tr><th class="cov-th-sticky">Model</th>'
+        + '<th>SHR</th>';
+      for (var di = 0; di < DISP_LABELS.length; di++) {
+        h += '<th>' + DISP_LABELS[di].replace("DISP", "D") + '</th>';
+      }
+      h += '<th>OVR</th><th>OTH</th>'
+        + '</tr></thead><tbody>';
+
+      for (var gi = 0; gi < sortedMakeKeys.length; gi++) {
+        var mgKey = sortedMakeKeys[gi];
+        var parts = mgKey.split("|");
+        var gVt = parts[0], gMake = parts[1];
+        var gKeys = makeGroups[mgKey];
+        var gTotal = 0;
+        for (var ki = 0; ki < gKeys.length; ki++) gTotal += modelData[gKeys[ki]].total;
+
+        var nCols = 3 + DISP_LABELS.length;
+        h += '<tr class="cov-make-row"><td class="cov-th-sticky">'
+          + '<span class="cov-vt-badge">' + esc(gVt) + '</span> '
+          + esc(gMake) + ' <span class="cov-make-count">(' + gTotal + ')</span></td>';
+        for (var ci = 0; ci < nCols - 1; ci++) h += '<td></td>';
+        h += '</tr>';
+
+        for (var ki = 0; ki < gKeys.length; ki++) {
+          var md = modelData[gKeys[ki]];
+          var onFloor = md.showroom + md.display;
+          var rowClass = onFloor === 0 && md.total > 0 ? " cov-gap-critical" : "";
+
+          h += '<tr class="cov-model-row' + rowClass + '">'
+            + '<td class="cov-th-sticky cov-model-name">' + esc(md.model) + '</td>'
+            + '<td class="cov-num' + (md.showroom > 0 ? ' cov-has' : '') + '">' + (md.showroom || '') + '</td>';
+
+          for (var di = 0; di < DISP_ZONES.length; di++) {
+            var zoneCount = md.zones[DISP_ZONES[di]] || 0;
+            h += '<td class="cov-num' + (zoneCount > 0 ? ' cov-has' : '') + '">' + (zoneCount || '') + '</td>';
+          }
+
+          h += '<td class="cov-num' + (md.overflow > 0 ? ' cov-ovr' : '') + '">' + (md.overflow || '') + '</td>'
+            + '<td class="cov-num">' + ((md.other + md.incoming) || '') + '</td>'
+            + '</tr>';
+        }
+      }
+      h += '</tbody></table></div>';
+
+      h += '<div class="cov-legend">'
+        + '<span class="cov-legend-item"><span class="cov-legend-dot" style="background:var(--green);"></span>On display</span>'
+        + '<span class="cov-legend-item"><span class="cov-legend-dot" style="background:var(--orange);"></span>Overflow only</span>'
+        + '<span class="cov-legend-item"><span class="cov-legend-dot" style="background:var(--red);"></span>Not on floor</span>'
+        + '</div>';
 
       h += '</div>';
       return h;
@@ -1418,6 +1579,7 @@ var Views = (function () {
     shopLayoutView: shopLayoutView,
     moreView: moreView,
     coverageView: coverageView,
+    zoneMapView: zoneMapView,
     notesView: notesView,
     noteFormView: noteFormView,
     auditView: auditView,

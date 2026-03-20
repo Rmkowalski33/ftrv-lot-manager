@@ -27,7 +27,7 @@ var App = (function () {
     "status": "status", "status-cat": "status", "status-units": "status",
     "makes": "makes", "make-detail": "makes", "model-units": "makes",
     "more": "more", "shop": "more", "shop-body": "more", "shop-layout": "more",
-    "notes": "more", "note-form": "more", "audit": "more", "coverage": "more",
+    "notes": "more", "note-form": "more", "audit": "more", "coverage": "more", "zone-map": "more",
   };
 
   // ── Initialize ─────────────────────────────────────────────────
@@ -153,6 +153,9 @@ var App = (function () {
         break;
       case "coverage":
         renderPromise = Views.coverageView();
+        break;
+      case "zone-map":
+        renderPromise = Views.zoneMapView();
         break;
       case "notes":
         renderPromise = Views.notesView();
