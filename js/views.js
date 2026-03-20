@@ -1767,156 +1767,196 @@ var Views = (function () {
 
 
   // ══════════════════════════════════════════════════════════════
-  // PRODUCT HIERARCHY VIEW — Missing fields + consistency checks
-  // Aligned with CLE Lot Report's Product Hierarchy Audit tab
+  // PRODUCT HIERARCHY — Shared data builder
   // ══════════════════════════════════════════════════════════════
+  function buildHierarchyData(units) {
+    var active = [];
+    for (var i = 0; i < units.length; i++) {
+      var st = (units[i].status || "").toUpperCase();
+      var isT = false;
+      for (var t = 0; t < TERMINAL_STATUSES.length; t++) { if (st === TERMINAL_STATUSES[t]) { isT = true; break; } }
+      if (!isT) active.push(units[i]);
+    }
+
+    // ── Missing Required Fields ──
+    var missingByType = {};  // { "Missing Manufacturer": [unit, ...], ... }
+    for (var i = 0; i < active.length; i++) {
+      var u = active[i];
+      var checks = [
+        ["Missing Manufacturer", !u.manufacturer],
+        ["Missing Make", !u.make],
+        ["Missing Model", !u.model],
+        ["Missing Vehicle Type", !u.veh_type],
+        ["Missing Body Style", !u.body_style],
+      ];
+      for (var c = 0; c < checks.length; c++) {
+        if (checks[c][1]) {
+          var label = checks[c][0];
+          if (!missingByType[label]) missingByType[label] = [];
+          missingByType[label].push(u);
+        }
+      }
+    }
+
+    // ── Consistency Checks ──
+    var makeToMfr = {}, makeToVt = {};
+    for (var i = 0; i < active.length; i++) {
+      var u = active[i];
+      var mk = (u.make || "").toUpperCase();
+      var mfr = (u.manufacturer || "").toUpperCase();
+      var vt = (u.veh_type || "").toUpperCase();
+      if (mk && mfr) {
+        if (!makeToMfr[mk]) makeToMfr[mk] = {};
+        if (!makeToMfr[mk][mfr]) makeToMfr[mk][mfr] = [];
+        makeToMfr[mk][mfr].push(u);
+      }
+      if (mk && vt) {
+        if (!makeToVt[mk]) makeToVt[mk] = {};
+        if (!makeToVt[mk][vt]) makeToVt[mk][vt] = [];
+        makeToVt[mk][vt].push(u);
+      }
+    }
+
+    // Group consistency issues by check type: { "WILDWOOD FSX: expected TT, got TH": [unit, ...] }
+    var consistByType = {};
+    function findMinority(valMap, checkName, fieldLabel) {
+      var vals = Object.keys(valMap);
+      if (vals.length <= 1) return;
+      var majorityVal = vals[0], majorityCount = valMap[vals[0]].length;
+      for (var v = 1; v < vals.length; v++) {
+        if (valMap[vals[v]].length > majorityCount) { majorityVal = vals[v]; majorityCount = valMap[vals[v]].length; }
+      }
+      for (var v = 0; v < vals.length; v++) {
+        if (vals[v] !== majorityVal) {
+          var label = checkName + ": " + fieldLabel + " \u2192 expected " + majorityVal + ", got " + vals[v];
+          if (!consistByType[label]) consistByType[label] = [];
+          var uList = valMap[vals[v]];
+          for (var s = 0; s < uList.length; s++) consistByType[label].push(uList[s]);
+        }
+      }
+    }
+
+    var mfrKeys = Object.keys(makeToMfr);
+    for (var m = 0; m < mfrKeys.length; m++) findMinority(makeToMfr[mfrKeys[m]], "Make \u2192 Manufacturer", mfrKeys[m]);
+    var vtKeys = Object.keys(makeToVt);
+    for (var m = 0; m < vtKeys.length; m++) findMinority(makeToVt[vtKeys[m]], "Make \u2192 Veh Type", vtKeys[m]);
+
+    return { active: active, missingByType: missingByType, consistByType: consistByType };
+  }
+
+  // ── HIERARCHY LANDING — Tiles by issue type ──
   function hierarchyView() {
     return DB.getAllUnits().then(function (units) {
-      var active = [];
-      for (var i = 0; i < units.length; i++) {
-        var st = (units[i].status || "").toUpperCase();
-        var isT = false;
-        for (var t = 0; t < TERMINAL_STATUSES.length; t++) { if (st === TERMINAL_STATUSES[t]) { isT = true; break; } }
-        if (!isT) active.push(units[i]);
-      }
-
-      // ── Missing Required Fields (matches report: Manufacturer, Make, Model, Veh Type, Body Style) ──
-      var missingFlags = [];
-      for (var i = 0; i < active.length; i++) {
-        var u = active[i];
-        var issues = [];
-        if (!u.manufacturer) issues.push("Missing Manufacturer");
-        if (!u.make) issues.push("Missing Make");
-        if (!u.model) issues.push("Missing Model");
-        if (!u.veh_type) issues.push("Missing Vehicle Type");
-        if (!u.body_style) issues.push("Missing Body Style");
-        if (issues.length > 0) {
-          missingFlags.push({ stock_num: u.stock_num, make: u.make || "?", model: u.model || "?", year: u.year || "?", issues: issues, severity: "missing" });
-        }
-      }
-
-      // ── Consistency Checks (matches report logic) ──
-      // Make → Manufacturer: flag makes that map to multiple manufacturers
-      var makeToMfr = {};
-      // Make → Veh Type: flag makes that map to multiple vehicle types
-      var makeToVt = {};
-      for (var i = 0; i < active.length; i++) {
-        var u = active[i];
-        var mk = (u.make || "").toUpperCase();
-        var mfr = (u.manufacturer || "").toUpperCase();
-        var vt = (u.veh_type || "").toUpperCase();
-        if (mk && mfr) {
-          if (!makeToMfr[mk]) makeToMfr[mk] = {};
-          if (!makeToMfr[mk][mfr]) makeToMfr[mk][mfr] = [];
-          makeToMfr[mk][mfr].push(u.stock_num);
-        }
-        if (mk && vt) {
-          if (!makeToVt[mk]) makeToVt[mk] = {};
-          if (!makeToVt[mk][vt]) makeToVt[mk][vt] = [];
-          makeToVt[mk][vt].push(u.stock_num);
-        }
-      }
-
-      var consistencyFlags = [];
-      function findMinority(valMap, checkName, fieldLabel) {
-        var vals = Object.keys(valMap);
-        if (vals.length <= 1) return;
-        // Find majority
-        var majorityVal = vals[0], majorityCount = valMap[vals[0]].length;
-        for (var v = 1; v < vals.length; v++) {
-          if (valMap[vals[v]].length > majorityCount) {
-            majorityVal = vals[v];
-            majorityCount = valMap[vals[v]].length;
-          }
-        }
-        for (var v = 0; v < vals.length; v++) {
-          if (vals[v] !== majorityVal) {
-            var stocks = valMap[vals[v]];
-            for (var s = 0; s < stocks.length; s++) {
-              consistencyFlags.push({
-                stock_num: stocks[s],
-                check: checkName,
-                field: fieldLabel,
-                expected: majorityVal,
-                actual: vals[v]
-              });
-            }
-          }
-        }
-      }
-
-      var makeKeys = Object.keys(makeToMfr);
-      for (var m = 0; m < makeKeys.length; m++) {
-        findMinority(makeToMfr[makeKeys[m]], "Make \u2192 Manufacturer", makeKeys[m]);
-      }
-      var makeVtKeys = Object.keys(makeToVt);
-      for (var m = 0; m < makeVtKeys.length; m++) {
-        findMinority(makeToVt[makeVtKeys[m]], "Make \u2192 Veh Type", makeVtKeys[m]);
-      }
-
-      // Deduplicate consistency flags by stock (merge issues)
-      var consistByStock = {};
-      for (var i = 0; i < consistencyFlags.length; i++) {
-        var cf = consistencyFlags[i];
-        if (!consistByStock[cf.stock_num]) consistByStock[cf.stock_num] = [];
-        consistByStock[cf.stock_num].push(cf.check + ": expected " + cf.expected + ", got " + cf.actual);
-      }
+      var data = buildHierarchyData(units);
 
       var h = '<div class="view">';
       h += backBtn("audit", "Audit");
       h += '<div class="section-header" style="margin-top:0;">Product Hierarchy Audit</div>'
         + '<div style="font-size:18px;color:var(--text-3);margin-bottom:12px;">Missing required fields and inconsistent product relationships</div>';
 
-      var totalIssues = missingFlags.length + Object.keys(consistByStock).length;
+      var totalMissing = 0;
+      var mKeys = Object.keys(data.missingByType);
+      for (var i = 0; i < mKeys.length; i++) totalMissing += data.missingByType[mKeys[i]].length;
+      var totalConsist = 0;
+      var cKeys = Object.keys(data.consistByType);
+      for (var i = 0; i < cKeys.length; i++) totalConsist += data.consistByType[cKeys[i]].length;
+
       h += '<div class="stats-row">'
-        + '<div class="stat-pill"><div class="stat-val text-orange">' + missingFlags.length + '</div><div class="stat-label">Missing Fields</div></div>'
-        + '<div class="stat-pill"><div class="stat-val text-purple">' + Object.keys(consistByStock).length + '</div><div class="stat-label">Inconsistent</div></div>'
-        + '<div class="stat-pill"><div class="stat-val text-blue">' + active.length + '</div><div class="stat-label">Active Units</div></div>'
+        + '<div class="stat-pill"><div class="stat-val text-orange">' + totalMissing + '</div><div class="stat-label">Missing Fields</div></div>'
+        + '<div class="stat-pill"><div class="stat-val text-purple">' + totalConsist + '</div><div class="stat-label">Inconsistent</div></div>'
+        + '<div class="stat-pill"><div class="stat-val text-blue">' + data.active.length + '</div><div class="stat-label">Active Units</div></div>'
         + '</div>';
 
-      // ── Missing Fields Section ──
-      if (missingFlags.length > 0) {
+      // ── Missing Field Tiles ──
+      if (mKeys.length > 0) {
         h += '<div class="section-header">Missing Required Fields</div>';
-        for (var i = 0; i < missingFlags.length; i++) {
-          var f = missingFlags[i];
-          h += '<div class="card card-interactive" data-action="detail" data-stock="' + esc(f.stock_num) + '">'
-            + '<div style="font-size:20px;font-weight:700;">' + esc(f.stock_num) + ' — ' + esc(f.year) + ' ' + esc(f.make) + ' ' + esc(f.model) + '</div>'
-            + '<div style="margin-top:6px;">';
-          for (var j = 0; j < f.issues.length; j++) {
-            h += '<span class="flag-badge flag-warning" style="margin-right:6px;margin-bottom:4px;">' + esc(f.issues[j]) + '</span>';
-          }
-          h += '</div></div>';
+        for (var i = 0; i < mKeys.length; i++) {
+          var label = mKeys[i];
+          var count = data.missingByType[label].length;
+          h += '<a class="note-type-card" href="#hierarchy-detail/' + encodeURIComponent(label) + '">'
+            + '<div class="note-type-icon" style="background:var(--orange-dim);color:var(--orange);">&#9888;</div>'
+            + '<div><div class="note-type-label">' + esc(label) + '</div>'
+            + '<div class="note-type-desc"><span style="color:var(--orange);font-weight:700;">' + count + ' unit' + (count !== 1 ? 's' : '') + '</span></div>'
+            + '</div></a>';
         }
       }
 
-      // ── Consistency Issues Section ──
-      var cStocks = Object.keys(consistByStock).sort();
-      if (cStocks.length > 0) {
+      // ── Consistency Issue Tiles ──
+      if (cKeys.length > 0) {
         h += '<div class="section-header">Consistency Issues</div>';
-        for (var i = 0; i < cStocks.length; i++) {
-          var stk = cStocks[i];
-          var cIssues = consistByStock[stk];
-          // Find unit details
-          var uDetail = null;
-          for (var u = 0; u < active.length; u++) {
-            if (active[u].stock_num === stk) { uDetail = active[u]; break; }
-          }
-          h += '<div class="card card-interactive" data-action="detail" data-stock="' + esc(stk) + '">'
-            + '<div style="font-size:20px;font-weight:700;">' + esc(stk) + ' — '
-            + (uDetail ? esc(uDetail.year || "?") + ' ' + esc(uDetail.make || "?") + ' ' + esc(uDetail.model || "?") : '?')
-            + '</div><div style="margin-top:6px;">';
-          for (var j = 0; j < cIssues.length; j++) {
-            h += '<span class="flag-badge flag-critical" style="margin-right:6px;margin-bottom:4px;">' + esc(cIssues[j]) + '</span>';
-          }
-          h += '</div></div>';
+        for (var i = 0; i < cKeys.length; i++) {
+          var label = cKeys[i];
+          var count = data.consistByType[label].length;
+          h += '<a class="note-type-card" href="#hierarchy-detail/' + encodeURIComponent(label) + '">'
+            + '<div class="note-type-icon" style="background:var(--red-dim);color:var(--red);">&#128295;</div>'
+            + '<div><div class="note-type-label">' + esc(label) + '</div>'
+            + '<div class="note-type-desc"><span style="color:var(--red);font-weight:700;">' + count + ' unit' + (count !== 1 ? 's' : '') + '</span></div>'
+            + '</div></a>';
         }
       }
 
-      if (totalIssues === 0) {
+      if (mKeys.length === 0 && cKeys.length === 0) {
         h += '<div class="empty-state"><div class="empty-icon">&#9989;</div>'
           + '<div class="empty-title">All Clear</div>'
           + '<div class="empty-desc">All active units have complete and consistent product data</div></div>';
       }
+      h += '</div>';
+      return h;
+    });
+  }
+
+  // ── HIERARCHY DETAIL — Unit list for a specific issue type ──
+  function hierarchyDetailView(issueLabel) {
+    return DB.getAllUnits().then(function (units) {
+      var data = buildHierarchyData(units);
+      var label = decodeURIComponent(issueLabel || "");
+      var unitList = data.missingByType[label] || data.consistByType[label] || [];
+      var isMissing = !!data.missingByType[label];
+
+      // Sort by make → model → stock
+      unitList.sort(function (a, b) {
+        var cmp = (a.make || "").localeCompare(b.make || "");
+        if (cmp !== 0) return cmp;
+        cmp = (a.model || "").localeCompare(b.model || "");
+        if (cmp !== 0) return cmp;
+        return (a.stock_num || "").localeCompare(b.stock_num || "");
+      });
+
+      var h = '<div class="view">';
+      h += backBtn("hierarchy", "Hierarchy");
+      h += '<div class="section-header" style="margin-top:0;">' + esc(label) + '</div>'
+        + '<div style="font-size:18px;color:var(--text-3);margin-bottom:12px;">'
+        + unitList.length + ' unit' + (unitList.length !== 1 ? 's' : '') + ' affected</div>';
+
+      var badgeClass = isMissing ? "flag-warning" : "flag-critical";
+
+      // Group by make
+      var byMake = {};
+      for (var i = 0; i < unitList.length; i++) {
+        var m = unitList[i].make || "UNKNOWN";
+        if (!byMake[m]) byMake[m] = [];
+        byMake[m].push(unitList[i]);
+      }
+      var makeKeys = Object.keys(byMake).sort();
+
+      for (var mi = 0; mi < makeKeys.length; mi++) {
+        var make = makeKeys[mi];
+        var mu = byMake[make];
+        h += '<div class="card"><div class="card-title">' + esc(make) + ' (' + mu.length + ')</div>';
+        for (var j = 0; j < mu.length; j++) {
+          var u = mu[j];
+          h += '<div class="result-card" style="margin-bottom:8px;padding:12px 16px;border-left:3px solid var(--' + (isMissing ? 'orange' : 'red') + ');" data-action="detail" data-stock="' + esc(u.stock_num) + '">'
+            + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+            + '<span style="font-size:20px;font-weight:700;">' + esc(u.model || "?") + ' ' + esc(u.floor_layout || "") + '</span>'
+            + '<span style="font-size:18px;color:var(--text-2);">' + esc(u.year || "?") + '</span>'
+            + '</div>'
+            + '<div style="font-size:18px;color:var(--text-2);margin-top:4px;">'
+            + 'Stk# ' + esc(u.stock_num) + ' &middot; ' + esc(u.status || "?") + ' &middot; ' + esc(u.lot_location || "N/A")
+            + '</div></div>';
+        }
+        h += '</div>';
+      }
+
       h += '</div>';
       return h;
     });
@@ -1947,6 +1987,7 @@ var Views = (function () {
     zoneMapView: zoneMapView,
     overflowOnlyView: overflowOnlyView,
     hierarchyView: hierarchyView,
+    hierarchyDetailView: hierarchyDetailView,
     notesView: notesView,
     noteFormView: noteFormView,
     auditTabView: auditTabView,

@@ -28,7 +28,7 @@ var App = (function () {
     "makes": "home", "make-detail": "home", "model-units": "home",
     "shop": "home", "shop-body": "home", "shop-layout": "home",
     "notes": "notes", "note-form": "notes",
-    "audit": "audit", "audit-status": "audit", "hierarchy": "audit",
+    "audit": "audit", "audit-status": "audit", "hierarchy": "audit", "hierarchy-detail": "audit",
     "coverage": "coverage", "coverage-matrix": "coverage", "zone-map": "coverage",
     "overflow-only": "coverage",
   };
@@ -165,6 +165,9 @@ var App = (function () {
         break;
       case "hierarchy":
         renderPromise = Views.hierarchyView();
+        break;
+      case "hierarchy-detail":
+        renderPromise = Views.hierarchyDetailView(param);
         break;
       case "notes":
         renderPromise = Views.notesView();
