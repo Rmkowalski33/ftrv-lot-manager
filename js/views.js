@@ -567,25 +567,28 @@ var Views = (function () {
       // Cross-filters
       h += renderCrossFilters(zoneUnits, "lots");
 
-      // Group by make
-      var byMake = {};
-      for (var i = 0; i < zoneUnits.length; i++) {
-        var make = zoneUnits[i].make || "Unknown";
-        if (!byMake[make]) byMake[make] = [];
-        byMake[make].push(zoneUnits[i]);
-      }
-      var makes = Object.keys(byMake).sort();
-      for (var mi = 0; mi < makes.length; mi++) {
-        var make = makes[mi];
-        var mu = byMake[make];
-        h += '<div class="card"><div class="card-title">' + esc(make) + ' (' + mu.length + ')</div>';
-        for (var j = 0; j < mu.length; j++) {
-          var u = mu[j];
+      // Group units by status category
+      for (var ci = 0; ci < STATUS_CATS.length; ci++) {
+        var cat = STATUS_CATS[ci];
+        var catUnits = zoneUnits.filter(function (u) { return statusCat(u.status) === cat.name; });
+        if (catUnits.length === 0) continue;
+
+        h += '<div class="card" style="border-left:3px solid var(--' + cat.color + ');">'
+          + '<div class="card-title" style="color:var(--' + cat.color + ');">' + esc(cat.name) + ' — ' + esc(cat.label) + ' (' + catUnits.length + ')</div>';
+
+        // Sort by make → model within each category
+        catUnits.sort(function (a, b) {
+          var cmp = (a.make || "").localeCompare(b.make || "");
+          return cmp !== 0 ? cmp : (a.model || "").localeCompare(b.model || "");
+        });
+
+        for (var j = 0; j < catUnits.length; j++) {
+          var u = catUnits[j];
           h += '<div class="result-card" style="margin-bottom:8px;" data-action="detail" data-stock="' + esc(u.stock_num) + '">'
-            + '<div class="result-ymm" style="font-size:20px;">' + esc(u.model) + ' ' + esc(u.floor_layout || "") + '</div>'
+            + '<div class="result-ymm" style="font-size:20px;">' + esc(u.make) + ' ' + esc(u.model) + ' ' + esc(u.floor_layout || "") + '</div>'
             + '<div class="result-meta" style="font-size:18px;">'
             + '<span>Stk# ' + esc(u.stock_num) + '</span><span class="sep">&middot;</span>'
-            + '<span class="status-badge ' + statusClass(u.status) + '">' + esc(u.status) + '</span>'
+            + '<span class="status-badge status-' + cat.color + '" style="font-size:12px;">' + esc(u.status) + '</span>'
             + '</div></div>';
         }
         h += '</div>';
@@ -868,9 +871,13 @@ var Views = (function () {
   // ══════════════════════════════════════════════════════════════
   function shopView() {
     return DB.getAllUnits().then(function (units) {
-      // Only show sellable inventory for shopping
+      // Exclude terminal statuses
       var shopUnits = units.filter(function (u) {
-        return statusCat(u.status) === "Stock";
+        var st = (u.status || "").toUpperCase();
+        for (var t = 0; t < TERMINAL_STATUSES.length; t++) {
+          if (st === TERMINAL_STATUSES[t]) return false;
+        }
+        return true;
       });
 
       var byType = {};
@@ -882,19 +889,18 @@ var Views = (function () {
 
       var h = '<div class="view">';
       h += '<div class="section-header" style="margin-top:0;">Shop by Layout</div>';
-      h += '<div style="font-size:18px;color:var(--text-3);margin-bottom:16px;">Browse sellable inventory by type, body style, and floor plan</div>';
+      h += '<div style="font-size:18px;color:var(--text-3);margin-bottom:16px;">Browse inventory by type and floor layout</div>';
 
       var types = Object.keys(byType).sort(function (a, b) { return byType[b].length - byType[a].length; });
       for (var ti = 0; ti < types.length; ti++) {
         var t = types[ti];
         var tu = byType[t];
-        // Count body styles
-        var bsSet = {};
-        for (var i = 0; i < tu.length; i++) bsSet[tu[i].body_style || "Other"] = true;
+        var layoutSet = {};
+        for (var i = 0; i < tu.length; i++) layoutSet[tu[i].floor_layout || "Unknown"] = true;
         h += '<div class="card card-interactive" data-action="shop-body" data-type="' + esc(t) + '">'
           + '<div style="display:flex;justify-content:space-between;align-items:center;">'
           + '<div><div style="font-size:22px;font-weight:700;">' + esc(t) + '</div>'
-          + '<div style="font-size:18px;color:var(--text-3);">' + Object.keys(bsSet).length + ' body style' + (Object.keys(bsSet).length > 1 ? 's' : '') + '</div></div>'
+          + '<div style="font-size:18px;color:var(--text-3);">' + Object.keys(layoutSet).length + ' floor layout' + (Object.keys(layoutSet).length > 1 ? 's' : '') + '</div></div>'
           + '<span class="stat-val text-purple" style="font-size:32px;">' + tu.length + '</span>'
           + '</div></div>';
       }
@@ -904,10 +910,16 @@ var Views = (function () {
     });
   }
 
+  // Type → Floor Layout list (was Body Style)
   function shopBodyView(vehType) {
     return DB.getAllUnits().then(function (units) {
       var filtered = units.filter(function (u) {
-        return u.veh_type === vehType && statusCat(u.status) === "Stock";
+        if (u.veh_type !== vehType) return false;
+        var st = (u.status || "").toUpperCase();
+        for (var t = 0; t < TERMINAL_STATUSES.length; t++) {
+          if (st === TERMINAL_STATUSES[t]) return false;
+        }
+        return true;
       });
 
       var h = '<div class="view">';
@@ -916,27 +928,24 @@ var Views = (function () {
         + '<div class="zone-banner-name" style="color:var(--purple);">' + esc(vehType) + '</div>'
         + '<div class="zone-banner-count">' + filtered.length + '</div></div>';
 
-      // Group by body style
-      var byBS = {};
+      // Group by floor layout
+      var byFL = {};
       for (var i = 0; i < filtered.length; i++) {
-        var bs = filtered[i].body_style || "Other";
-        if (!byBS[bs]) byBS[bs] = [];
-        byBS[bs].push(filtered[i]);
+        var fl = filtered[i].floor_layout || "Unknown";
+        if (!byFL[fl]) byFL[fl] = [];
+        byFL[fl].push(filtered[i]);
       }
-      var bsKeys = Object.keys(byBS).sort(function (a, b) { return byBS[b].length - byBS[a].length; });
+      var flKeys = Object.keys(byFL).sort(function (a, b) { return byFL[b].length - byFL[a].length; });
 
-      h += '<div class="section-header">Body Styles</div>';
-      for (var bi = 0; bi < bsKeys.length; bi++) {
-        var bs = bsKeys[bi];
-        var bu = byBS[bs];
-        // Count layouts
-        var layoutSet = {};
-        for (var i = 0; i < bu.length; i++) layoutSet[bu[i].floor_layout || "Unknown"] = true;
-        h += '<div class="card card-interactive" data-action="shop-layout" data-type="' + esc(vehType) + '" data-body="' + esc(bs) + '">'
+      h += '<div class="section-header">Floor Layouts</div>';
+      for (var fi = 0; fi < flKeys.length; fi++) {
+        var fl = flKeys[fi];
+        var fu = byFL[fl];
+        h += '<div class="card card-interactive" data-action="shop-layout" data-type="' + esc(vehType) + '" data-body="' + esc(fl) + '">'
           + '<div style="display:flex;justify-content:space-between;align-items:center;">'
-          + '<div><div style="font-size:20px;font-weight:700;">' + esc(bs) + '</div>'
-          + '<div style="font-size:18px;color:var(--text-3);">' + Object.keys(layoutSet).length + ' floor plan' + (Object.keys(layoutSet).length > 1 ? 's' : '') + '</div></div>'
-          + '<span class="stat-val text-purple" style="font-size:28px;">' + bu.length + '</span>'
+          + '<div><div style="font-size:20px;font-weight:700;">' + esc(fl) + '</div>'
+          + '<div style="font-size:18px;color:var(--text-3);">' + fu.length + ' unit' + (fu.length > 1 ? 's' : '') + '</div></div>'
+          + '<span class="stat-val text-purple" style="font-size:28px;">' + fu.length + '</span>'
           + '</div></div>';
       }
 
@@ -945,56 +954,52 @@ var Views = (function () {
     });
   }
 
-  function shopLayoutView(vehType, bodyStyle) {
+  // Floor Layout → unit tiles with status
+  function shopLayoutView(vehType, floorLayout) {
     return DB.getAllUnits().then(function (units) {
       var filtered = units.filter(function (u) {
-        return u.veh_type === vehType && u.body_style === bodyStyle && statusCat(u.status) === "Stock";
+        if (u.veh_type !== vehType || (u.floor_layout || "Unknown") !== floorLayout) return false;
+        var st = (u.status || "").toUpperCase();
+        for (var t = 0; t < TERMINAL_STATUSES.length; t++) {
+          if (st === TERMINAL_STATUSES[t]) return false;
+        }
+        return true;
       });
 
       var h = '<div class="view">';
       h += backBtn("shop-body/" + encodeURIComponent(vehType), vehType);
       h += '<div class="zone-banner" style="background:linear-gradient(135deg, var(--purple-dim), var(--surface-2));">'
-        + '<div class="zone-banner-name" style="color:var(--purple);">' + esc(bodyStyle) + '</div>'
+        + '<div class="zone-banner-name" style="color:var(--purple);">' + esc(floorLayout) + '</div>'
         + '<div class="zone-banner-desc">' + esc(vehType) + '</div>'
         + '<div class="zone-banner-count">' + filtered.length + '</div></div>';
 
-      // Group by floor layout, then sort by make/price within each
-      var byLayout = {};
-      for (var i = 0; i < filtered.length; i++) {
-        var fl = filtered[i].floor_layout || "Unknown";
-        if (!byLayout[fl]) byLayout[fl] = [];
-        byLayout[fl].push(filtered[i]);
-      }
-      var layoutKeys = Object.keys(byLayout).sort();
+      // Sort by make then price
+      filtered.sort(function (a, b) {
+        var cmp = (a.make || "").localeCompare(b.make || "");
+        return cmp !== 0 ? cmp : priceNum(a.retail_price) - priceNum(b.retail_price);
+      });
 
-      for (var li = 0; li < layoutKeys.length; li++) {
-        var layout = layoutKeys[li];
-        var lu = byLayout[layout];
-        lu.sort(function (a, b) {
-          var cmp = (a.make || "").localeCompare(b.make || "");
-          return cmp !== 0 ? cmp : priceNum(a.retail_price) - priceNum(b.retail_price);
-        });
-
-        h += '<div class="card"><div class="card-title">' + esc(layout) + ' (' + lu.length + ')</div>';
-        for (var j = 0; j < lu.length; j++) {
-          var u = lu[j];
-          h += '<div class="result-card" style="margin-bottom:6px;padding:12px 16px;" data-action="detail" data-stock="' + esc(u.stock_num) + '">'
-            + '<div style="display:flex;justify-content:space-between;align-items:center;">'
-            + '<span style="font-size:20px;font-weight:700;">' + esc(u.year) + ' ' + esc(u.make) + ' ' + esc(u.model) + '</span>'
-            + (fmtPrice(u.retail_price) ? '<span style="font-size:18px;font-weight:700;color:var(--green);">' + fmtPrice(u.retail_price) + '</span>' : '')
-            + '</div>'
-            + '<div style="font-size:18px;color:var(--text-2);margin-top:2px;">'
-            + 'Stk# ' + esc(u.stock_num) + ' &middot; ' + esc(u.lot_location || "No Lot")
-            + ' &middot; ' + esc(priceGroup(u.retail_price))
-            + '</div></div>';
-        }
-        h += '</div>';
+      for (var j = 0; j < filtered.length; j++) {
+        var u = filtered[j];
+        var cat = statusCat(u.status);
+        var catColor = statusCatColor(cat);
+        h += '<div class="result-card" style="margin-bottom:8px;padding:14px 16px;" data-action="detail" data-stock="' + esc(u.stock_num) + '">'
+          + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+          + '<span style="font-size:20px;font-weight:700;">' + esc(u.year) + ' ' + esc(u.make) + ' ' + esc(u.model) + '</span>'
+          + (fmtPrice(u.retail_price) ? '<span style="font-size:18px;font-weight:700;color:var(--green);">' + fmtPrice(u.retail_price) + '</span>' : '')
+          + '</div>'
+          + '<div style="font-size:18px;color:var(--text-2);margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+          + '<span>Stk# ' + esc(u.stock_num) + '</span><span class="sep">&middot;</span>'
+          + '<span class="status-badge status-' + catColor + '" style="font-size:12px;">' + esc(u.status) + '</span>'
+          + '<span class="sep">&middot;</span>'
+          + '<span>' + esc(u.lot_location || "No Lot") + '</span>'
+          + '</div></div>';
       }
 
       if (filtered.length === 0) {
         h += '<div class="empty-state"><div class="empty-icon">&#128722;</div>'
           + '<div class="empty-title">None Available</div>'
-          + '<div class="empty-desc">No sellable units with this layout</div></div>';
+          + '<div class="empty-desc">No active units with this layout</div></div>';
       }
       h += '</div>';
       return h;
