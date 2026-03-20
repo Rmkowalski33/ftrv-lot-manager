@@ -18,7 +18,7 @@ var App = (function () {
   }
 
   // ── Root views (no back button) ────────────────────────────────
-  var ROOT_VIEWS = ["home", "notes", "audit", "sales", "coverage"];
+  var ROOT_VIEWS = ["home", "notes", "audit", "activity", "coverage"];
 
   // ── Tab mapping: view → which tab to highlight ─────────────────
   var TAB_MAP = {
@@ -29,7 +29,8 @@ var App = (function () {
     "shop": "home", "shop-body": "home", "shop-layout": "home",
     "notes": "notes", "note-form": "notes",
     "audit": "audit", "audit-status": "audit", "hierarchy": "audit", "hierarchy-detail": "audit",
-    "sales": "sales", "sales-section": "sales", "sales-make": "sales", "sales-units": "sales",
+    "activity": "activity", "sales-section": "activity", "sales-make": "activity", "sales-units": "activity",
+    "incoming": "activity", "incoming-status": "activity", "incoming-make": "activity", "incoming-units": "activity",
     "coverage": "coverage", "coverage-matrix": "coverage", "zone-map": "coverage",
     "overflow-only": "coverage",
   };
@@ -182,8 +183,8 @@ var App = (function () {
       case "audit-status":
         renderPromise = Views.auditStatusView();
         break;
-      case "sales":
-        renderPromise = Views.salesView();
+      case "activity":
+        renderPromise = Views.activityView();
         break;
       case "sales-section":
         renderPromise = Views.salesSectionView(param, param2);
@@ -193,6 +194,18 @@ var App = (function () {
         break;
       case "sales-units":
         renderPromise = Views.salesUnitsView(param, param2);
+        break;
+      case "incoming":
+        renderPromise = Views.incomingView();
+        break;
+      case "incoming-status":
+        renderPromise = Views.incomingStatusView(param);
+        break;
+      case "incoming-make":
+        renderPromise = Views.incomingMakeView(param);
+        break;
+      case "incoming-units":
+        renderPromise = Views.incomingUnitsView(param, param2);
         break;
       default:
         renderPromise = Views.homeView();

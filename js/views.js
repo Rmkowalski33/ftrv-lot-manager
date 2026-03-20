@@ -1995,7 +1995,22 @@ var Views = (function () {
     return "$" + n.toLocaleString(undefined, { maximumFractionDigits: 0 });
   }
 
-  function salesView() {
+  var INCOMING_STATUSES = ["SHIPPED","DISPATCHED","TRANSFER","STORE-TO-STORE TRANSFER",
+    "DRIVER NEEDED","IN TRANSIT","ORDERED","PO ISSUED","RETAIL ORDERED",
+    "OPS TRANSFER","PURCHASED"];
+
+  function _getIncomingUnits(units) {
+    var results = [];
+    for (var i = 0; i < units.length; i++) {
+      var st = (units[i].status || "").toUpperCase();
+      for (var j = 0; j < INCOMING_STATUSES.length; j++) {
+        if (st === INCOMING_STATUSES[j]) { results.push(units[i]); break; }
+      }
+    }
+    return results;
+  }
+
+  function activityView() {
     return Promise.all([
       DB.getAllUnits(),
       DB.getMeta("retail_sold_today"),
@@ -2007,71 +2022,69 @@ var Views = (function () {
 
       var spToday = _getSalePendingToday(units);
       var soldToday = retailSold;
+      var incoming = _getIncomingUnits(units);
 
-      function countBy(list, field) {
-        var counts = {};
-        for (var i = 0; i < list.length; i++) {
-          var val = (list[i][field] || "Other");
-          if (field === "veh_type") val = val.toUpperCase();
-          counts[val] = (counts[val] || 0) + 1;
-        }
-        return counts;
-      }
-
-      var spByType = countBy(spToday, "veh_type");
-      var spByMake = countBy(spToday, "make");
-      var soldByType = countBy(soldToday, "veh_type");
-      var soldByMake = countBy(soldToday, "make");
-
-      var h = '<div class="section-title">TODAY\'S SALES ACTIVITY</div>';
+      var h = '<div class="section-title">INVENTORY ACTIVITY</div>';
       h += '<p style="color:var(--text-3);font-size:13px;margin:0 0 16px;">Data as of ' + esc(exportedAt) + '</p>';
 
       // ── KPI pills ──
       h += '<div class="stats-row">';
       h += '<div class="stat-pill"><div class="stat-val" style="color:var(--orange);">' + spToday.length + '</div><div class="stat-label">PENDING</div></div>';
       h += '<div class="stat-pill"><div class="stat-val" style="color:var(--green);">' + soldToday.length + '</div><div class="stat-label">SOLD</div></div>';
-      h += '<div class="stat-pill"><div class="stat-val" style="color:var(--blue);">' + (spToday.length + soldToday.length) + '</div><div class="stat-label">TOTAL</div></div>';
+      h += '<div class="stat-pill"><div class="stat-val" style="color:var(--blue);">' + incoming.length + '</div><div class="stat-label">INCOMING</div></div>';
       h += '</div>';
 
-      // ── Helper: render by-type + by-make card groups ──
-      function renderGroup(label, byType, byMake, section, accentColor) {
-        var total = 0;
-        var typeKeys = Object.keys(byType).sort();
-        for (var t = 0; t < typeKeys.length; t++) total += byType[typeKeys[t]];
+      // ── Section tiles ──
+      h += '<div class="section-title" style="margin-top:16px;">OUTBOUND</div>';
 
-        var out = '<div class="section-title" style="margin-top:20px;">' + label + ' <span style="color:' + accentColor + ';">(' + total + ')</span></div>';
+      // Sale Pending tile
+      h += '<a class="card card-interactive" href="#sales-section/pending/ALL" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">'
+        + '<div><div style="font-size:18px;font-weight:600;">Sale Pending Today</div>'
+        + '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Units put into sale pending today</div></div>'
+        + '<span class="stat-val" style="font-size:28px;color:var(--orange);">' + spToday.length + '</span></a>';
 
-        if (total === 0) {
-          out += '<div style="color:var(--text-3);padding:12px 0;">None today</div>';
-          return out;
-        }
+      // Retail Sold tile
+      h += '<a class="card card-interactive" href="#sales-section/sold/ALL" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">'
+        + '<div><div style="font-size:18px;font-weight:600;">Retail Sold Today</div>'
+        + '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Deals closed today</div></div>'
+        + '<span class="stat-val" style="font-size:28px;color:var(--green);">' + soldToday.length + '</span></a>';
 
-        // By Type
-        out += '<div style="margin-bottom:8px;color:var(--text-3);font-size:12px;text-transform:uppercase;letter-spacing:1px;">By Type</div>';
-        for (var t = 0; t < typeKeys.length; t++) {
-          out += '<a class="card card-interactive" href="#sales-section/' + section + '/' + encodeURIComponent(typeKeys[t]) + '" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">'
-            + '<span style="font-size:18px;font-weight:600;">' + esc(typeKeys[t]) + '</span>'
-            + '<span class="stat-val" style="font-size:24px;color:' + accentColor + ';">' + byType[typeKeys[t]] + '</span>'
-            + '</a>';
-        }
+      // ── Incoming section ──
+      h += '<div class="section-title" style="margin-top:20px;">INBOUND</div>';
 
-        // By Make
-        var makeKeys = Object.keys(byMake).sort();
-        out += '<div style="margin:14px 0 8px;color:var(--text-3);font-size:12px;text-transform:uppercase;letter-spacing:1px;">By Make</div>';
-        for (var m = 0; m < makeKeys.length; m++) {
-          out += '<a class="card card-interactive" href="#sales-make/' + section + '/' + encodeURIComponent(makeKeys[m]) + '" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">'
-            + '<span style="font-size:18px;font-weight:600;">' + esc(makeKeys[m]) + '</span>'
-            + '<span class="stat-val" style="font-size:24px;color:' + accentColor + ';">' + byMake[makeKeys[m]] + '</span>'
-            + '</a>';
-        }
-        return out;
+      // Incoming overview tile
+      h += '<a class="card card-interactive" href="#incoming" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">'
+        + '<div><div style="font-size:18px;font-weight:600;">Incoming Pipeline</div>'
+        + '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Ordered, shipped &amp; in transit</div></div>'
+        + '<span class="stat-val" style="font-size:28px;color:var(--blue);">' + incoming.length + '</span></a>';
+
+      // Quick breakdown by pipeline stage
+      var stageCounts = {};
+      for (var i = 0; i < incoming.length; i++) {
+        var st = (incoming[i].status || "").toUpperCase();
+        stageCounts[st] = (stageCounts[st] || 0) + 1;
       }
+      var STAGE_ORDER = ["ORDERED","PO ISSUED","RETAIL ORDERED","PURCHASED","SHIPPED","DISPATCHED","IN TRANSIT","DRIVER NEEDED","TRANSFER","STORE-TO-STORE TRANSFER","OPS TRANSFER"];
+      var stageKeys = STAGE_ORDER.filter(function(s) { return stageCounts[s]; });
 
-      h += renderGroup("SALE PENDING TODAY", spByType, spByMake, "pending", "var(--orange)");
-      h += renderGroup("RETAIL SOLD TODAY", soldByType, soldByMake, "sold", "var(--green)");
+      if (stageKeys.length > 0) {
+        h += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;">';
+        for (var s = 0; s < stageKeys.length; s++) {
+          var stageColor = stageKeys[s] === "SHIPPED" || stageKeys[s] === "DISPATCHED" ? "var(--green)" : "var(--blue)";
+          h += '<div style="flex:1;min-width:45%;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:12px;text-align:center;">'
+            + '<div style="font-size:22px;font-weight:800;color:' + stageColor + ';">' + stageCounts[stageKeys[s]] + '</div>'
+            + '<div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px;margin-top:4px;">' + esc(stageKeys[s]) + '</div></div>';
+        }
+        h += '</div>';
+      }
 
       return h;
     });
+  }
+
+  function salesView() {
+    // Backward compat redirect
+    return activityView();
   }
 
   function _getSalesListBySection(section) {
@@ -2088,12 +2101,18 @@ var Views = (function () {
 
   function salesSectionView(section, vehType) {
     return _getSalesListBySection(section).then(function (list) {
-      var filtered = [];
-      for (var i = 0; i < list.length; i++) {
-        if ((list[i].veh_type || "").toUpperCase() === vehType.toUpperCase()) filtered.push(list[i]);
+      var filtered;
+      if (vehType === "ALL") {
+        filtered = list;
+      } else {
+        filtered = [];
+        for (var i = 0; i < list.length; i++) {
+          if ((list[i].veh_type || "").toUpperCase() === vehType.toUpperCase()) filtered.push(list[i]);
+        }
       }
-      var label = section === "pending" ? "Sale Pending" : "Retail Sold";
-      return _renderSalesUnitList(filtered, label + " — " + vehType, section);
+      var label = section === "pending" ? "Sale Pending Today" : "Retail Sold Today";
+      var suffix = vehType === "ALL" ? "" : " — " + vehType;
+      return _renderSalesUnitList(filtered, label + suffix, section);
     });
   }
 
@@ -2177,6 +2196,133 @@ var Views = (function () {
     return h;
   }
 
+  // ══════════════════════════════════════════════════════════════════
+  // INCOMING PIPELINE VIEWS
+  // ══════════════════════════════════════════════════════════════════
+
+  function incomingView() {
+    return DB.getAllUnits().then(function (units) {
+      var incoming = _getIncomingUnits(units);
+
+      // Group by pipeline stage
+      var STAGE_ORDER = ["ORDERED","PO ISSUED","RETAIL ORDERED","PURCHASED","SHIPPED","DISPATCHED","IN TRANSIT","DRIVER NEEDED","TRANSFER","STORE-TO-STORE TRANSFER","OPS TRANSFER"];
+      var byStatus = {};
+      var byType = {};
+      var byMake = {};
+      for (var i = 0; i < incoming.length; i++) {
+        var u = incoming[i];
+        var st = (u.status || "").toUpperCase();
+        var vt = (u.veh_type || "Other").toUpperCase();
+        var mk = u.make || "Unknown";
+        byStatus[st] = (byStatus[st] || 0) + 1;
+        byType[vt] = (byType[vt] || 0) + 1;
+        byMake[mk] = (byMake[mk] || 0) + 1;
+      }
+
+      var h = '<div class="section-title">INCOMING PIPELINE <span style="color:var(--blue);">(' + incoming.length + ')</span></div>';
+
+      // Stage breakdown
+      h += '<div style="margin-bottom:8px;color:var(--text-3);font-size:12px;text-transform:uppercase;letter-spacing:1px;">By Pipeline Stage</div>';
+      var stageKeys = STAGE_ORDER.filter(function(s) { return byStatus[s]; });
+      for (var s = 0; s < stageKeys.length; s++) {
+        var stageColor = (stageKeys[s] === "SHIPPED" || stageKeys[s] === "DISPATCHED" || stageKeys[s] === "IN TRANSIT" || stageKeys[s] === "DRIVER NEEDED") ? "var(--green)" : "var(--blue)";
+        h += '<a class="card card-interactive" href="#incoming-status/' + encodeURIComponent(stageKeys[s]) + '" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">'
+          + '<span style="font-size:18px;font-weight:600;">' + esc(stageKeys[s]) + '</span>'
+          + '<span class="stat-val" style="font-size:24px;color:' + stageColor + ';">' + byStatus[stageKeys[s]] + '</span></a>';
+      }
+
+      // By Type
+      h += '<div style="margin:16px 0 8px;color:var(--text-3);font-size:12px;text-transform:uppercase;letter-spacing:1px;">By Type</div>';
+      var typeKeys = Object.keys(byType).sort();
+      for (var t = 0; t < typeKeys.length; t++) {
+        h += '<a class="card card-interactive" href="#incoming-units/type/' + encodeURIComponent(typeKeys[t]) + '" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">'
+          + '<span style="font-size:18px;font-weight:600;">' + esc(typeKeys[t]) + '</span>'
+          + '<span class="stat-val" style="font-size:24px;color:var(--blue);">' + byType[typeKeys[t]] + '</span></a>';
+      }
+
+      // By Make
+      h += '<div style="margin:16px 0 8px;color:var(--text-3);font-size:12px;text-transform:uppercase;letter-spacing:1px;">By Make</div>';
+      var makeKeys = Object.keys(byMake).sort();
+      for (var m = 0; m < makeKeys.length; m++) {
+        h += '<a class="card card-interactive" href="#incoming-make/' + encodeURIComponent(makeKeys[m]) + '" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">'
+          + '<span style="font-size:18px;font-weight:600;">' + esc(makeKeys[m]) + '</span>'
+          + '<span class="stat-val" style="font-size:24px;color:var(--blue);">' + byMake[makeKeys[m]] + '</span></a>';
+      }
+
+      return h;
+    });
+  }
+
+  function incomingStatusView(status) {
+    return DB.getAllUnits().then(function (units) {
+      var incoming = _getIncomingUnits(units);
+      var filtered = [];
+      for (var i = 0; i < incoming.length; i++) {
+        if ((incoming[i].status || "").toUpperCase() === status.toUpperCase()) filtered.push(incoming[i]);
+      }
+      return _renderIncomingUnitList(filtered, status);
+    });
+  }
+
+  function incomingMakeView(make) {
+    return DB.getAllUnits().then(function (units) {
+      var incoming = _getIncomingUnits(units);
+      var filtered = [];
+      for (var i = 0; i < incoming.length; i++) {
+        if ((incoming[i].make || "") === make) filtered.push(incoming[i]);
+      }
+      return _renderIncomingUnitList(filtered, make);
+    });
+  }
+
+  function incomingUnitsView(filterType, filterVal) {
+    return DB.getAllUnits().then(function (units) {
+      var incoming = _getIncomingUnits(units);
+      var filtered = [];
+      for (var i = 0; i < incoming.length; i++) {
+        var u = incoming[i];
+        if (filterType === "type" && (u.veh_type || "").toUpperCase() === filterVal.toUpperCase()) filtered.push(u);
+        else if (filterType === "make" && (u.make || "") === filterVal) filtered.push(u);
+      }
+      return _renderIncomingUnitList(filtered, filterVal);
+    });
+  }
+
+  function _renderIncomingUnitList(units, title) {
+    var h = '<div class="section-title">' + esc(title) + ' <span style="color:var(--text-3);">(' + units.length + ')</span></div>';
+
+    if (units.length === 0) {
+      h += '<div style="color:var(--text-3);padding:12px 0;">No units</div>';
+      return h;
+    }
+
+    units.sort(function (a, b) {
+      var cmp = (a.make || "").localeCompare(b.make || "");
+      if (cmp !== 0) return cmp;
+      cmp = (a.model || "").localeCompare(b.model || "");
+      if (cmp !== 0) return cmp;
+      return ((a.status_days || 0) - (b.status_days || 0));
+    });
+
+    for (var i = 0; i < units.length; i++) {
+      var u = units[i];
+      var st = (u.status || "").toUpperCase();
+      var statusColor = (st === "SHIPPED" || st === "DISPATCHED" || st === "IN TRANSIT" || st === "DRIVER NEEDED") ? "var(--green)" : "var(--blue)";
+      var statusDays = u.status_days != null ? u.status_days + "d" : "";
+
+      h += '<a class="card card-interactive" href="#detail/' + encodeURIComponent(u.stock_num) + '" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">';
+      h += '<div>';
+      h += '<div style="font-size:18px;font-weight:600;">' + esc(u.year || "") + ' ' + esc(u.make || "") + ' ' + esc(u.model || "") + '</div>';
+      h += '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">' + esc(u.stock_num || "") + ' · ' + esc(u.veh_type || "") + (u.floor_layout ? ' · ' + esc(u.floor_layout) : '') + '</div>';
+      h += '</div>';
+      h += '<div style="text-align:right;">';
+      h += '<div style="font-size:12px;font-weight:700;color:' + statusColor + ';">' + esc(st) + '</div>';
+      if (statusDays) h += '<div style="font-size:12px;color:var(--text-3);">' + statusDays + '</div>';
+      h += '</div></a>';
+    }
+    return h;
+  }
+
   // ── Module Exports ──────────────────────────────────────────────
   return {
     homeView: homeView,
@@ -2203,10 +2349,15 @@ var Views = (function () {
     noteFormView: noteFormView,
     auditTabView: auditTabView,
     auditStatusView: auditStatusView,
+    activityView: activityView,
     salesView: salesView,
     salesSectionView: salesSectionView,
     salesMakeView: salesMakeView,
     salesUnitsView: salesUnitsView,
+    incomingView: incomingView,
+    incomingStatusView: incomingStatusView,
+    incomingMakeView: incomingMakeView,
+    incomingUnitsView: incomingUnitsView,
     renderAuditFlags: renderAuditFlags,
     computeAuditFlags: computeAuditFlags,
     esc: esc,
