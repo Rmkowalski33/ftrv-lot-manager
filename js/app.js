@@ -307,6 +307,21 @@ var App = (function () {
     }
   }
 
+  // ── Coverage type filter ─────────────────────────────────────────
+  window._covFilter = function (btn, vt) {
+    var btns = btn.parentNode.querySelectorAll(".cov-type-btn");
+    for (var i = 0; i < btns.length; i++) btns[i].classList.remove("cov-type-active");
+    btn.classList.add("cov-type-active");
+    var rows = btn.closest(".view").querySelectorAll("tr[data-vt]");
+    for (var i = 0; i < rows.length; i++) {
+      if (vt === "ALL" || rows[i].getAttribute("data-vt") === vt) {
+        rows[i].style.display = "";
+      } else {
+        rows[i].style.display = "none";
+      }
+    }
+  };
+
   // ── Search ─────────────────────────────────────────────────────
   function initSearch() {
     var input = document.getElementById("searchInput");

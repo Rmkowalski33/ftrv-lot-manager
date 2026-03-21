@@ -1289,10 +1289,27 @@ var Views = (function () {
       var cov = buildCoverageData(units);
       var modelData = cov.modelData, makeGroups = cov.makeGroups, sortedMakeKeys = cov.sortedMakeKeys;
 
+      // Collect unique veh types
+      var vtSet = {};
+      for (var gi = 0; gi < sortedMakeKeys.length; gi++) {
+        var vt = sortedMakeKeys[gi].split("|")[0];
+        vtSet[vt] = (vtSet[vt] || 0) + 1;
+      }
+      var VT_ORDER = ["TT", "FW", "TH", "MH"];
+      var vtList = VT_ORDER.filter(function(v) { return vtSet[v]; });
+
       var h = '<div class="view">';
       h += backBtn("coverage", "Coverage");
       h += '<div class="section-header" style="margin-top:0;">Coverage Matrix</div>'
-        + '<div style="font-size:18px;color:var(--text-3);margin-bottom:12px;">Which models are on display vs. sitting in overflow or missing entirely</div>';
+        + '<div style="font-size:18px;color:var(--text-3);margin-bottom:8px;">Which models are on display vs. sitting in overflow or missing entirely</div>';
+
+      // Type filter buttons
+      h += '<div class="cov-type-filters" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">';
+      h += '<button class="cov-type-btn cov-type-active" data-vt="ALL" onclick="window._covFilter(this,\'ALL\')">ALL</button>';
+      for (var vi = 0; vi < vtList.length; vi++) {
+        h += '<button class="cov-type-btn" data-vt="' + vtList[vi] + '" onclick="window._covFilter(this,\'' + vtList[vi] + '\')">' + vtList[vi] + '</button>';
+      }
+      h += '</div>';
 
       h += '<div class="cov-table-wrap"><table class="cov-table">';
       h += '<thead><tr><th class="cov-th-sticky">Model</th>'
@@ -1307,7 +1324,7 @@ var Views = (function () {
         var gTotal = 0;
         for (var ki = 0; ki < gKeys.length; ki++) gTotal += modelData[gKeys[ki]].total;
 
-        h += '<tr class="cov-make-row"><td colspan="8" class="cov-th-sticky">'
+        h += '<tr class="cov-make-row" data-vt="' + esc(gVt) + '"><td colspan="8" class="cov-th-sticky">'
           + '<span class="cov-vt-badge">' + esc(gVt) + '</span> '
           + esc(gMake) + ' <span class="cov-make-count">(' + gTotal + ')</span></td></tr>';
 
@@ -1320,7 +1337,7 @@ var Views = (function () {
           if (md.showroom === 0 && md.display === 0) gapClass = " cov-gap-critical";
           else if (missing.length > 0) gapClass = " cov-gap-warn";
 
-          h += '<tr class="cov-model-row' + gapClass + '">'
+          h += '<tr class="cov-model-row' + gapClass + '" data-vt="' + esc(gVt) + '">'
             + '<td class="cov-th-sticky cov-model-name">' + esc(md.model) + '</td>'
             + '<td class="cov-num">' + md.total + '</td>'
             + '<td class="cov-num' + (md.showroom > 0 ? ' cov-has' : ' cov-empty') + '">' + (md.showroom || '') + '</td>'
@@ -1353,10 +1370,27 @@ var Views = (function () {
       var cov = buildCoverageData(units);
       var modelData = cov.modelData, makeGroups = cov.makeGroups, sortedMakeKeys = cov.sortedMakeKeys;
 
+      // Collect unique veh types
+      var vtSet2 = {};
+      for (var gi = 0; gi < sortedMakeKeys.length; gi++) {
+        var vt2 = sortedMakeKeys[gi].split("|")[0];
+        vtSet2[vt2] = (vtSet2[vt2] || 0) + 1;
+      }
+      var VT_ORDER2 = ["TT", "FW", "TH", "MH"];
+      var vtList2 = VT_ORDER2.filter(function(v) { return vtSet2[v]; });
+
       var h = '<div class="view">';
       h += backBtn("coverage", "Coverage");
       h += '<div class="section-header" style="margin-top:0;">Zone Map</div>'
-        + '<div style="font-size:18px;color:var(--text-3);margin-bottom:12px;">Where each model sits across display zones — find what needs reorganized</div>';
+        + '<div style="font-size:18px;color:var(--text-3);margin-bottom:8px;">Where each model sits across display zones — find what needs reorganized</div>';
+
+      // Type filter buttons
+      h += '<div class="cov-type-filters" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">';
+      h += '<button class="cov-type-btn cov-type-active" data-vt="ALL" onclick="window._covFilter(this,\'ALL\')">ALL</button>';
+      for (var vi = 0; vi < vtList2.length; vi++) {
+        h += '<button class="cov-type-btn" data-vt="' + vtList2[vi] + '" onclick="window._covFilter(this,\'' + vtList2[vi] + '\')">' + vtList2[vi] + '</button>';
+      }
+      h += '</div>';
 
       h += '<div class="cov-table-wrap"><table class="cov-table cov-table-zone">';
       h += '<thead><tr><th class="cov-th-sticky">Model</th>'
@@ -1376,7 +1410,7 @@ var Views = (function () {
         for (var ki = 0; ki < gKeys.length; ki++) gTotal += modelData[gKeys[ki]].total;
 
         var nCols = 3 + DISP_LABELS.length;
-        h += '<tr class="cov-make-row"><td colspan="' + nCols + '" class="cov-th-sticky">'
+        h += '<tr class="cov-make-row" data-vt="' + esc(gVt) + '"><td colspan="' + nCols + '" class="cov-th-sticky">'
           + '<span class="cov-vt-badge">' + esc(gVt) + '</span> '
           + esc(gMake) + ' <span class="cov-make-count">(' + gTotal + ')</span></td></tr>';
 
@@ -1385,7 +1419,7 @@ var Views = (function () {
           var onFloor = md.showroom + md.display;
           var rowClass = onFloor === 0 && md.total > 0 ? " cov-gap-critical" : "";
 
-          h += '<tr class="cov-model-row' + rowClass + '">'
+          h += '<tr class="cov-model-row' + rowClass + '" data-vt="' + esc(gVt) + '">'
             + '<td class="cov-th-sticky cov-model-name">' + esc(md.model) + '</td>'
             + '<td class="cov-num' + (md.showroom > 0 ? ' cov-has' : '') + '">' + (md.showroom || '') + '</td>';
 

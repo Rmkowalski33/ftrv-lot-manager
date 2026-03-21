@@ -602,6 +602,14 @@ thead .cov-th-sticky { background: var(--surface-3); }
 .cov-table-zone th, .cov-table-zone td { padding: 8px 6px; min-width: 36px; }
 
 /* Legend */
+.cov-type-btn {
+  padding: 8px 16px; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface-2); color: var(--text-2); font-size: 14px; font-weight: 700;
+  cursor: pointer; transition: all 0.15s;
+}
+.cov-type-btn.cov-type-active {
+  background: var(--blue); color: #fff; border-color: var(--blue);
+}
 .cov-legend {
   display: flex; flex-wrap: wrap; gap: 14px; padding: 12px 0;
   font-size: 14px; color: var(--text-3);
