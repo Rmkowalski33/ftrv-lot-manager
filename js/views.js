@@ -294,9 +294,9 @@ var Views = (function () {
           h += '<div class="text-center text-muted" style="font-size:12px;padding:8px 0;">Data as of ' + esc(exportedAt) + '</div>';
         }
 
-        // Powered by RAY.i footer — transparent background
-        h += '<div style="padding:8px 0 4px;text-align:center;">'
-          + '<img src="img/powered-by-rayi.png" alt="Powered by RAY.i" style="width:55%;max-width:240px;opacity:0.7;" />'
+        // Powered by RAY.i footer — transparent, centered
+        h += '<div style="padding:12px 0 8px;display:flex;justify-content:center;align-items:center;">'
+          + '<img src="img/powered-by-rayi.png" alt="Powered by RAY.i" style="width:50%;max-width:220px;opacity:0.8;" />'
           + '</div>';
 
         h += '</div></div>';
@@ -445,7 +445,49 @@ var Views = (function () {
       }
     }
 
-    // Duplicates (same make + model)
+    // ── Duplicate Models (same make + model, different units) ──
+    if (allUnits && u.make && u.model) {
+      var dupes = allUnits.filter(function (o) {
+        return o.stock_num !== u.stock_num
+          && (o.make || "").toUpperCase() === (u.make || "").toUpperCase()
+          && (o.model || "").toUpperCase() === (u.model || "").toUpperCase();
+      });
+
+      if (dupes.length > 0) {
+        // Sort by status days descending (longest first)
+        dupes.sort(function (a, b) {
+          return (parseInt(b.status_days) || 0) - (parseInt(a.status_days) || 0);
+        });
+
+        h += '<div class="card mt-16"><div class="card-title">Duplicate Models (' + dupes.length + ')</div>';
+        h += '<div style="font-size:13px;color:var(--text-3);margin-bottom:8px;">Same make &amp; model across the lot</div>';
+
+        for (var di = 0; di < dupes.length; di++) {
+          var dup = dupes[di];
+          var dupSt = (dup.status || "").toUpperCase();
+          var statusColor = 'var(--text-2)';
+          if (dupSt === 'READY FOR SALE' || dupSt === 'RVASAP' || dupSt === 'SHOWROOM') statusColor = 'var(--green)';
+          else if (dupSt === 'SALE PENDING') statusColor = 'var(--orange)';
+          else if (dupSt === 'IN SERVICE' || dupSt === 'AWAITING PARTS' || dupSt === 'DAMAGED') statusColor = 'var(--red)';
+          else if (dupSt === 'SHIPPED' || dupSt === 'DISPATCHED' || dupSt === 'ORDERED' || dupSt === 'PO ISSUED') statusColor = 'var(--blue)';
+
+          var statusDays = dup.status_days != null ? dup.status_days + 'd in status' : '';
+
+          h += '<div class="result-card" style="margin-bottom:6px;padding:12px 16px;" data-action="detail" data-stock="' + esc(dup.stock_num) + '">'
+            + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+            + '<span style="font-size:18px;font-weight:700;">' + esc(dup.year) + ' ' + esc(dup.make) + ' ' + esc(dup.model) + '</span>'
+            + '<span style="font-size:14px;font-weight:700;color:' + statusColor + ';">' + esc(dup.status || '') + '</span>'
+            + '</div>'
+            + '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">'
+            + '<span style="font-size:14px;color:var(--text-2);">Stk# ' + esc(dup.stock_num) + ' &middot; ' + esc(dup.lot_location || 'No Lot') + '</span>'
+            + '<span style="font-size:13px;color:var(--text-3);">' + statusDays + '</span>'
+            + '</div></div>';
+        }
+        h += '</div>';
+      }
+    }
+
+    // Legacy dupeSection placeholder (kept for backward compat)
     h += '<div id="dupeSection" data-make="' + esc(u.make) + '" data-model="' + esc(u.model) + '" data-stock="' + esc(u.stock_num) + '"></div>';
     h += '</div>';
     return h;
