@@ -294,9 +294,9 @@ var Views = (function () {
           h += '<div class="text-center text-muted" style="font-size:12px;padding:8px 0;">Data as of ' + esc(exportedAt) + '</div>';
         }
 
-        // Powered by RAY.i footer
-        h += '<div style="padding:8px 0 4px;text-align:center;">'
-          + '<img src="img/powered-by-rayi.jpg" alt="Powered by RAY.i" style="width:80%;max-width:320px;border-radius:12px;opacity:0.85;" />'
+        // Powered by RAY.i footer — feathered edges blend into background
+        h += '<div style="padding:4px 0 0;text-align:center;">'
+          + '<img src="img/powered-by-rayi.jpg" alt="Powered by RAY.i" style="width:100%;max-width:375px;" />'
           + '</div>';
 
         h += '</div></div>';
