@@ -832,6 +832,42 @@ var Views = (function () {
   // ══════════════════════════════════════════════════════════════
   // MAKES VIEW — Manufacturer → Make → Model → Units
   // ══════════════════════════════════════════════════════════════
+  // ── Reusable type filter buttons ──
+  function renderTypeFilters(units, filterFnName) {
+    var vtCounts = {};
+    for (var i = 0; i < units.length; i++) {
+      var vt = (units[i].veh_type || "Other").toUpperCase();
+      vtCounts[vt] = (vtCounts[vt] || 0) + 1;
+    }
+    var vtKeys = Object.keys(vtCounts).sort();
+    if (vtKeys.length <= 1) return ''; // no point filtering one type
+    var h = '<div class="cov-type-filters" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">';
+    h += '<button class="cov-type-btn cov-type-active" data-vt="ALL" onclick="window.' + filterFnName + '(this,\'ALL\')">ALL (' + units.length + ')</button>';
+    for (var vi = 0; vi < vtKeys.length; vi++) {
+      h += '<button class="cov-type-btn" data-vt="' + vtKeys[vi] + '" onclick="window.' + filterFnName + '(this,\'' + vtKeys[vi] + '\')">' + vtKeys[vi] + ' (' + vtCounts[vtKeys[vi]] + ')</button>';
+    }
+    h += '</div>';
+    return h;
+  }
+
+  // Generic filter handler — hides/shows cards by data-vt attribute
+  window._typeCardFilter = function (btn, vt) {
+    var wrap = btn.parentElement.parentElement;
+    var btns = btn.parentElement.querySelectorAll('.cov-type-btn');
+    for (var i = 0; i < btns.length; i++) btns[i].classList.remove('cov-type-active');
+    btn.classList.add('cov-type-active');
+    var cards = wrap.querySelectorAll('[data-vt]');
+    for (var i = 0; i < cards.length; i++) {
+      var el = cards[i];
+      if (el.tagName === 'BUTTON') continue; // skip filter buttons themselves
+      if (vt === 'ALL' || el.getAttribute('data-vt') === vt) {
+        el.style.display = '';
+      } else {
+        el.style.display = 'none';
+      }
+    }
+  };
+
   function makesView() {
     return DB.getAllUnits().then(function (units) {
       var byMfr = {};
@@ -853,17 +889,28 @@ var Views = (function () {
         + '<div class="stat-pill"><div class="stat-val text-green">' + units.length + '</div><div class="stat-label">Units</div></div>'
         + '</div>';
 
-      // Manufacturer tiles
+      // Manufacturer tiles with type filters
       h += '<div class="section-header">Manufacturers</div>';
+      h += renderTypeFilters(units, '_typeCardFilter');
       var sorted = mfrKeys.sort();
       for (var mi = 0; mi < sorted.length; mi++) {
         var mfr = sorted[mi];
         var mu = byMfr[mfr];
         var pct = Math.round(mu.length / units.length * 100);
-        // Count unique makes
+        // Count unique makes and determine primary vehicle type
         var makesInMfr = {};
-        for (var i = 0; i < mu.length; i++) makesInMfr[mu[i].make || ""] = true;
-        h += '<div class="card card-interactive" data-action="make-detail" data-manufacturer="' + esc(mfr) + '">'
+        var vtInMfr = {};
+        for (var i = 0; i < mu.length; i++) {
+          makesInMfr[mu[i].make || ""] = true;
+          var uvt = (mu[i].veh_type || "Other").toUpperCase();
+          vtInMfr[uvt] = (vtInMfr[uvt] || 0) + 1;
+        }
+        // Get all veh types for this manufacturer (for multi-type filtering)
+        var mfrVtKeys = Object.keys(vtInMfr);
+        // Use first (most common) type as data-vt for filtering
+        mfrVtKeys.sort(function(a,b) { return vtInMfr[b] - vtInMfr[a]; });
+        var primaryVt = mfrVtKeys[0] || "";
+        h += '<div class="card card-interactive" data-action="make-detail" data-manufacturer="' + esc(mfr) + '" data-vt="' + esc(primaryVt) + '">'
           + '<div style="display:flex;justify-content:space-between;align-items:center;">'
           + '<div><div style="font-size:20px;font-weight:700;">' + esc(mfr) + '</div>'
           + '<div style="font-size:18px;color:var(--text-3);">' + Object.keys(makesInMfr).length + ' make' + (Object.keys(makesInMfr).length > 1 ? 's' : '') + '</div></div>'
@@ -902,13 +949,21 @@ var Views = (function () {
 
       var makeKeys = Object.keys(byMake).sort();
       h += '<div class="section-header">Makes</div>';
+      h += renderTypeFilters(mfrUnits, '_typeCardFilter');
       for (var mi = 0; mi < makeKeys.length; mi++) {
         var make = makeKeys[mi];
         var mu = byMake[make];
-        // Count models
+        // Count models and get primary type
         var models = {};
-        for (var i = 0; i < mu.length; i++) models[mu[i].model || ""] = true;
-        h += '<div class="card card-interactive" data-action="model-units" data-make="' + esc(make) + '" data-manufacturer="' + esc(manufacturer) + '">'
+        var vtInMake = {};
+        for (var i = 0; i < mu.length; i++) {
+          models[mu[i].model || ""] = true;
+          var uvt = (mu[i].veh_type || "Other").toUpperCase();
+          vtInMake[uvt] = (vtInMake[uvt] || 0) + 1;
+        }
+        var makeVtKeys = Object.keys(vtInMake).sort(function(a,b) { return vtInMake[b] - vtInMake[a]; });
+        var makePrimaryVt = makeVtKeys[0] || "";
+        h += '<div class="card card-interactive" data-action="model-units" data-make="' + esc(make) + '" data-manufacturer="' + esc(manufacturer) + '" data-vt="' + esc(makePrimaryVt) + '">'
           + '<div style="display:flex;justify-content:space-between;align-items:center;">'
           + '<div><div style="font-size:20px;font-weight:700;">' + esc(make) + '</div>'
           + '<div style="font-size:18px;color:var(--text-3);">' + Object.keys(models).length + ' model' + (Object.keys(models).length > 1 ? 's' : '') + '</div></div>'
