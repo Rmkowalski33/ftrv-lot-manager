@@ -289,13 +289,15 @@ var Views = (function () {
             + '</div>';
         }
 
-        // Data freshness + RAY.i branding
+        // Data freshness
         if (exportedAt) {
-          h += '<div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;opacity:0.6;">'
-            + '<img src="img/rayi-logo.png" alt="" style="height:20px;width:auto;" />'
-            + '<span class="text-muted" style="font-size:12px;">Data as of ' + esc(exportedAt) + '</span>'
-            + '</div>';
+          h += '<div class="text-center text-muted" style="font-size:12px;padding:8px 0;">Data as of ' + esc(exportedAt) + '</div>';
         }
+
+        // Powered by RAY.i footer
+        h += '<div style="padding:8px 0 4px;text-align:center;">'
+          + '<img src="img/powered-by-rayi.jpg" alt="Powered by RAY.i" style="width:80%;max-width:320px;border-radius:12px;opacity:0.85;" />'
+          + '</div>';
 
         h += '</div></div>';
         return h;
