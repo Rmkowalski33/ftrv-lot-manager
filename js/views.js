@@ -238,7 +238,7 @@ var Views = (function () {
         // Search box
         h += '<div class="search-box">'
           + '<svg class="search-icon" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="7" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="15.5" y1="15.5" x2="21" y2="21" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>'
-          + '<input class="search-input" type="text" id="searchInput" placeholder="Stock#, VIN, Make, Model..." autocomplete="off" autocapitalize="characters">'
+          + '<input class="search-input" type="text" id="searchInput" placeholder="Stock# or VIN (last 8)..." autocomplete="off" autocapitalize="characters">'
           + '<button class="search-clear" id="searchClear">&times;</button>'
           + '</div>';
         h += '<div id="searchResults"></div>';
@@ -572,26 +572,43 @@ var Views = (function () {
       }
       h += '</div>';
 
-      // Cross-filters
-      h += renderCrossFilters(units, "lots");
+      // Overflow zone grid
+      h += '<div class="section-header">Overflow</div>';
+      h += '<div class="lot-grid">';
+      var overflowCodes = ["OVR01","OVR02","OVR03","OVRB"];
+      for (var oi = 0; oi < overflowCodes.length; oi++) {
+        var ocode = overflowCodes[oi];
+        var ocount = 0;
+        for (var j = 0; j < units.length; j++) {
+          var olot = (units[j].lot_location || "").toUpperCase().replace("CLE-", "");
+          if (olot.indexOf(ocode) === 0) ocount++;
+        }
+        if (ocount > 0) {
+          h += '<div class="lot-cell" data-action="zone-detail" data-zone="' + ocode + '">'
+            + '<div class="lot-cell-code">' + ocode + '</div>'
+            + '<div class="lot-cell-count">' + ocount + '</div>'
+            + '</div>';
+        }
+      }
+      h += '</div>';
 
-      // All Areas
-      h += '<div class="section-header">All Areas</div>';
-      var sortedAreas = Object.keys(areas).sort(function (a, b) {
-        var ai = AREA_ORDER.indexOf(a), bi = AREA_ORDER.indexOf(b);
-        if (ai === -1) ai = 99;
-        if (bi === -1) bi = 99;
-        return ai - bi;
-      });
-      for (var ai = 0; ai < sortedAreas.length; ai++) {
-        var area = sortedAreas[ai];
-        var au = areas[area];
-        h += '<div class="card card-interactive" data-action="area-detail" data-area="' + esc(area) + '">'
+      // Other areas grid
+      var OTHER_AREAS = ["Service Parking","PDI Bay","QAC Bay","Wash","Walk Thru","Receiving Line",
+                         "Sold/Sale Pending","RV Park","Trade Check-In","Showroom","OTHER / OFF-SITE","UNASSIGNED"];
+      h += '<div class="section-header">Other Areas</div>';
+      for (var oa = 0; oa < OTHER_AREAS.length; oa++) {
+        var oaName = OTHER_AREAS[oa];
+        var oaUnits = areas[oaName];
+        if (!oaUnits || oaUnits.length === 0) continue;
+        h += '<div class="card card-interactive" data-action="area-detail" data-area="' + esc(oaName) + '">'
           + '<div style="display:flex;justify-content:space-between;align-items:center;">'
-          + '<span style="font-size:20px;font-weight:600;">' + esc(area) + '</span>'
-          + '<span class="stat-val text-blue" style="font-size:28px;">' + au.length + '</span>'
+          + '<span style="font-size:16px;font-weight:600;">' + esc(oaName) + '</span>'
+          + '<span class="stat-val text-blue" style="font-size:24px;">' + oaUnits.length + '</span>'
           + '</div></div>';
       }
+
+      // Cross-filters
+      h += renderCrossFilters(units, "lots");
       h += '</div>';
       return h;
     });
@@ -838,7 +855,7 @@ var Views = (function () {
 
       // Manufacturer tiles
       h += '<div class="section-header">Manufacturers</div>';
-      var sorted = mfrKeys.sort(function (a, b) { return byMfr[b].length - byMfr[a].length; });
+      var sorted = mfrKeys.sort();
       for (var mi = 0; mi < sorted.length; mi++) {
         var mfr = sorted[mi];
         var mu = byMfr[mfr];
@@ -883,7 +900,7 @@ var Views = (function () {
         byMake[make].push(mfrUnits[i]);
       }
 
-      var makeKeys = Object.keys(byMake).sort(function (a, b) { return byMake[b].length - byMake[a].length; });
+      var makeKeys = Object.keys(byMake).sort();
       h += '<div class="section-header">Makes</div>';
       for (var mi = 0; mi < makeKeys.length; mi++) {
         var make = makeKeys[mi];
@@ -1276,7 +1293,7 @@ var Views = (function () {
       return pa[1] < pb[1] ? -1 : pa[1] > pb[1] ? 1 : 0;
     });
     for (var mk in makeGroups) {
-      makeGroups[mk].sort(function (a, b) { return modelData[b].total - modelData[a].total; });
+      makeGroups[mk].sort(function (a, b) { return a < b ? -1 : a > b ? 1 : 0; });
     }
 
     return { modelData: modelData, makeGroups: makeGroups, sortedMakeKeys: sortedMakeKeys };
