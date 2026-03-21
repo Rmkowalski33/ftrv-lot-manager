@@ -221,14 +221,28 @@ var App = (function () {
       + '<div class="skeleton" style="height:80px;"></div></div>';
 
     renderPromise.then(function (html) {
-      container.innerHTML = html;
-      container.scrollTop = 0;
-
-      // Post-render hooks
-      if (view === "home") initSearch();
-      if (view === "detail") loadDupes(param);
-      if (view === "note-form") initNoteForm();
-      if (view === "audit-status") initAuditFilters();
+      // Inject "Data as of" timestamp at top of every view
+      DB.getMeta("exported_at").then(function (exportedAt) {
+        if (exportedAt) {
+          var ts = '<div style="text-align:right;font-size:11px;color:var(--text-3);padding:2px 8px 0;opacity:0.7;">Updated ' + exportedAt + '</div>';
+          container.innerHTML = ts + html;
+        } else {
+          container.innerHTML = html;
+        }
+        container.scrollTop = 0;
+        // Post-render hooks
+        if (view === "home") initSearch();
+        if (view === "detail") loadDupes(param);
+        if (view === "note-form") initNoteForm();
+        if (view === "audit-status") initAuditFilters();
+      }).catch(function () {
+        container.innerHTML = html;
+        container.scrollTop = 0;
+        if (view === "home") initSearch();
+        if (view === "detail") loadDupes(param);
+        if (view === "note-form") initNoteForm();
+        if (view === "audit-status") initAuditFilters();
+      });
     });
   }
 
