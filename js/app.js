@@ -23,7 +23,7 @@ var App = (function () {
   // ── Tab mapping: view → which tab to highlight ─────────────────
   var TAB_MAP = {
     "home": "home", "search": "home", "detail": "home",
-    "lots": "home", "area-detail": "home", "zone-detail": "home",
+    "lots": "home", "lot-map": "home", "area-detail": "home", "zone-detail": "home",
     "status": "home", "status-cat": "home", "status-units": "home",
     "makes": "home", "make-detail": "home", "model-units": "home",
     "shop": "home", "shop-body": "home", "shop-layout": "home",
@@ -119,6 +119,9 @@ var App = (function () {
         break;
       case "lots":
         renderPromise = Views.lotsView();
+        break;
+      case "lot-map":
+        renderPromise = Views.lotMapView();
         break;
       case "area-detail":
         renderPromise = Views.areaDetailView(param);

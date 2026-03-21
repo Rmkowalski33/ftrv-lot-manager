@@ -289,9 +289,12 @@ var Views = (function () {
             + '</div>';
         }
 
-        // Data freshness
+        // Data freshness + RAY.i branding
         if (exportedAt) {
-          h += '<div class="text-center text-muted" style="font-size:18px;padding:12px;">Data as of ' + esc(exportedAt) + '</div>';
+          h += '<div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;opacity:0.6;">'
+            + '<img src="img/rayi-logo.png" alt="" style="height:20px;width:auto;" />'
+            + '<span class="text-muted" style="font-size:12px;">Data as of ' + esc(exportedAt) + '</span>'
+            + '</div>';
         }
 
         h += '</div></div>';
@@ -464,6 +467,12 @@ var Views = (function () {
       }
 
       var h = '<div class="view">';
+
+      // Lot Map quick-access
+      h += '<a href="#lot-map" style="display:flex;align-items:center;gap:10px;padding:12px 16px;margin-bottom:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);text-decoration:none;color:inherit;">'
+        + '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="var(--copper)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>'
+        + '<div><div style="font-size:16px;font-weight:600;">CLE Lot Map</div>'
+        + '<div style="font-size:12px;color:var(--text-3);">View full lot layout</div></div></a>';
 
       // Display zone grid
       h += '<div class="section-header">Display Zones</div>';
@@ -2197,6 +2206,29 @@ var Views = (function () {
   }
 
   // ══════════════════════════════════════════════════════════════════
+  // LOT MAP VIEW
+  // ══════════════════════════════════════════════════════════════════
+
+  function lotMapView() {
+    var h = '<div class="section-title">CLE LOT MAP</div>';
+    h += '<p style="color:var(--text-3);font-size:13px;margin:0 0 12px;">Pinch to zoom · Swipe to pan</p>';
+
+    h += '<div style="margin-bottom:16px;">';
+    h += '<div style="font-weight:600;margin-bottom:8px;color:var(--text-2);">Page 1 — Overview</div>';
+    h += '<div style="overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--border);border-radius:var(--radius);background:#fff;">';
+    h += '<img src="img/lot-map-p1.jpg" alt="CLE Lot Map Page 1" style="display:block;width:100%;min-width:600px;height:auto;" />';
+    h += '</div></div>';
+
+    h += '<div style="margin-bottom:16px;">';
+    h += '<div style="font-weight:600;margin-bottom:8px;color:var(--text-2);">Page 2 — Legend & Codes</div>';
+    h += '<div style="overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--border);border-radius:var(--radius);background:#fff;">';
+    h += '<img src="img/lot-map-p2.jpg" alt="CLE Lot Map Page 2" style="display:block;width:100%;min-width:600px;height:auto;" />';
+    h += '</div></div>';
+
+    return Promise.resolve(h);
+  }
+
+  // ══════════════════════════════════════════════════════════════════
   // INCOMING PIPELINE VIEWS
   // ══════════════════════════════════════════════════════════════════
 
@@ -2339,6 +2371,7 @@ var Views = (function () {
     shopView: shopView,
     shopBodyView: shopBodyView,
     shopLayoutView: shopLayoutView,
+    lotMapView: lotMapView,
     coverageTabView: coverageTabView,
     coverageView: coverageView,
     zoneMapView: zoneMapView,
