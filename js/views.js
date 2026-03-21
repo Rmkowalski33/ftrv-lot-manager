@@ -365,11 +365,14 @@ var Views = (function () {
       + fieldRow("Model", u.model) + fieldRow("Year", u.year)
       + '</div>';
 
-    // Location
+    // Location — with action buttons inside
     h += '<div class="card"><div class="card-title">Location</div>'
       + fieldRow("PC", u.pc) + fieldRow("Current Loc", u.current_loc)
       + fieldRow("Lot Location", u.lot_location) + fieldRow("Lot Area", u.lot_area)
-      + '</div>';
+      + '<div style="margin-top:12px;display:flex;gap:8px;">'
+      + '<a class="btn btn-blue" style="flex:1;" data-action="verify-note" data-stock="' + esc(u.stock_num) + '">Verify Location</a>'
+      + '<a class="btn btn-ghost" style="flex:1;" data-action="reorg-note" data-stock="' + esc(u.stock_num) + '">Suggest Move</a>'
+      + '</div></div>';
 
     // Product
     h += '<div class="card"><div class="card-title">Product</div>'
@@ -385,114 +388,145 @@ var Views = (function () {
         + '</div>';
     }
 
-    // Actions
-    h += '<div style="margin-top:8px;">'
-      + '<a class="btn btn-blue mb-8" data-action="verify-note" data-stock="' + esc(u.stock_num) + '">Verify Location</a>'
-      + '<a class="btn btn-ghost" data-action="reorg-note" data-stock="' + esc(u.stock_num) + '">Suggest Move</a>'
-      + '</div>';
-
-    // ── Compare Similar Models ──
-    if (allUnits && u.veh_type && u.body_style) {
-      var similar = allUnits.filter(function (o) {
-        return o.stock_num !== u.stock_num
-          && o.veh_type === u.veh_type
-          && o.body_style === u.body_style;
-      });
-      // Prefer same floor layout
-      var exactLayout = similar.filter(function (o) { return o.floor_layout === u.floor_layout; });
-
-      if (similar.length > 0) {
-        h += '<div class="card mt-16"><div class="card-title">Compare Similar Models</div>';
-
-        // Group by price group
-        var byPG = {};
-        var targets = exactLayout.length > 0 ? exactLayout : similar;
-        for (var i = 0; i < targets.length; i++) {
-          var pg = priceGroup(targets[i].retail_price);
-          if (!byPG[pg]) byPG[pg] = [];
-          byPG[pg].push(targets[i]);
-        }
-
-        var pgOrder = ["Under $20K","$20K–$40K","$40K–$60K","$60K–$80K","$80K–$100K","$100K+","No Price"];
-        for (var pi = 0; pi < pgOrder.length; pi++) {
-          var pgUnits = byPG[pgOrder[pi]];
-          if (!pgUnits) continue;
-          // Sort by make then price
-          pgUnits.sort(function (a, b) {
-            var cmp = (a.make || "").localeCompare(b.make || "");
-            return cmp !== 0 ? cmp : priceNum(a.retail_price) - priceNum(b.retail_price);
-          });
-          h += '<div class="section-header" style="margin-top:12px;">' + pgOrder[pi] + ' (' + pgUnits.length + ')</div>';
-          for (var j = 0; j < Math.min(pgUnits.length, 10); j++) {
-            var s = pgUnits[j];
-            h += '<div class="result-card" style="margin-bottom:6px;padding:12px 16px;" data-action="detail" data-stock="' + esc(s.stock_num) + '">'
-              + '<div style="display:flex;justify-content:space-between;align-items:center;">'
-              + '<span style="font-size:20px;font-weight:700;">' + esc(s.year) + ' ' + esc(s.make) + ' ' + esc(s.model) + '</span>'
-              + (fmtPrice(s.retail_price) ? '<span style="font-size:18px;font-weight:700;color:var(--green);">' + fmtPrice(s.retail_price) + '</span>' : '')
-              + '</div>'
-              + '<div style="font-size:18px;color:var(--text-2);margin-top:2px;">'
-              + esc(s.floor_layout || "") + ' &middot; Stk# ' + esc(s.stock_num) + ' &middot; ' + esc(s.lot_location || "No Lot")
-              + '</div></div>';
-          }
-        }
-
-        if (exactLayout.length > 0 && similar.length > exactLayout.length) {
-          h += '<div class="text-center text-muted" style="padding:8px;font-size:18px;">'
-            + 'Showing ' + exactLayout.length + ' with same layout. '
-            + (similar.length - exactLayout.length) + ' more with same type &amp; body style.</div>';
-        }
-        h += '</div>';
-      }
-    }
-
-    // ── Duplicate Models (same make + model, different units) ──
+    // ── Navigation buttons for Duplicates & Similar ──
+    // Count duplicates (same make + model)
+    var dupeCount = 0;
     if (allUnits && u.make && u.model) {
-      var dupes = allUnits.filter(function (o) {
-        return o.stock_num !== u.stock_num
-          && (o.make || "").toUpperCase() === (u.make || "").toUpperCase()
-          && (o.model || "").toUpperCase() === (u.model || "").toUpperCase();
-      });
-
-      if (dupes.length > 0) {
-        // Sort by status days descending (longest first)
-        dupes.sort(function (a, b) {
-          return (parseInt(b.status_days) || 0) - (parseInt(a.status_days) || 0);
-        });
-
-        h += '<div class="card mt-16"><div class="card-title">Duplicate Models (' + dupes.length + ')</div>';
-        h += '<div style="font-size:13px;color:var(--text-3);margin-bottom:8px;">Same make &amp; model across the lot</div>';
-
-        for (var di = 0; di < dupes.length; di++) {
-          var dup = dupes[di];
-          var dupSt = (dup.status || "").toUpperCase();
-          var statusColor = 'var(--text-2)';
-          if (dupSt === 'READY FOR SALE' || dupSt === 'RVASAP' || dupSt === 'SHOWROOM') statusColor = 'var(--green)';
-          else if (dupSt === 'SALE PENDING') statusColor = 'var(--orange)';
-          else if (dupSt === 'IN SERVICE' || dupSt === 'AWAITING PARTS' || dupSt === 'DAMAGED') statusColor = 'var(--red)';
-          else if (dupSt === 'SHIPPED' || dupSt === 'DISPATCHED' || dupSt === 'ORDERED' || dupSt === 'PO ISSUED') statusColor = 'var(--blue)';
-
-          var statusDays = dup.status_days != null ? dup.status_days + 'd in status' : '';
-
-          h += '<div class="result-card" style="margin-bottom:6px;padding:12px 16px;" data-action="detail" data-stock="' + esc(dup.stock_num) + '">'
-            + '<div style="display:flex;justify-content:space-between;align-items:center;">'
-            + '<span style="font-size:18px;font-weight:700;">' + esc(dup.year) + ' ' + esc(dup.make) + ' ' + esc(dup.model) + '</span>'
-            + '<span style="font-size:14px;font-weight:700;color:' + statusColor + ';">' + esc(dup.status || '') + '</span>'
-            + '</div>'
-            + '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">'
-            + '<span style="font-size:14px;color:var(--text-2);">Stk# ' + esc(dup.stock_num) + ' &middot; ' + esc(dup.lot_location || 'No Lot') + '</span>'
-            + '<span style="font-size:13px;color:var(--text-3);">' + statusDays + '</span>'
-            + '</div></div>';
-        }
-        h += '</div>';
+      for (var di = 0; di < allUnits.length; di++) {
+        if (allUnits[di].stock_num !== u.stock_num
+            && (allUnits[di].make || "").toUpperCase() === (u.make || "").toUpperCase()
+            && (allUnits[di].model || "").toUpperCase() === (u.model || "").toUpperCase()) dupeCount++;
+      }
+    }
+    // Count similar (same type + body style)
+    var similarCount = 0;
+    if (allUnits && u.veh_type && u.body_style) {
+      for (var si = 0; si < allUnits.length; si++) {
+        if (allUnits[si].stock_num !== u.stock_num
+            && allUnits[si].veh_type === u.veh_type
+            && allUnits[si].body_style === u.body_style) similarCount++;
       }
     }
 
-    // Legacy dupeSection placeholder (kept for backward compat)
-    h += '<div id="dupeSection" data-make="' + esc(u.make) + '" data-model="' + esc(u.model) + '" data-stock="' + esc(u.stock_num) + '"></div>';
+    h += '<div style="margin-top:16px;display:flex;flex-direction:column;gap:8px;">';
+    if (dupeCount > 0) {
+      h += '<a class="card card-interactive" href="#unit-dupes/' + encodeURIComponent(u.stock_num) + '" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">'
+        + '<div><div style="font-size:16px;font-weight:600;">Duplicate Make &amp; Models</div>'
+        + '<div style="font-size:13px;color:var(--text-3);">Same ' + esc(u.make) + ' ' + esc(u.model) + '</div></div>'
+        + '<span class="stat-val" style="font-size:24px;color:var(--orange);">' + dupeCount + '</span></a>';
+    }
+    if (similarCount > 0) {
+      h += '<a class="card card-interactive" href="#unit-similar/' + encodeURIComponent(u.stock_num) + '" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">'
+        + '<div><div style="font-size:16px;font-weight:600;">Compare Similar Models</div>'
+        + '<div style="font-size:13px;color:var(--text-3);">Same ' + esc(u.veh_type) + ' / ' + esc(u.body_style) + '</div></div>'
+        + '<span class="stat-val" style="font-size:24px;color:var(--blue);">' + similarCount + '</span></a>';
+    }
+    h += '</div>';
     h += '</div>';
     return h;
   }
 
+
+  // ══════════════════════════════════════════════════════════════
+  // UNIT DUPLICATES VIEW — same make + model
+  // ══════════════════════════════════════════════════════════════
+  function unitDupesView(stockNum) {
+    return DB.getUnit(stockNum).then(function (u) {
+      if (!u) return '<div class="view">' + backBtn("home", "Home") + '<div class="empty-state">Unit not found</div></div>';
+      return DB.getAllUnits().then(function (allUnits) {
+        var dupes = allUnits.filter(function (o) {
+          return o.stock_num !== u.stock_num
+            && (o.make || "").toUpperCase() === (u.make || "").toUpperCase()
+            && (o.model || "").toUpperCase() === (u.model || "").toUpperCase();
+        });
+        dupes.sort(function (a, b) {
+          return (parseInt(b.status_days) || 0) - (parseInt(a.status_days) || 0);
+        });
+
+        var h = '<div class="view">';
+        h += backBtn("detail/" + encodeURIComponent(u.stock_num), "Unit Detail");
+        h += '<div class="section-title">DUPLICATE MAKE &amp; MODELS <span style="color:var(--orange);">(' + dupes.length + ')</span></div>';
+        h += '<p style="color:var(--text-3);font-size:13px;margin:0 0 12px;">Same ' + esc(u.make) + ' ' + esc(u.model) + ' across the lot</p>';
+
+        for (var i = 0; i < dupes.length; i++) {
+          var d = dupes[i];
+          var st = (d.status || "").toUpperCase();
+          var stColor = 'var(--text-2)';
+          if (st === 'READY FOR SALE' || st === 'RVASAP' || st === 'SHOWROOM') stColor = 'var(--green)';
+          else if (st === 'SALE PENDING') stColor = 'var(--orange)';
+          else if (st === 'IN SERVICE' || st === 'AWAITING PARTS' || st === 'DAMAGED') stColor = 'var(--red)';
+          else if (st === 'SHIPPED' || st === 'DISPATCHED' || st === 'ORDERED' || st === 'PO ISSUED') stColor = 'var(--blue)';
+          var sDays = d.status_days != null ? d.status_days + 'd in status' : '';
+
+          h += '<div class="result-card" style="margin-bottom:6px;padding:12px 16px;" data-action="detail" data-stock="' + esc(d.stock_num) + '">'
+            + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+            + '<span style="font-size:18px;font-weight:700;">' + esc(d.year) + ' ' + esc(d.make) + ' ' + esc(d.model) + '</span>'
+            + '<span style="font-size:14px;font-weight:700;color:' + stColor + ';">' + esc(d.status || '') + '</span>'
+            + '</div>'
+            + '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">'
+            + '<span style="font-size:14px;color:var(--text-2);">Stk# ' + esc(d.stock_num) + ' &middot; ' + esc(d.lot_location || 'No Lot') + '</span>'
+            + '<span style="font-size:13px;color:var(--text-3);">' + sDays + '</span>'
+            + '</div></div>';
+        }
+        if (dupes.length === 0) h += '<div style="color:var(--text-3);padding:12px;">No duplicates found</div>';
+        h += '</div>';
+        return h;
+      });
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // UNIT SIMILAR VIEW — same type + body style
+  // ══════════════════════════════════════════════════════════════
+  function unitSimilarView(stockNum) {
+    return DB.getUnit(stockNum).then(function (u) {
+      if (!u) return '<div class="view">' + backBtn("home", "Home") + '<div class="empty-state">Unit not found</div></div>';
+      return DB.getAllUnits().then(function (allUnits) {
+        var similar = allUnits.filter(function (o) {
+          return o.stock_num !== u.stock_num
+            && o.veh_type === u.veh_type
+            && o.body_style === u.body_style;
+        });
+        similar.sort(function (a, b) {
+          var cmp = (a.make || "").localeCompare(b.make || "");
+          return cmp !== 0 ? cmp : priceNum(a.retail_price) - priceNum(b.retail_price);
+        });
+
+        var h = '<div class="view">';
+        h += backBtn("detail/" + encodeURIComponent(u.stock_num), "Unit Detail");
+        h += '<div class="section-title">COMPARE SIMILAR MODELS <span style="color:var(--blue);">(' + similar.length + ')</span></div>';
+        h += '<p style="color:var(--text-3);font-size:13px;margin:0 0 12px;">Same ' + esc(u.veh_type) + ' / ' + esc(u.body_style) + '</p>';
+
+        // Group by price group
+        var byPG = {};
+        for (var i = 0; i < similar.length; i++) {
+          var pg = priceGroup(similar[i].retail_price);
+          if (!byPG[pg]) byPG[pg] = [];
+          byPG[pg].push(similar[i]);
+        }
+        var pgOrder = ["Under $20K","$20K\u2013$40K","$40K\u2013$60K","$60K\u2013$80K","$80K\u2013$100K","$100K+","No Price"];
+        for (var pi = 0; pi < pgOrder.length; pi++) {
+          var pgUnits = byPG[pgOrder[pi]];
+          if (!pgUnits) continue;
+          h += '<div class="section-header" style="margin-top:12px;">' + pgOrder[pi] + ' (' + pgUnits.length + ')</div>';
+          for (var j = 0; j < pgUnits.length; j++) {
+            var s = pgUnits[j];
+            h += '<div class="result-card" style="margin-bottom:6px;padding:12px 16px;" data-action="detail" data-stock="' + esc(s.stock_num) + '">'
+              + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+              + '<span style="font-size:18px;font-weight:700;">' + esc(s.year) + ' ' + esc(s.make) + ' ' + esc(s.model) + '</span>'
+              + (fmtPrice(s.retail_price) ? '<span style="font-size:16px;font-weight:700;color:var(--green);">' + fmtPrice(s.retail_price) + '</span>' : '')
+              + '</div>'
+              + '<div style="font-size:13px;color:var(--text-2);margin-top:4px;">'
+              + esc(s.floor_layout || "") + ' &middot; Stk# ' + esc(s.stock_num) + ' &middot; ' + esc(s.lot_location || "No Lot")
+              + '</div></div>';
+          }
+        }
+        if (similar.length === 0) h += '<div style="color:var(--text-3);padding:12px;">No similar models found</div>';
+        h += '</div>';
+        return h;
+      });
+    });
+  }
 
   // ══════════════════════════════════════════════════════════════
   // LOTS VIEW — Area → Zone → Units
@@ -2403,6 +2437,8 @@ var Views = (function () {
   return {
     homeView: homeView,
     unitDetailView: unitDetailView,
+    unitDupesView: unitDupesView,
+    unitSimilarView: unitSimilarView,
     lotsView: lotsView,
     areaDetailView: areaDetailView,
     zoneDetailView: zoneDetailView,
