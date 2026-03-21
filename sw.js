@@ -4,7 +4,7 @@
    by IndexedDB (see db.js), not the SW cache.
    ================================================================ */
 
-var CACHE_NAME = "ftrv-lot-v24";
+var CACHE_NAME = "ftrv-lot-v25";
 var APP_SHELL = [
   "./",
   "./index.html",
@@ -15,6 +15,9 @@ var APP_SHELL = [
   "./js/app.js",
   "./js/gate.js",
   "./manifest.json",
+  "./img/powered-by-rayi.png",
+  "./img/lot-map-p1.jpg",
+  "./img/lot-map-p2.jpg",
 ];
 
 // Install — cache the app shell
