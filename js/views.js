@@ -2217,6 +2217,25 @@ var Views = (function () {
       var soldToday = retailSold;
       var incoming = _getIncomingUnits(units);
 
+      // Sale pending in display/showroom — need to pull & replace
+      var spInDisplay = [];
+      for (var i = 0; i < units.length; i++) {
+        var u = units[i];
+        if ((u.status || "").toUpperCase() === "SALE PENDING") {
+          var area = (u.lot_area || "").toUpperCase();
+          if (area === "DISPLAY" || area === "SHOWROOM") spInDisplay.push(u);
+        }
+      }
+
+      // Retail ordered today
+      var roToday = [];
+      for (var i = 0; i < units.length; i++) {
+        var u = units[i];
+        if ((u.status || "").toUpperCase() === "RETAIL ORDERED" && (u.status_days === 0 || u.status_days === "0")) {
+          roToday.push(u);
+        }
+      }
+
       var h = '<div class="section-title">INVENTORY ACTIVITY</div>';
       h += '<p style="color:var(--text-3);font-size:13px;margin:0 0 16px;">Data as of ' + esc(exportedAt) + '</p>';
 
@@ -2235,6 +2254,18 @@ var Views = (function () {
         + '<div><div style="font-size:18px;font-weight:600;">Sale Pending Today</div>'
         + '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Units put into sale pending today</div></div>'
         + '<span class="stat-val" style="font-size:28px;color:var(--orange);">' + spToday.length + '</span></a>';
+
+      // Sale Pending in Display/Showroom — needs pulling
+      h += '<a class="card card-interactive" href="#sales-section/pending-display/ALL" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;border-left:3px solid var(--orange);">'
+        + '<div><div style="font-size:18px;font-weight:600;">Pending in Display</div>'
+        + '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Need to pull &amp; replace from overflow</div></div>'
+        + '<span class="stat-val" style="font-size:28px;color:var(--orange);">' + spInDisplay.length + '</span></a>';
+
+      // Retail Ordered Today
+      h += '<a class="card card-interactive" href="#sales-section/retail-ordered/ALL" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">'
+        + '<div><div style="font-size:18px;font-weight:600;">Retail Ordered Today</div>'
+        + '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Customer orders placed today</div></div>'
+        + '<span class="stat-val" style="font-size:28px;color:#a855f7;">' + roToday.length + '</span></a>';
 
       // Retail Sold tile
       h += '<a class="card card-interactive" href="#sales-section/sold/ALL" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">'
@@ -2285,6 +2316,29 @@ var Views = (function () {
       return DB.getAllUnits().then(function (units) {
         return _getSalePendingToday(units);
       });
+    } else if (section === "pending-display") {
+      return DB.getAllUnits().then(function (units) {
+        var results = [];
+        for (var i = 0; i < units.length; i++) {
+          var u = units[i];
+          if ((u.status || "").toUpperCase() === "SALE PENDING") {
+            var area = (u.lot_area || "").toUpperCase();
+            if (area === "DISPLAY" || area === "SHOWROOM") results.push(u);
+          }
+        }
+        return results;
+      });
+    } else if (section === "retail-ordered") {
+      return DB.getAllUnits().then(function (units) {
+        var results = [];
+        for (var i = 0; i < units.length; i++) {
+          var u = units[i];
+          if ((u.status || "").toUpperCase() === "RETAIL ORDERED" && (u.status_days === 0 || u.status_days === "0")) {
+            results.push(u);
+          }
+        }
+        return results;
+      });
     } else {
       return DB.getMeta("retail_sold_today").then(function (sold) {
         return sold || [];
@@ -2303,7 +2357,8 @@ var Views = (function () {
           if ((list[i].veh_type || "").toUpperCase() === vehType.toUpperCase()) filtered.push(list[i]);
         }
       }
-      var label = section === "pending" ? "Sale Pending Today" : "Retail Sold Today";
+      var labels = { "pending": "Sale Pending Today", "pending-display": "Pending in Display/Showroom", "retail-ordered": "Retail Ordered Today", "sold": "Retail Sold Today" };
+      var label = labels[section] || section;
       var suffix = vehType === "ALL" ? "" : " — " + vehType;
       return _renderSalesUnitList(filtered, label + suffix, section);
     });
@@ -2373,17 +2428,26 @@ var Views = (function () {
       var detailTarget = section === "pending"
         ? "detail/" + encodeURIComponent(u.stock_num)
         : "sales-units/sold/" + encodeURIComponent(u.stock_num);
-      var statusColor = section === "pending" ? "var(--orange)" : "var(--green)";
-      var statusLabel = section === "pending" ? "PENDING" : "SOLD";
+      var statusColors = { "pending": "var(--orange)", "pending-display": "var(--orange)", "retail-ordered": "#a855f7", "sold": "var(--green)" };
+      var statusLabels = { "pending": "PENDING", "pending-display": "PENDING", "retail-ordered": "RETAIL ORD", "sold": "SOLD" };
+      var statusColor = statusColors[section] || "var(--text-2)";
+      var statusLabel = statusLabels[section] || (u.status || "");
 
       h += '<a class="card card-interactive" href="#' + detailTarget + '" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">';
       h += '<div>';
       h += '<div style="font-size:18px;font-weight:600;">' + esc(u.year || "") + ' ' + esc(u.make || "") + ' ' + esc(u.model || "") + '</div>';
       h += '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">' + esc(u.stock_num || "") + ' · ' + esc(u.veh_type || "") + (u.floor_layout ? ' · ' + esc(u.floor_layout) : '') + '</div>';
+      // Show lot location for pending sections
+      if ((section === "pending" || section === "pending-display" || section === "retail-ordered") && u.lot_location) {
+        var locArea = (u.lot_area || "").toUpperCase();
+        var locColor = (locArea === "DISPLAY" || locArea === "SHOWROOM") ? "var(--orange)" : "var(--text-3)";
+        h += '<div style="font-size:12px;color:' + locColor + ';margin-top:2px;">' + esc(u.lot_location) + (u.lot_area ? ' (' + esc(u.lot_area) + ')' : '') + '</div>';
+      }
       h += '</div>';
       h += '<div style="text-align:right;">';
       if (u.retail_price) h += '<div style="font-size:14px;color:var(--text-2);">' + _fmtPrice(u.retail_price) + '</div>';
       h += '<div style="font-size:12px;font-weight:700;color:' + statusColor + ';">' + statusLabel + '</div>';
+      if (u.status_days != null) h += '<div style="font-size:11px;color:var(--text-3);">' + u.status_days + 'd</div>';
       h += '</div></a>';
     }
     return h;
