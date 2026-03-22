@@ -372,7 +372,15 @@ var Views = (function () {
       + '<div style="margin-top:12px;display:flex;gap:8px;">'
       + '<a class="btn btn-blue" style="flex:1;" data-action="verify-note" data-stock="' + esc(u.stock_num) + '">Verify Location</a>'
       + '<a class="btn btn-ghost" style="flex:1;" data-action="reorg-note" data-stock="' + esc(u.stock_num) + '">Suggest Move</a>'
-      + '</div></div>';
+      + '</div>';
+
+    // "Select Replacement" button for sale pending units in display/showroom
+    var isSP = (u.status || "").toUpperCase() === "SALE PENDING";
+    var inDisplay = (u.lot_area || "").toUpperCase() === "DISPLAY" || (u.lot_area || "").toUpperCase() === "SHOWROOM";
+    if (isSP && inDisplay) {
+      h += '<a class="btn" href="#replace-picker/' + encodeURIComponent(u.stock_num) + '" style="display:block;margin-top:8px;background:var(--orange);color:#fff;text-align:center;font-weight:700;text-decoration:none;">Select Replacement from Overflow</a>';
+    }
+    h += '</div>';
 
     // Product
     h += '<div class="card"><div class="card-title">Product</div>'
@@ -2456,9 +2464,9 @@ var Views = (function () {
 
     for (var i = 0; i < units.length; i++) {
       var u = units[i];
-      var detailTarget = section === "pending"
-        ? "detail/" + encodeURIComponent(u.stock_num)
-        : "sales-units/sold/" + encodeURIComponent(u.stock_num);
+      var detailTarget = (section === "sold")
+        ? "sales-units/sold/" + encodeURIComponent(u.stock_num)
+        : "detail/" + encodeURIComponent(u.stock_num);
       var statusColors = { "pending": "var(--orange)", "pending-display": "var(--orange)", "retail-ordered": "#a855f7", "sold": "var(--green)" };
       var statusLabels = { "pending": "PENDING", "pending-display": "PENDING", "retail-ordered": "RETAIL ORD", "sold": "SOLD" };
       var statusColor = statusColors[section] || "var(--text-2)";
@@ -2473,6 +2481,10 @@ var Views = (function () {
         var locArea = (u.lot_area || "").toUpperCase();
         var locColor = (locArea === "DISPLAY" || locArea === "SHOWROOM") ? "var(--orange)" : "var(--text-3)";
         h += '<div style="font-size:12px;color:' + locColor + ';margin-top:2px;">' + esc(u.lot_location) + (u.lot_area ? ' (' + esc(u.lot_area) + ')' : '') + '</div>';
+      }
+      // Show salesman for sale pending units
+      if ((section === "pending" || section === "pending-display") && u.hold_salesman) {
+        h += '<div style="font-size:12px;color:var(--text-3);margin-top:2px;">Salesman: ' + esc(u.hold_salesman) + '</div>';
       }
       h += '</div>';
       h += '<div style="text-align:right;">';
@@ -2505,6 +2517,95 @@ var Views = (function () {
     h += '</div></div>';
 
     return Promise.resolve(h);
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // REPLACEMENT PICKER — Select overflow unit to backfill a sale pending slot
+  // ══════════════════════════════════════════════════════════════════
+
+  function replacePickerView(stockNum) {
+    return DB.getAllUnits().then(function (units) {
+      // Find the sale pending unit
+      var spUnit = null;
+      for (var i = 0; i < units.length; i++) {
+        if (units[i].stock_num === stockNum) { spUnit = units[i]; break; }
+      }
+      if (!spUnit) return '<div class="empty-state">Unit not found</div>';
+
+      var spMake = (spUnit.make || "").toUpperCase();
+      var spVt = (spUnit.veh_type || "").toUpperCase();
+      var spModel = (spUnit.model || "").toUpperCase();
+
+      // Find overflow candidates — prioritize same make, then same type
+      var sameMakeModel = [];
+      var sameMake = [];
+      var sameType = [];
+      for (var i = 0; i < units.length; i++) {
+        var u = units[i];
+        var area = (u.lot_area || "").toUpperCase();
+        var st = (u.status || "").toUpperCase();
+        if (area !== "OVERFLOW") continue;
+        if (st === "SALE PENDING" || st === "SOLD") continue;
+        var uMake = (u.make || "").toUpperCase();
+        var uVt = (u.veh_type || "").toUpperCase();
+        var uModel = (u.model || "").toUpperCase();
+        if (uMake === spMake && uModel === spModel) {
+          sameMakeModel.push(u);
+        } else if (uMake === spMake) {
+          sameMake.push(u);
+        } else if (uVt === spVt) {
+          sameType.push(u);
+        }
+      }
+
+      // Sort each group by age (freshest first)
+      function sortByAge(a, b) {
+        var aa = parseInt(a.age) || 0, ba = parseInt(b.age) || 0;
+        return aa - ba;
+      }
+      sameMakeModel.sort(sortByAge);
+      sameMake.sort(sortByAge);
+      sameType.sort(sortByAge);
+
+      var h = '<div class="section-title">SELECT REPLACEMENT</div>';
+      h += '<div class="card" style="border-left:3px solid var(--orange);margin-bottom:16px;">';
+      h += '<div style="font-size:12px;color:var(--text-3);text-transform:uppercase;letter-spacing:1px;">Replacing</div>';
+      h += '<div style="font-size:18px;font-weight:700;margin-top:4px;">' + esc(spUnit.year || "") + ' ' + esc(spUnit.make || "") + ' ' + esc(spUnit.model || "") + '</div>';
+      h += '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Stk# ' + esc(spUnit.stock_num) + ' · ' + esc(spUnit.lot_location || "") + ' (' + esc(spUnit.lot_area || "") + ')</div>';
+      if (spUnit.hold_salesman) h += '<div style="font-size:12px;color:var(--text-3);margin-top:2px;">Salesman: ' + esc(spUnit.hold_salesman) + '</div>';
+      h += '</div>';
+
+      function renderCandidateGroup(label, list, accentColor) {
+        if (list.length === 0) return '';
+        var out = '<div style="margin-bottom:8px;color:var(--text-3);font-size:12px;text-transform:uppercase;letter-spacing:1px;">' + label + ' (' + list.length + ')</div>';
+        for (var i = 0; i < list.length; i++) {
+          var u = list[i];
+          var stColor = (u.status || "").toUpperCase() === "READY FOR SALE" ? "var(--green)" : "var(--blue)";
+          out += '<div class="card card-interactive" data-action="confirm-replace" data-sp-stock="' + esc(spUnit.stock_num) + '" data-repl-stock="' + esc(u.stock_num) + '" style="border-left:3px solid ' + accentColor + ';">';
+          out += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+          out += '<div>';
+          out += '<div style="font-size:18px;font-weight:600;">' + esc(u.year || "") + ' ' + esc(u.make || "") + ' ' + esc(u.model || "") + '</div>';
+          out += '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Stk# ' + esc(u.stock_num) + ' · ' + esc(u.floor_layout || "") + '</div>';
+          out += '<div style="font-size:12px;color:var(--text-3);margin-top:2px;">' + esc(u.lot_location || "") + '</div>';
+          out += '</div>';
+          out += '<div style="text-align:right;">';
+          out += '<div style="font-size:12px;font-weight:700;color:' + stColor + ';">' + esc(u.status || "") + '</div>';
+          out += '<div style="font-size:12px;color:var(--text-3);">' + (u.age || "0") + 'd</div>';
+          out += '</div></div></div>';
+        }
+        return out;
+      }
+
+      h += renderCandidateGroup("Same Model (" + esc(spUnit.make || "") + " " + esc(spUnit.model || "") + ")", sameMakeModel, "var(--green)");
+      h += renderCandidateGroup("Same Make (" + esc(spUnit.make || "") + ")", sameMake, "var(--blue)");
+      h += renderCandidateGroup("Same Type (" + esc(spUnit.veh_type || "") + ")", sameType, "var(--text-3)");
+
+      if (sameMakeModel.length === 0 && sameMake.length === 0 && sameType.length === 0) {
+        h += '<div style="color:var(--text-3);padding:20px 0;text-align:center;">No overflow candidates available</div>';
+      }
+
+      return h;
+    });
   }
 
   // ══════════════════════════════════════════════════════════════════
@@ -2668,6 +2769,7 @@ var Views = (function () {
     salesSectionView: salesSectionView,
     salesMakeView: salesMakeView,
     salesUnitsView: salesUnitsView,
+    replacePickerView: replacePickerView,
     incomingView: incomingView,
     incomingStatusView: incomingStatusView,
     incomingMakeView: incomingMakeView,
