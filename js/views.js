@@ -2589,10 +2589,37 @@ var Views = (function () {
         + '<span class="stat-val" style="font-size:28px;color:#a855f7;">' + roToday.length + '</span></a>';
 
       // Retail Sold tile
-      h += '<a class="card card-interactive" href="#sales-section/sold/ALL" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:#1a1a2e;">'
+      h += '<a class="card card-interactive" href="#sales-section/sold/ALL" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;">'
         + '<div><div style="font-size:18px;font-weight:600;">Retail Sold Today</div>'
         + '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Deals closed today</div></div>'
         + '<span class="stat-val" style="font-size:28px;color:var(--green);">' + soldToday.length + '</span></a>';
+
+      // Sold Not Delivered — units with sold/SP status + deal_delivery_date in the future or no delivery yet
+      var soldNotDelivered = [];
+      var todayDate = new Date(_todayStr());
+      for (var i = 0; i < units.length; i++) {
+        var u = units[i];
+        var st = (u.status || "").toUpperCase();
+        // Units that are sold or sale pending with a deal but not yet delivered
+        if (st === "SALE PENDING" || st === "SOLD") {
+          var delivDate = u.deal_delivery_date || u.exp_delivery_date || "";
+          if (delivDate) {
+            var dd = new Date(_normalizeDate(delivDate));
+            if (!isNaN(dd.getTime()) && dd >= todayDate) {
+              soldNotDelivered.push(u);
+            }
+          } else if (st === "SALE PENDING") {
+            // SP with no delivery date = not delivered yet
+            soldNotDelivered.push(u);
+          }
+        }
+      }
+      if (soldNotDelivered.length > 0) {
+        h += '<a class="card card-interactive" href="#sales-section/not-delivered/ALL" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;border-left:3px solid #a855f7;">'
+          + '<div><div style="font-size:18px;font-weight:600;">Sold Not Delivered</div>'
+          + '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Pending delivery or pickup</div></div>'
+          + '<span class="stat-val" style="font-size:28px;color:#a855f7;">' + soldNotDelivered.length + '</span></a>';
+      }
 
       // ── Incoming section ──
       h += '<div class="section-title" style="margin-top:20px;">INBOUND</div>';
@@ -2657,6 +2684,27 @@ var Views = (function () {
         }
         return results;
       });
+    } else if (section === "not-delivered") {
+      return DB.getAllUnits().then(function (units) {
+        var results = [];
+        var todayDate = new Date(_todayStr());
+        for (var i = 0; i < units.length; i++) {
+          var u = units[i];
+          var st = (u.status || "").toUpperCase();
+          if (st === "SALE PENDING" || st === "SOLD") {
+            var delivDate = u.deal_delivery_date || u.exp_delivery_date || "";
+            if (delivDate) {
+              var dd = new Date(_normalizeDate(delivDate));
+              if (!isNaN(dd.getTime()) && dd >= todayDate) {
+                results.push(u);
+              }
+            } else if (st === "SALE PENDING") {
+              results.push(u);
+            }
+          }
+        }
+        return results;
+      });
     } else if (section === "retail-ordered") {
       return DB.getAllUnits().then(function (units) {
         var results = [];
@@ -2687,7 +2735,7 @@ var Views = (function () {
           if ((list[i].veh_type || "").toUpperCase() === vehType.toUpperCase()) filtered.push(list[i]);
         }
       }
-      var labels = { "pending": "New Today", "all-pending": "All Sale Pending", "pending-display": "Pending in Display/Showroom", "retail-ordered": "Retail Ordered Today", "sold": "Retail Sold Today" };
+      var labels = { "pending": "New Today", "all-pending": "All Sale Pending", "pending-display": "Pending in Display/Showroom", "not-delivered": "Sold Not Delivered", "retail-ordered": "Retail Ordered Today", "sold": "Retail Sold Today" };
       var label = labels[section] || section;
       var suffix = vehType === "ALL" ? "" : " — " + vehType;
       return _renderSalesUnitList(filtered, label + suffix, section);
@@ -2765,18 +2813,23 @@ var Views = (function () {
     // Type + Deal Status filter chips for sale pending sections
     var isPending = (section === "pending" || section === "all-pending" || section === "pending-display");
     if (isPending && units.length > 3) {
-      // Type filters
-      var typeSet = {};
-      var dealSet = {};
+      // Collect filter options
+      var typeSet = {}, dealSet = {}, mfrSet = {};
       for (var fi = 0; fi < units.length; fi++) {
         var vt = (units[fi].veh_type || "OTHER").toUpperCase();
         typeSet[vt] = (typeSet[vt] || 0) + 1;
         var ds = units[fi].deal_status || "";
         if (ds) dealSet[ds] = (dealSet[ds] || 0) + 1;
+        var mfr = units[fi].manufacturer || "Unknown";
+        mfrSet[mfr] = (mfrSet[mfr] || 0) + 1;
       }
+
+      h += '<div class="card" style="padding:12px;margin-bottom:8px;">';
+
+      // Type chip filters
       var typeKeys = Object.keys(typeSet).sort();
       if (typeKeys.length > 1) {
-        h += '<div style="margin-bottom:8px;color:var(--text-3);font-size:11px;text-transform:uppercase;letter-spacing:1px;">Filter by Type</div>';
+        h += '<div style="margin-bottom:6px;color:var(--text-3);font-size:11px;text-transform:uppercase;letter-spacing:1px;">Type</div>';
         h += '<div class="chip-bar" id="spTypeFilters">';
         h += '<span class="chip chip-active" data-sp-type="ALL" onclick="App.filterSPList(this,\'type\')">All</span>';
         for (var ti = 0; ti < typeKeys.length; ti++) {
@@ -2784,16 +2837,32 @@ var Views = (function () {
         }
         h += '</div>';
       }
+
+      // Manufacturer dropdown
+      var mfrKeys = Object.keys(mfrSet).sort();
+      if (mfrKeys.length > 1) {
+        h += '<div style="margin:8px 0 4px;color:var(--text-3);font-size:11px;text-transform:uppercase;letter-spacing:1px;">Manufacturer</div>';
+        h += '<select class="form-select" id="spMfrFilter" onchange="App.filterSPList(this,\'mfr\')" style="margin-bottom:4px;">';
+        h += '<option value="ALL">All Manufacturers</option>';
+        for (var mi = 0; mi < mfrKeys.length; mi++) {
+          h += '<option value="' + esc(mfrKeys[mi]) + '">' + esc(mfrKeys[mi]) + ' (' + mfrSet[mfrKeys[mi]] + ')</option>';
+        }
+        h += '</select>';
+      }
+
+      // Deal status dropdown
       var dealKeys = Object.keys(dealSet).sort();
       if (dealKeys.length > 0) {
-        h += '<div style="margin:8px 0 4px;color:var(--text-3);font-size:11px;text-transform:uppercase;letter-spacing:1px;">Filter by Deal Status</div>';
-        h += '<select class="form-select" id="spDealFilter" onchange="App.filterSPList(this,\'deal\')" style="margin-bottom:8px;">';
+        h += '<div style="margin:8px 0 4px;color:var(--text-3);font-size:11px;text-transform:uppercase;letter-spacing:1px;">Deal Status</div>';
+        h += '<select class="form-select" id="spDealFilter" onchange="App.filterSPList(this,\'deal\')">';
         h += '<option value="ALL">All Deal Statuses</option>';
         for (var di = 0; di < dealKeys.length; di++) {
           h += '<option value="' + esc(dealKeys[di]) + '">' + esc(dealKeys[di]) + ' (' + dealSet[dealKeys[di]] + ')</option>';
         }
         h += '</select>';
       }
+
+      h += '</div>';
     }
 
     units.sort(function (a, b) {
@@ -2806,13 +2875,14 @@ var Views = (function () {
       var detailTarget = (section === "sold")
         ? "sales-units/sold/" + encodeURIComponent(u.stock_num)
         : "detail/" + encodeURIComponent(u.stock_num);
-      var statusColors = { "pending": "var(--orange)", "all-pending": "var(--orange)", "pending-display": "var(--orange)", "retail-ordered": "#a855f7", "sold": "var(--green)" };
-      var statusLabels = { "pending": "PENDING", "all-pending": "PENDING", "pending-display": "PENDING", "retail-ordered": "RETAIL ORD", "sold": "SOLD" };
+      var statusColors = { "pending": "var(--orange)", "all-pending": "var(--orange)", "pending-display": "var(--orange)", "not-delivered": "#a855f7", "retail-ordered": "#a855f7", "sold": "var(--green)" };
+      var statusLabels = { "pending": "PENDING", "all-pending": "PENDING", "pending-display": "PENDING", "not-delivered": "NOT DELIVERED", "retail-ordered": "RETAIL ORD", "sold": "SOLD" };
       var statusColor = statusColors[section] || "var(--text-2)";
       var statusLabel = statusLabels[section] || (u.status || "");
 
       var spTypeAttr = isPending ? ' data-unit-type="' + esc((u.veh_type || "OTHER").toUpperCase()) + '"' : '';
       var spDealAttr = isPending ? ' data-unit-deal="' + esc(u.deal_status || "") + '"' : '';
+      var spMfrAttr = isPending ? ' data-unit-mfr="' + esc(u.manufacturer || "Unknown") + '"' : '';
 
       // Status days conditional formatting for pending
       var sDays = parseInt(u.status_days) || 0;
@@ -2831,7 +2901,7 @@ var Views = (function () {
       var locInDisplay = (locArea === "DISPLAY" || locArea === "SHOWROOM");
       var locBorderColor = locInDisplay ? 'var(--orange)' : 'var(--border)';
 
-      h += '<a class="card card-interactive sp-unit-card" href="#' + detailTarget + '"' + spTypeAttr + spDealAttr + ' style="text-decoration:none;color:#1a1a2e;border-left:3px solid ' + locBorderColor + ';">';
+      h += '<a class="card card-interactive sp-unit-card" href="#' + detailTarget + '"' + spTypeAttr + spDealAttr + spMfrAttr + ' style="border-left:3px solid ' + locBorderColor + ';">';
 
       // Top row: unit info + status days
       h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;">';

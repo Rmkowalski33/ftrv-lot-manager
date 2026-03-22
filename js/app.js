@@ -650,26 +650,31 @@ var App = (function () {
     }
 
     // Get active filters
-    var activeType = "ALL", activeDeal = "ALL";
+    var activeType = "ALL", activeDeal = "ALL", activeMfr = "ALL";
     var typeBar = document.getElementById("spTypeFilters");
     var dealSelect = document.getElementById("spDealFilter");
+    var mfrSelect = document.getElementById("spMfrFilter");
     if (typeBar) {
       var tc = typeBar.querySelector(".chip-active");
       if (tc) activeType = tc.getAttribute("data-sp-type") || "ALL";
     }
-    if (dealSelect) {
-      activeDeal = dealSelect.value || "ALL";
-    }
+    if (dealSelect) activeDeal = dealSelect.value || "ALL";
+    if (mfrSelect) activeMfr = mfrSelect.value || "ALL";
 
     // Filter cards
     var cards = document.querySelectorAll(".sp-unit-card");
+    var shown = 0;
     for (var i = 0; i < cards.length; i++) {
       var card = cards[i];
       var cardType = card.getAttribute("data-unit-type") || "";
       var cardDeal = card.getAttribute("data-unit-deal") || "";
+      var cardMfr = card.getAttribute("data-unit-mfr") || "";
       var showType = (activeType === "ALL" || cardType === activeType);
       var showDeal = (activeDeal === "ALL" || cardDeal === activeDeal);
-      card.style.display = (showType && showDeal) ? "flex" : "none";
+      var showMfr = (activeMfr === "ALL" || cardMfr === activeMfr);
+      var vis = showType && showDeal && showMfr;
+      card.style.display = vis ? "" : "none";
+      if (vis) shown++;
     }
   }
 
