@@ -2181,6 +2181,35 @@ var Views = (function () {
     return results;
   }
 
+  function _todayStr() {
+    var d = new Date();
+    var mm = String(d.getMonth() + 1).padStart(2, '0');
+    var dd = String(d.getDate()).padStart(2, '0');
+    return mm + '/' + dd + '/' + d.getFullYear();
+  }
+
+  function _normalizeDate(val) {
+    // Handle various date formats: "MM/DD/YYYY", "YYYY-MM-DD", "M/D/YYYY"
+    if (!val) return '';
+    var s = String(val).trim();
+    // ISO format: 2026-03-21
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+      var parts = s.substring(0, 10).split('-');
+      return parts[1] + '/' + parts[2] + '/' + parts[0];
+    }
+    // MM/DD/YYYY or M/D/YYYY
+    if (s.indexOf('/') !== -1) {
+      var parts = s.split('/');
+      if (parts.length >= 3) {
+        var mm = String(parseInt(parts[0], 10)).padStart(2, '0');
+        var dd = String(parseInt(parts[1], 10)).padStart(2, '0');
+        var yyyy = parts[2].length === 2 ? '20' + parts[2] : parts[2];
+        return mm + '/' + dd + '/' + yyyy;
+      }
+    }
+    return s;
+  }
+
   function _fmtPrice(val) {
     if (!val) return "";
     var n = typeof val === "string" ? parseFloat(val.replace(/[$,]/g, "")) : val;
@@ -2227,11 +2256,12 @@ var Views = (function () {
         }
       }
 
-      // Retail ordered today
+      // Retail ordered today — uses order_date field
       var roToday = [];
+      var todayStr = _todayStr();
       for (var i = 0; i < units.length; i++) {
         var u = units[i];
-        if ((u.status || "").toUpperCase() === "RETAIL ORDERED" && (u.status_days === 0 || u.status_days === "0")) {
+        if (u.order_date && _normalizeDate(u.order_date) === todayStr) {
           roToday.push(u);
         }
       }
@@ -2331,9 +2361,10 @@ var Views = (function () {
     } else if (section === "retail-ordered") {
       return DB.getAllUnits().then(function (units) {
         var results = [];
+        var todayStr = _todayStr();
         for (var i = 0; i < units.length; i++) {
           var u = units[i];
-          if ((u.status || "").toUpperCase() === "RETAIL ORDERED" && (u.status_days === 0 || u.status_days === "0")) {
+          if (u.order_date && _normalizeDate(u.order_date) === todayStr) {
             results.push(u);
           }
         }
