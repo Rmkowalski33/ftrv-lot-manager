@@ -323,7 +323,7 @@ var Views = (function () {
         var coveragePct = totalModels > 0 ? Math.round(floorModels / totalModels * 100) : 0;
 
         h += '<div class="qi-grid">'
-          + '<a class="qi-card qi-red" href="#all-inventory?year=2025" style="text-decoration:none;color:inherit;"><div class="qi-val">' + my2025Count + '</div><div class="qi-lbl">2025 Models</div></a>'
+          + '<a class="qi-card qi-red" href="#all-inventory/year=2025" style="text-decoration:none;color:inherit;"><div class="qi-val">' + my2025Count + '</div><div class="qi-lbl">2025 Models</div></a>'
           + '<a class="qi-card qi-blue" href="#coverage" style="text-decoration:none;color:inherit;"><div class="qi-val">' + coveragePct + '%</div><div class="qi-lbl">Display Coverage</div></a>'
           + '<a class="qi-card qi-orange" href="#sales-section/all-pending/ALL" style="text-decoration:none;color:inherit;"><div class="qi-val">' + salePending + '</div><div class="qi-lbl">Sale Pending</div></a>'
           + '<a class="qi-card qi-green" href="#incoming" style="text-decoration:none;color:inherit;"><div class="qi-val">' + incomingCount + '</div><div class="qi-lbl">Incoming</div></a>'
@@ -372,7 +372,7 @@ var Views = (function () {
           + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#94a3b8;margin-bottom:10px;">Attention Needed</div>'
           + '<a href="#overflow-only" class="attn-row" style="text-decoration:none;color:inherit;cursor:pointer;"><div><span class="attn-label">Display Holes</span><div style="font-size:11px;color:#8899aa;margin-top:2px;">Models needing display placement</div></div><span class="attn-val" style="color:var(--orange);">' + displayHoles + '</span></a>'
           + '<a href="#audit-status" class="attn-row" style="text-decoration:none;color:inherit;cursor:pointer;"><div><span class="attn-label">Audit Flags</span><div style="font-size:11px;color:#8899aa;margin-top:2px;">Data quality issues to resolve</div></div><span class="attn-val" style="color:var(--yellow);">' + auditFlags.length + '</span></a>'
-          + '<a href="#all-inventory?dead-display=1" class="attn-row" style="border-bottom:none;text-decoration:none;color:inherit;cursor:pointer;"><div><span class="attn-label">Dead in Display</span><div style="font-size:11px;color:#8899aa;margin-top:2px;">Non-sellable units in customer areas</div></div><span class="attn-val" style="color:var(--red);">' + deadOnDisplay + '</span></a>'
+          + '<a href="#all-inventory/dead-display=1" class="attn-row" style="border-bottom:none;text-decoration:none;color:inherit;cursor:pointer;"><div><span class="attn-label">Dead in Display</span><div style="font-size:11px;color:#8899aa;margin-top:2px;">Non-sellable units in customer areas</div></div><span class="attn-val" style="color:var(--red);">' + deadOnDisplay + '</span></a>'
           + '</div>';
 
         // Powered by RAY.i footer
@@ -2997,12 +2997,12 @@ var Views = (function () {
 
   function allInventoryView(filterStr) {
     return DB.getAllUnits().then(function (units) {
-      // Parse pre-filters from hash (e.g. ?year=2025 or ?dead-display=1)
+      // Parse pre-filters from route param (e.g. "year=2025" or "dead-display=1")
       var preFilter = {};
       if (filterStr) {
         var parts = filterStr.split("&");
         for (var p = 0; p < parts.length; p++) {
-          var kv = parts[p].replace("?","").split("=");
+          var kv = parts[p].split("=");
           if (kv.length === 2) preFilter[kv[0]] = kv[1];
         }
       }
