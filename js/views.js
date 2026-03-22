@@ -264,7 +264,7 @@ var Views = (function () {
           var st = (u.status || "").toUpperCase();
           var age = parseInt(u.age) || 0;
           var area = (u.lot_area || "").toUpperCase();
-          // Aged 90+ (non-terminal)
+          // 2025 model year count
           var isTerminal = false;
           for (var t = 0; t < TERMINAL_STATUSES.length; t++) {
             if (st === TERMINAL_STATUSES[t]) { isTerminal = true; break; }
@@ -660,6 +660,34 @@ var Views = (function () {
         areas[a].push(units[i]);
       }
 
+      // Pre-compute primary vehicle type per zone code
+      var _allZoneCodes = ["SHR01","SHR02","SHR03","DISP01","DISP02","DISP03","DISP04","DISP05","DISP06","DISP07","DISP08","DISP10","DISP11","OVR01","OVR02","OVR03","OVRB"];
+      var zoneVtCounts = {};
+      var globalVtCounts = {};
+      for (var i = 0; i < units.length; i++) {
+        var uLot = (units[i].lot_location || "").toUpperCase().replace("CLE-", "");
+        var uVt = (units[i].veh_type || "Other").toUpperCase();
+        globalVtCounts[uVt] = (globalVtCounts[uVt] || 0) + 1;
+        for (var zi = 0; zi < _allZoneCodes.length; zi++) {
+          if (uLot.indexOf(_allZoneCodes[zi]) === 0) {
+            if (!zoneVtCounts[_allZoneCodes[zi]]) zoneVtCounts[_allZoneCodes[zi]] = {};
+            zoneVtCounts[_allZoneCodes[zi]][uVt] = (zoneVtCounts[_allZoneCodes[zi]][uVt] || 0) + 1;
+            break;
+          }
+        }
+      }
+      function zonePrimaryVt(code) {
+        var vc = zoneVtCounts[code];
+        if (!vc) return "";
+        var best = "", bestN = 0;
+        for (var k in vc) { if (vc[k] > bestN) { best = k; bestN = vc[k]; } }
+        return best;
+      }
+      function zoneHasVt(code, vt) {
+        var vc = zoneVtCounts[code];
+        return vc && vc[vt] > 0;
+      }
+
       var h = '<div class="view">';
 
       // Lot Map quick-access
@@ -667,6 +695,17 @@ var Views = (function () {
         + '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="var(--copper)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>'
         + '<div><div style="font-size:16px;font-weight:600;">CLE Lot Map</div>'
         + '<div style="font-size:12px;color:var(--text-3);">View full lot layout</div></div></a>';
+
+      // Type filter dropdown
+      var vtKeys = Object.keys(globalVtCounts).sort();
+      if (vtKeys.length > 1) {
+        h += '<select id="lotTypeFilter" class="form-select" style="margin-bottom:12px;" onchange="App.filterLotCells(this.value)">'
+          + '<option value="ALL">All Types (' + units.length + ')</option>';
+        for (var vi = 0; vi < vtKeys.length; vi++) {
+          h += '<option value="' + esc(vtKeys[vi]) + '">' + esc(vtKeys[vi]) + ' (' + globalVtCounts[vtKeys[vi]] + ')</option>';
+        }
+        h += '</select>';
+      }
 
       // Showroom grid
       h += '<div class="section-header">Showrooms</div>';
@@ -679,7 +718,8 @@ var Views = (function () {
           var slot = (units[j].lot_location || "").toUpperCase().replace("CLE-", "");
           if (slot.indexOf(scode) === 0) scount++;
         }
-        h += '<div class="lot-cell" data-action="zone-detail" data-zone="' + scode + '">'
+        var sVts = zoneVtCounts[scode] ? Object.keys(zoneVtCounts[scode]).join(",") : "";
+        h += '<div class="lot-cell lot-cell-filterable" data-action="zone-detail" data-zone="' + scode + '" data-primary-vt="' + zonePrimaryVt(scode) + '" data-vt-list="' + esc(sVts) + '">'
           + '<div class="lot-cell-code">' + scode + '</div>'
           + '<div class="lot-cell-count">' + scount + '</div>'
           + '<div class="lot-cell-desc">' + esc((ZONE_INFO[scode] || "").split(" — ")[1] || "") + '</div>'
@@ -699,7 +739,8 @@ var Views = (function () {
           if (lot.indexOf(code) === 0) count++;
         }
         var shortCode = code;
-        h += '<div class="lot-cell" data-action="zone-detail" data-zone="' + code + '">'
+        var dVts = zoneVtCounts[code] ? Object.keys(zoneVtCounts[code]).join(",") : "";
+        h += '<div class="lot-cell lot-cell-filterable" data-action="zone-detail" data-zone="' + code + '" data-primary-vt="' + zonePrimaryVt(code) + '" data-vt-list="' + esc(dVts) + '">'
           + '<div class="lot-cell-code">' + shortCode + '</div>'
           + '<div class="lot-cell-count">' + count + '</div>'
           + '<div class="lot-cell-desc">' + esc((ZONE_INFO[code] || "").split(" — ")[1] || "") + '</div>'
@@ -719,7 +760,8 @@ var Views = (function () {
           if (olot.indexOf(ocode) === 0) ocount++;
         }
         if (ocount > 0) {
-          h += '<div class="lot-cell" data-action="zone-detail" data-zone="' + ocode + '">'
+          var oVts = zoneVtCounts[ocode] ? Object.keys(zoneVtCounts[ocode]).join(",") : "";
+          h += '<div class="lot-cell lot-cell-filterable" data-action="zone-detail" data-zone="' + ocode + '" data-primary-vt="' + zonePrimaryVt(ocode) + '" data-vt-list="' + esc(oVts) + '">'
             + '<div class="lot-cell-code">' + ocode + '</div>'
             + '<div class="lot-cell-count">' + ocount + '</div>'
             + '</div>';
@@ -1024,8 +1066,21 @@ var Views = (function () {
         + '<div class="stat-pill"><div class="stat-val text-green">' + units.length + '</div><div class="stat-label">Units</div></div>'
         + '</div>';
 
-      // Type filter then manufacturer tiles
-      h += renderTypeFilters(units, '_typeCardFilter');
+      // Type filter dropdown then manufacturer tiles
+      var vtCounts = {};
+      for (var vi = 0; vi < units.length; vi++) {
+        var vt = (units[vi].veh_type || "Other").toUpperCase();
+        vtCounts[vt] = (vtCounts[vt] || 0) + 1;
+      }
+      var vtSorted = Object.keys(vtCounts).sort();
+      if (vtSorted.length > 1) {
+        h += '<select class="form-select" style="margin-bottom:12px;" onchange="App.filterMakeCards(this.value)">'
+          + '<option value="ALL">All Types (' + units.length + ')</option>';
+        for (var vi = 0; vi < vtSorted.length; vi++) {
+          h += '<option value="' + esc(vtSorted[vi]) + '">' + esc(vtSorted[vi]) + ' (' + vtCounts[vtSorted[vi]] + ')</option>';
+        }
+        h += '</select>';
+      }
       h += '<div class="section-header">Manufacturers</div>';
       var sorted = mfrKeys.sort();
       for (var mi = 0; mi < sorted.length; mi++) {

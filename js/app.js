@@ -670,12 +670,41 @@ var App = (function () {
     }
   }
 
+  // ── Lot cell type filter (lots view) ─────────────────────────
+  function filterLotCells(vt) {
+    var cells = document.querySelectorAll(".lot-cell-filterable");
+    for (var i = 0; i < cells.length; i++) {
+      var cell = cells[i];
+      if (vt === "ALL") {
+        cell.style.display = "";
+      } else {
+        var vtList = (cell.getAttribute("data-vt-list") || "").split(",");
+        cell.style.display = vtList.indexOf(vt) !== -1 ? "" : "none";
+      }
+    }
+  }
+
+  // ── Manufacturer card type filter (makes view) ──────────────
+  function filterMakeCards(vt) {
+    var cards = document.querySelectorAll("[data-action='make-detail'][data-vt]");
+    for (var i = 0; i < cards.length; i++) {
+      var card = cards[i];
+      if (vt === "ALL") {
+        card.style.display = "";
+      } else {
+        card.style.display = card.getAttribute("data-vt") === vt ? "" : "none";
+      }
+    }
+  }
+
   // ── Public API ─────────────────────────────────────────────────
   return {
     init: init,
     navigate: navigate,
     selectRadio: selectRadio,
     filterSPList: filterSPList,
+    filterLotCells: filterLotCells,
+    filterMakeCards: filterMakeCards,
   };
 })();
 
