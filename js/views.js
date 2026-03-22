@@ -2800,33 +2800,66 @@ var Views = (function () {
 
       var spTypeAttr = isPending ? ' data-unit-type="' + esc((u.veh_type || "OTHER").toUpperCase()) + '"' : '';
       var spDealAttr = isPending ? ' data-unit-deal="' + esc(u.deal_status || "") + '"' : '';
-      h += '<a class="card card-interactive sp-unit-card" href="#' + detailTarget + '"' + spTypeAttr + spDealAttr + ' style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:#1a1a2e;">';
-      h += '<div>';
-      h += '<div style="font-size:18px;font-weight:600;">' + esc(u.year || "") + ' ' + esc(u.make || "") + ' ' + esc(u.model || "") + '</div>';
-      h += '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">' + esc(u.stock_num || "") + ' · ' + esc(u.veh_type || "") + (u.floor_layout ? ' · ' + esc(u.floor_layout) : '') + '</div>';
-      // Show lot location for pending sections
-      if ((section === "pending" || section === "all-pending" || section === "pending-display" || section === "retail-ordered") && u.lot_location) {
-        var locArea = (u.lot_area || "").toUpperCase();
-        var locColor = (locArea === "DISPLAY" || locArea === "SHOWROOM") ? "var(--orange)" : "var(--text-3)";
-        h += '<div style="font-size:12px;color:' + locColor + ';margin-top:2px;">' + esc(u.lot_location) + (u.lot_area ? ' (' + esc(u.lot_area) + ')' : '') + '</div>';
-      }
-      // Show salesman + deal status for sale pending units
-      if ((section === "pending" || section === "all-pending" || section === "pending-display") && u.hold_salesman) {
-        h += '<div style="font-size:12px;color:var(--text-3);margin-top:2px;">Salesman: ' + esc(u.hold_salesman) + '</div>';
-      }
-      if ((section === "pending" || section === "all-pending" || section === "pending-display") && u.deal_status) {
-        var dsColor = "var(--text-3)";
-        var ds = (u.deal_status || "").toUpperCase();
-        if (ds.indexOf("APPROVED") !== -1 || ds.indexOf("FUNDED") !== -1) dsColor = "var(--green)";
-        else if (ds.indexOf("PENDING") !== -1 || ds.indexOf("SUBMITTED") !== -1) dsColor = "var(--orange)";
-        else if (ds.indexOf("DECLINED") !== -1 || ds.indexOf("DENIED") !== -1) dsColor = "#ef4444";
-        h += '<div style="font-size:12px;color:' + dsColor + ';margin-top:2px;font-weight:600;">Deal: ' + esc(u.deal_status) + (u.deal_number ? ' (#' + esc(u.deal_number) + ')' : '') + '</div>';
-      }
+
+      // Status days conditional formatting for pending
+      var sDays = parseInt(u.status_days) || 0;
+      var sDaysColor = isPending ? (sDays >= 8 ? '#C8102E' : sDays >= 3 ? 'var(--orange)' : 'var(--green)') : 'var(--text-3)';
+
+      // Deal status conditional formatting
+      var dsText = u.deal_status || "";
+      var dsUpper = dsText.toUpperCase();
+      var dsBg = '#e9ecef'; var dsFg = 'var(--text-2)';
+      if (dsUpper.indexOf("APPROVED") !== -1 || dsUpper.indexOf("FUNDED") !== -1 || dsUpper.indexOf("COMPLETE") !== -1) { dsBg = 'var(--green-dim)'; dsFg = 'var(--green)'; }
+      else if (dsUpper.indexOf("PENDING") !== -1 || dsUpper.indexOf("SUBMITTED") !== -1 || dsUpper.indexOf("IN PROGRESS") !== -1) { dsBg = 'var(--orange-dim)'; dsFg = 'var(--orange)'; }
+      else if (dsUpper.indexOf("DECLINED") !== -1 || dsUpper.indexOf("DENIED") !== -1 || dsUpper.indexOf("CANCEL") !== -1) { dsBg = '#fde8e8'; dsFg = '#C8102E'; }
+
+      // Location highlighting
+      var locArea = (u.lot_area || "").toUpperCase();
+      var locInDisplay = (locArea === "DISPLAY" || locArea === "SHOWROOM");
+      var locBorderColor = locInDisplay ? 'var(--orange)' : 'var(--border)';
+
+      h += '<a class="card card-interactive sp-unit-card" href="#' + detailTarget + '"' + spTypeAttr + spDealAttr + ' style="text-decoration:none;color:#1a1a2e;border-left:3px solid ' + locBorderColor + ';">';
+
+      // Top row: unit info + status days
+      h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;">';
+      h += '<div style="flex:1;">';
+      h += '<div style="font-size:16px;font-weight:700;">' + esc(u.year || "") + ' ' + esc(u.make || "") + ' ' + esc(u.model || "") + '</div>';
+      h += '<div style="font-size:13px;color:var(--text-3);margin-top:3px;">' + esc(u.stock_num || "") + ' · ' + esc(u.veh_type || "") + (u.floor_layout ? ' · ' + esc(u.floor_layout) : '') + '</div>';
       h += '</div>';
-      h += '<div style="text-align:right;">';
-      if (u.retail_price) h += '<div style="font-size:14px;color:var(--text-2);">' + _fmtPrice(u.retail_price) + '</div>';
-      h += '<div style="font-size:12px;font-weight:700;color:' + statusColor + ';">' + statusLabel + '</div>';
-      if (u.status_days != null) h += '<div style="font-size:11px;color:var(--text-3);">' + u.status_days + 'd</div>';
+      h += '<div style="text-align:right;min-width:55px;">';
+      if (isPending && sDays != null) {
+        h += '<div style="font-size:20px;font-weight:800;color:' + sDaysColor + ';">' + sDays + 'd</div>';
+        h += '<div style="font-size:10px;color:var(--text-3);text-transform:uppercase;">Pending</div>';
+      }
+      if (u.retail_price) {
+        var p = parseFloat(u.retail_price) || 0;
+        if (p > 0) h += '<div style="font-size:12px;color:var(--text-3);margin-top:2px;">$' + Math.round(p/1000) + 'K</div>';
+      }
+      h += '</div></div>';
+
+      // Bottom row: badges
+      h += '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;align-items:center;">';
+
+      // Status badge
+      h += '<span class="status-badge status-pending" style="font-size:11px;">' + statusLabel + '</span>';
+
+      // Location badge (highlighted if in display/showroom)
+      if (u.lot_location) {
+        var locBadgeBg = locInDisplay ? 'var(--orange-dim)' : '#e9ecef';
+        var locBadgeFg = locInDisplay ? 'var(--orange)' : 'var(--text-2)';
+        h += '<span style="display:inline-block;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;background:' + locBadgeBg + ';color:' + locBadgeFg + ';">' + esc(u.lot_location) + '</span>';
+      }
+
+      // Deal status badge (conditionally formatted)
+      if (isPending && dsText) {
+        h += '<span style="display:inline-block;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;background:' + dsBg + ';color:' + dsFg + ';">' + esc(dsText) + '</span>';
+      }
+
+      // Salesman
+      if (isPending && u.hold_salesman) {
+        h += '<span style="font-size:11px;color:var(--text-3);">' + esc(u.hold_salesman) + '</span>';
+      }
+
       h += '</div></a>';
     }
     return h;
