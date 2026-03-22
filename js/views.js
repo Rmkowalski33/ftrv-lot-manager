@@ -95,15 +95,28 @@ var Views = (function () {
   }
 
   function renderUnitCard(u) {
-    return '<div class="result-card" data-action="detail" data-stock="' + esc(u.stock_num) + '">'
-      + '<div class="result-ymm">' + esc(u.year) + ' ' + esc(u.make) + ' ' + esc(u.model) + '</div>'
-      + '<div class="result-meta">'
-      + '<span>Stk# ' + esc(u.stock_num) + '</span>'
-      + '<span class="sep">&middot;</span>'
-      + '<span>' + esc(u.lot_location || "No Lot") + '</span>'
-      + '<span class="sep">&middot;</span>'
-      + '<span class="status-badge ' + statusClass(u.status) + '">' + esc(u.status) + '</span>'
-      + '</div></div>';
+    var age = parseInt(u.age) || 0;
+    var ageColor = age > 180 ? 'var(--red)' : age > 90 ? 'var(--orange)' : 'var(--text-3)';
+    var yearColor = (parseInt(u.year) || 0) <= 2025 ? 'var(--orange)' : 'var(--text)';
+    var h = '<div class="result-card" data-action="detail" data-stock="' + esc(u.stock_num) + '">';
+    h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;">';
+    h += '<div><div class="result-ymm"><span style="color:' + yearColor + ';">' + esc(u.year) + '</span> ' + esc(u.make) + ' ' + esc(u.model) + '</div>';
+    h += '<div class="result-meta"><span>Stk# ' + esc(u.stock_num) + '</span>';
+    if (u.veh_type) h += '<span class="sep">&middot;</span><span>' + esc(u.veh_type) + '</span>';
+    if (u.floor_layout) h += '<span class="sep">&middot;</span><span>' + esc(u.floor_layout) + '</span>';
+    h += '</div>';
+    h += '<div style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap;">';
+    h += '<span class="status-badge ' + statusClass(u.status) + '">' + esc(u.status) + '</span>';
+    if (u.lot_location) h += '<span style="font-size:12px;color:var(--text-3);">' + esc(u.lot_location) + '</span>';
+    h += '</div></div>';
+    h += '<div style="text-align:right;min-width:50px;">';
+    h += '<div style="font-size:18px;font-weight:800;color:' + ageColor + ';">' + age + 'd</div>';
+    if (u.retail_price) {
+      var p = parseFloat(u.retail_price) || 0;
+      if (p > 0) h += '<div style="font-size:12px;color:var(--text-3);">$' + Math.round(p/1000) + 'K</div>';
+    }
+    h += '</div></div></div>';
+    return h;
   }
 
   function renderAccordion(title, content) {
@@ -690,6 +703,11 @@ var Views = (function () {
 
       var h = '<div class="view">';
 
+      // View All tile
+      h += '<a class="card card-interactive" href="#area-detail/ALL" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:#1a1a2e;">'
+        + '<div style="font-size:16px;font-weight:700;">View All Inventory</div>'
+        + '<span style="font-size:22px;font-weight:800;color:var(--blue);">' + units.length + '</span></a>';
+
       // Lot Map quick-access
       h += '<a href="#lot-map" style="display:flex;align-items:center;gap:10px;padding:12px 16px;margin-bottom:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);text-decoration:none;color:#1a1a2e;">'
         + '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="var(--copper)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>'
@@ -793,13 +811,14 @@ var Views = (function () {
 
   function areaDetailView(areaName) {
     return DB.getAllUnits().then(function (units) {
-      var areaUnits = units.filter(function (u) {
+      var areaUnits = areaName === "ALL" ? units : units.filter(function (u) {
         return (u.lot_area || "UNASSIGNED") === areaName;
       });
+      var displayName = areaName === "ALL" ? "All Inventory" : areaName;
 
       var h = '<div class="view">';
       h += backBtn("lots", "Lots");
-      h += '<div class="zone-banner"><div class="zone-banner-name">' + esc(areaName) + '</div>'
+      h += '<div class="zone-banner"><div class="zone-banner-name">' + esc(displayName) + '</div>'
         + '<div class="zone-banner-count">' + areaUnits.length + ' units</div></div>';
 
       // Cross-filters
