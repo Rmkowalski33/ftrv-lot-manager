@@ -2235,13 +2235,13 @@ var Views = (function () {
   // ══════════════════════════════════════════════════════════════════
 
   function _getSalePendingToday(units) {
-    // Use status_days=0 to identify units that entered SP "today" relative to the data refresh
+    // Strictly status_days=0 — units that entered SP today
     var results = [];
     for (var i = 0; i < units.length; i++) {
       var u = units[i];
       var st = (u.status || "").toUpperCase();
       var sd = u.status_days;
-      if (st === "SALE PENDING" && (sd === 0 || sd === "0" || sd === 1 || sd === "1")) {
+      if (st === "SALE PENDING" && (sd === 0 || sd === "0")) {
         results.push(u);
       }
     }
