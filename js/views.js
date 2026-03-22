@@ -294,6 +294,11 @@ var Views = (function () {
           h += '<div class="text-center text-muted" style="font-size:12px;padding:8px 0;">Data as of ' + esc(exportedAt) + '</div>';
         }
 
+        // Help link
+        h += '<div style="text-align:center;padding:4px 0;">'
+          + '<a href="#help" style="font-size:13px;color:var(--text-3);text-decoration:none;">How to Use This App</a>'
+          + '</div>';
+
         // Powered by RAY.i footer — seamless blend into app background
         h += '<div style="padding:0;display:flex;justify-content:center;align-items:center;margin:4px -16px 0;">'
           + '<img src="img/powered-by-rayi.png" alt="Powered by RAY.i" style="width:100%;max-width:375px;" />'
@@ -1256,8 +1261,18 @@ var Views = (function () {
         + (ovrOnly > 0 ? ' <span style="color:var(--orange);font-weight:700;">(' + ovrOnly + ')</span>' : '')
         + '</div></div></a>';
 
-      h += '</div>';
-      return h;
+      // Replacement Log tile — show active count
+      return DB.getActiveReplacements().then(function (activeRepls) {
+        h += '<a class="note-type-card" href="#repl-log">'
+          + '<div class="note-type-icon" style="background:#451a03;color:var(--orange);">&#128260;</div>'
+          + '<div><div class="note-type-label">Replacement Log</div>'
+          + '<div class="note-type-desc">Track replacement picks — complete or cancel'
+          + (activeRepls.length > 0 ? ' <span style="color:var(--orange);font-weight:700;">(' + activeRepls.length + ' active)</span>' : '')
+          + '</div></div></a>';
+
+        h += '</div>';
+        return h;
+      });
     });
   }
 
@@ -2609,6 +2624,210 @@ var Views = (function () {
   }
 
   // ══════════════════════════════════════════════════════════════════
+  // REPLACEMENT LOG
+  // ══════════════════════════════════════════════════════════════════
+
+  function replLogView() {
+    return Promise.all([
+      DB.getAllReplacements(),
+      DB.getAllUnits()
+    ]).then(function (results) {
+      var entries = results[0];
+      var units = results[1];
+
+      // Build stock→unit lookup for stale detection
+      var unitMap = {};
+      for (var i = 0; i < units.length; i++) unitMap[units[i].stock_num] = units[i];
+
+      var active = entries.filter(function (e) { return e.status === "active"; });
+      var completed = entries.filter(function (e) { return e.status === "completed"; });
+      var cancelled = entries.filter(function (e) { return e.status === "cancelled"; });
+
+      // Sort newest first
+      active.sort(function (a, b) { return (b.timestamp || "").localeCompare(a.timestamp || ""); });
+      completed.sort(function (a, b) { return (b.updated_at || b.timestamp || "").localeCompare(a.updated_at || a.timestamp || ""); });
+
+      var h = '<div class="section-title">REPLACEMENT LOG</div>';
+
+      // KPI pills
+      h += '<div class="stats-row">';
+      h += '<div class="stat-pill"><div class="stat-val" style="color:var(--orange);">' + active.length + '</div><div class="stat-label">ACTIVE</div></div>';
+      h += '<div class="stat-pill"><div class="stat-val" style="color:var(--green);">' + completed.length + '</div><div class="stat-label">COMPLETED</div></div>';
+      h += '<div class="stat-pill"><div class="stat-val" style="color:var(--text-3);">' + cancelled.length + '</div><div class="stat-label">CANCELLED</div></div>';
+      h += '</div>';
+
+      if (completed.length > 0 || cancelled.length > 0) {
+        h += '<div style="text-align:center;margin-bottom:12px;">'
+          + '<a data-repl-action="clear-completed" data-repl-id="0" style="font-size:13px;color:var(--text-3);text-decoration:underline;cursor:pointer;">Clear completed & cancelled</a>'
+          + '</div>';
+      }
+
+      // Active entries
+      if (active.length > 0) {
+        h += '<div style="margin-bottom:8px;color:var(--text-3);font-size:12px;text-transform:uppercase;letter-spacing:1px;">Active Replacements</div>';
+        for (var i = 0; i < active.length; i++) {
+          var e = active[i];
+          var ts = e.timestamp ? new Date(e.timestamp).toLocaleString() : "";
+
+          // Stale detection — check if replacement unit status changed
+          var replUnit = unitMap[e.repl_stock];
+          var isStale = false;
+          var staleMsg = "";
+          if (!replUnit) {
+            isStale = true;
+            staleMsg = "Unit no longer in inventory";
+          } else if ((replUnit.status || "").toUpperCase() === "SOLD") {
+            isStale = true;
+            staleMsg = "Unit has been SOLD";
+          } else if ((replUnit.status || "").toUpperCase() === "SALE PENDING") {
+            isStale = true;
+            staleMsg = "Unit is now SALE PENDING";
+          } else if ((replUnit.lot_area || "").toUpperCase() !== "OVERFLOW") {
+            staleMsg = "Unit moved to " + (replUnit.lot_area || "unknown area");
+          }
+
+          var borderColor = isStale ? "#ef4444" : "var(--orange)";
+          h += '<div class="card" style="border-left:3px solid ' + borderColor + ';margin-bottom:8px;">';
+
+          if (isStale) {
+            h += '<div style="background:#ef4444;color:#fff;padding:4px 8px;border-radius:4px;font-size:12px;font-weight:700;margin-bottom:8px;display:inline-block;">STALE: ' + esc(staleMsg) + '</div>';
+          } else if (staleMsg) {
+            h += '<div style="background:#f59e0b;color:#000;padding:4px 8px;border-radius:4px;font-size:12px;font-weight:700;margin-bottom:8px;display:inline-block;">NOTE: ' + esc(staleMsg) + '</div>';
+          }
+
+          h += '<div style="font-size:11px;color:var(--text-3);">' + esc(ts) + '</div>';
+          h += '<div style="margin-top:6px;">';
+          h += '<div style="font-size:12px;color:var(--text-3);text-transform:uppercase;">Pull from ' + esc(e.repl_location) + '</div>';
+          h += '<div style="font-size:16px;font-weight:700;">' + esc(e.repl_desc) + '</div>';
+          h += '<div style="font-size:13px;color:var(--text-3);">Stk# ' + esc(e.repl_stock) + '</div>';
+          h += '</div>';
+
+          h += '<div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px;">';
+          h += '<div style="font-size:12px;color:var(--text-3);text-transform:uppercase;">Drop at ' + esc(e.sp_location) + ' (' + esc(e.sp_area) + ')</div>';
+          h += '<div style="font-size:14px;">Replacing: ' + esc(e.sp_desc) + ' (Stk# ' + esc(e.sp_stock) + ')</div>';
+          if (e.sp_salesman) h += '<div style="font-size:12px;color:var(--text-3);">Salesman: ' + esc(e.sp_salesman) + '</div>';
+          h += '</div>';
+
+          h += '<div style="display:flex;gap:8px;margin-top:10px;">';
+          h += '<a class="btn btn-blue" style="flex:1;text-align:center;" data-repl-action="complete" data-repl-id="' + e.id + '">Mark Complete</a>';
+          h += '<a class="btn btn-ghost" style="flex:1;text-align:center;" data-repl-action="cancel" data-repl-id="' + e.id + '">Cancel</a>';
+          h += '</div></div>';
+        }
+      } else {
+        h += '<div style="color:var(--text-3);padding:20px 0;text-align:center;">No active replacements</div>';
+      }
+
+      // Completed (collapsed)
+      if (completed.length > 0) {
+        h += '<div style="margin:16px 0 8px;color:var(--text-3);font-size:12px;text-transform:uppercase;letter-spacing:1px;">Completed (' + completed.length + ')</div>';
+        for (var i = 0; i < Math.min(completed.length, 5); i++) {
+          var e = completed[i];
+          h += '<div style="padding:8px 12px;border-left:3px solid var(--green);margin-bottom:6px;opacity:0.6;">';
+          h += '<div style="font-size:14px;">' + esc(e.repl_desc) + ' → ' + esc(e.sp_location) + '</div>';
+          h += '<div style="font-size:12px;color:var(--text-3);">' + esc(e.repl_stock) + ' replaced ' + esc(e.sp_stock) + '</div>';
+          h += '</div>';
+        }
+      }
+
+      return h;
+    });
+  }
+
+
+  // ══════════════════════════════════════════════════════════════════
+  // HELP / FAQ
+  // ══════════════════════════════════════════════════════════════════
+
+  function helpView() {
+    var h = '<div class="section-title">HOW TO USE THIS APP</div>';
+    h += '<p style="color:var(--text-3);font-size:13px;margin:0 0 16px;">CLE Lot Manager — Quick Reference</p>';
+
+    var sections = [
+      {
+        title: "Home Tab",
+        icon: "🏠",
+        items: [
+          "Search by stock number or last 8 of VIN",
+          "Browse inventory by Lots, Status, Makes, or Floor Layout",
+          "Status Overview shows sellable, dead, transit, and ordered counts"
+        ]
+      },
+      {
+        title: "Notes Tab",
+        icon: "📝",
+        items: [
+          "Log field observations: holes, verifications, reorgs, and general notes",
+          "Notes push to the CLE Lot Report Google Sheet for tracking",
+          "View submission history to see what's been logged"
+        ]
+      },
+      {
+        title: "Audit Tab",
+        icon: "✅",
+        items: [
+          "Status & Location Audit: flags units with data issues (wrong PC, missing lot, etc.)",
+          "Product Hierarchy: flags missing vehicle type, body style, or manufacturer (new units only)"
+        ]
+      },
+      {
+        title: "Activity Tab",
+        icon: "↕️",
+        items: [
+          "Sale Pending Today: units put into sale pending today (status days = 0)",
+          "Pending in Display: sale pending units in showroom/display that need pulling",
+          "Select Replacement: pick an overflow unit to backfill a sale pending display slot",
+          "Retail Ordered Today: customer orders placed today (by order date)",
+          "Incoming Pipeline: ordered, shipped, and in-transit units by stage/type/make"
+        ]
+      },
+      {
+        title: "Coverage Tab",
+        icon: "📊",
+        items: [
+          "Coverage Matrix: every model's placement (showroom, display, overflow, incoming)",
+          "Zone Map: per-zone model grid for reorganization planning",
+          "Overflow Only: units in overflow with no showroom or display presence",
+          "Replacement Log: track your replacement picks — mark complete or cancel"
+        ]
+      },
+      {
+        title: "Unit Replacement Tool",
+        icon: "🔄",
+        items: [
+          "From a sale pending unit in display/showroom, tap 'Select Replacement from Overflow'",
+          "Candidates are grouped: Same Model (best) → Same Make → Same Type",
+          "Sorted by freshness — newest units first",
+          "Selection is logged to the Google Sheet and tracked in the Replacement Log",
+          "Duplicate assignments are blocked — each overflow unit can only be assigned once"
+        ]
+      },
+      {
+        title: "Data Refresh",
+        icon: "🔄",
+        items: [
+          "Data updates when the CLE Lot Report runs (usually daily)",
+          "Close all app tabs and reopen to pick up new data",
+          "The 'Updated' timestamp at the top shows when data was last refreshed"
+        ]
+      }
+    ];
+
+    for (var s = 0; s < sections.length; s++) {
+      var sec = sections[s];
+      h += '<div class="card" style="margin-bottom:8px;">';
+      h += '<div style="font-size:18px;font-weight:700;margin-bottom:8px;">' + sec.icon + ' ' + esc(sec.title) + '</div>';
+      h += '<ul style="margin:0;padding-left:20px;color:var(--text-2);font-size:14px;line-height:1.8;">';
+      for (var i = 0; i < sec.items.length; i++) {
+        h += '<li>' + esc(sec.items[i]) + '</li>';
+      }
+      h += '</ul></div>';
+    }
+
+    return Promise.resolve(h);
+  }
+
+
+  // ══════════════════════════════════════════════════════════════════
   // INCOMING PIPELINE VIEWS
   // ══════════════════════════════════════════════════════════════════
 
@@ -2770,6 +2989,8 @@ var Views = (function () {
     salesMakeView: salesMakeView,
     salesUnitsView: salesUnitsView,
     replacePickerView: replacePickerView,
+    replLogView: replLogView,
+    helpView: helpView,
     incomingView: incomingView,
     incomingStatusView: incomingStatusView,
     incomingMakeView: incomingMakeView,

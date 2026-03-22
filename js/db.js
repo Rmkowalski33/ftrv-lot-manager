@@ -5,7 +5,7 @@
 
 var DB = (function () {
   var DB_NAME = "ftrv_lot_manager";
-  var DB_VERSION = 1;
+  var DB_VERSION = 2;
   var db = null;
 
   // ── Open / Initialize ──────────────────────────────────────────
@@ -45,6 +45,13 @@ var DB = (function () {
         if (!d.objectStoreNames.contains("notes_history")) {
           var nh = d.createObjectStore("notes_history", { keyPath: "id", autoIncrement: true });
           nh.createIndex("timestamp", "timestamp", { unique: false });
+        }
+
+        // Replacement log — tracks replacement selections
+        if (!d.objectStoreNames.contains("replacement_log")) {
+          var rl = d.createObjectStore("replacement_log", { keyPath: "id", autoIncrement: true });
+          rl.createIndex("status", "status", { unique: false });
+          rl.createIndex("repl_stock", "repl_stock", { unique: false });
         }
       };
 
@@ -201,6 +208,76 @@ var DB = (function () {
     });
   }
 
+  // ── Replacement Log ──────────────────────────────────────────────
+  function _hasStore(name) {
+    return db && db.objectStoreNames.contains(name);
+  }
+
+  function addReplacement(entry) {
+    return open().then(function () {
+      if (!_hasStore("replacement_log")) return Promise.resolve();
+      entry.status = "active";
+      entry.timestamp = new Date().toISOString();
+      return promisify(tx("replacement_log", "readwrite").add(entry));
+    });
+  }
+
+  function getActiveReplacements() {
+    return open().then(function () {
+      if (!_hasStore("replacement_log")) return [];
+      return promisify(tx("replacement_log", "readonly").getAll());
+    }).then(function (all) {
+      return (all || []).filter(function (r) { return r.status === "active"; });
+    });
+  }
+
+  function getAllReplacements() {
+    return open().then(function () {
+      if (!_hasStore("replacement_log")) return [];
+      return promisify(tx("replacement_log", "readonly").getAll());
+    }).then(function (all) { return all || []; });
+  }
+
+  function updateReplacement(id, newStatus) {
+    return open().then(function () {
+      if (!_hasStore("replacement_log")) return;
+      var store = tx("replacement_log", "readwrite");
+      return promisify(store.get(id)).then(function (entry) {
+        if (entry) {
+          entry.status = newStatus;
+          entry.updated_at = new Date().toISOString();
+          return promisify(store.put(entry));
+        }
+      });
+    });
+  }
+
+  function clearReplacements(statusFilter) {
+    return open().then(function () {
+      if (!_hasStore("replacement_log")) return;
+      return promisify(tx("replacement_log", "readonly").getAll());
+    }).then(function (all) {
+      if (!all || all.length === 0) return;
+      var t = db.transaction("replacement_log", "readwrite");
+      var store = t.objectStore("replacement_log");
+      for (var i = 0; i < all.length; i++) {
+        if (!statusFilter || all[i].status === statusFilter) {
+          store.delete(all[i].id);
+        }
+      }
+      return new Promise(function (resolve) { t.oncomplete = resolve; });
+    });
+  }
+
+  function isReplacementAssigned(replStock) {
+    return getActiveReplacements().then(function (active) {
+      for (var i = 0; i < active.length; i++) {
+        if (active[i].repl_stock === replStock) return true;
+      }
+      return false;
+    });
+  }
+
   // ── Stats (computed from units) ────────────────────────────────
   function getInventoryStats() {
     return getAllUnits().then(function (units) {
@@ -240,6 +317,12 @@ var DB = (function () {
     clearSentNotes: clearSentNotes,
     addToHistory: addToHistory,
     getNotesHistory: getNotesHistory,
+    addReplacement: addReplacement,
+    getActiveReplacements: getActiveReplacements,
+    getAllReplacements: getAllReplacements,
+    updateReplacement: updateReplacement,
+    clearReplacements: clearReplacements,
+    isReplacementAssigned: isReplacementAssigned,
     getInventoryStats: getInventoryStats,
   };
 })();

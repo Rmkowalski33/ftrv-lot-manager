@@ -31,7 +31,8 @@ var App = (function () {
     "audit": "audit", "audit-status": "audit", "hierarchy": "audit", "hierarchy-detail": "audit",
     "activity": "activity", "sales-section": "activity", "sales-make": "activity", "sales-units": "activity",
     "incoming": "activity", "incoming-status": "activity", "incoming-make": "activity", "incoming-units": "activity",
-    "replace-picker": "activity",
+    "replace-picker": "activity", "repl-log": "coverage",
+    "help": "home",
     "coverage": "coverage", "coverage-matrix": "coverage", "zone-map": "coverage",
     "overflow-only": "coverage",
   };
@@ -208,6 +209,12 @@ var App = (function () {
       case "replace-picker":
         renderPromise = Views.replacePickerView(param);
         break;
+      case "repl-log":
+        renderPromise = Views.replLogView();
+        break;
+      case "help":
+        renderPromise = Views.helpView();
+        break;
       case "incoming":
         renderPromise = Views.incomingView();
         break;
@@ -293,9 +300,15 @@ var App = (function () {
       } else if (action === "confirm-replace") {
         var spStock = card.getAttribute("data-sp-stock");
         var replStock = card.getAttribute("data-repl-stock");
-        if (!confirm("Replace " + spStock + " with " + replStock + "?\n\nThis will submit a move instruction to the lot management sheet.")) return;
-        // Gather unit details for the submission
-        Promise.all([DB.getUnit(spStock), DB.getUnit(replStock)]).then(function (res) {
+        // Block duplicate assignments
+        DB.isReplacementAssigned(replStock).then(function (isDupe) {
+          if (isDupe) {
+            alert("This unit (" + replStock + ") is already assigned as a replacement.\n\nCheck the Replacement Log on the Coverage tab.");
+            return;
+          }
+          if (!confirm("Replace " + spStock + " with " + replStock + "?\n\nThis will submit a move instruction to the lot management sheet.")) return;
+          // Gather unit details for the submission
+          Promise.all([DB.getUnit(spStock), DB.getUnit(replStock)]).then(function (res) {
           var sp = res[0], repl = res[1];
           if (!sp || !repl) { alert("Unit data not found"); return; }
           var payload = {
@@ -317,6 +330,21 @@ var App = (function () {
             notes: "Replacing SP unit " + sp.stock_num + " | Salesman: " + (sp.hold_salesman || "N/A"),
             user: localStorage.getItem("ftrv_user") || "App User",
           };
+          // Save to local replacement log
+          var logEntry = {
+            sp_stock: sp.stock_num,
+            sp_desc: (sp.year||"") + " " + (sp.make||"") + " " + (sp.model||""),
+            sp_location: sp.lot_location || "",
+            sp_area: sp.lot_area || "",
+            sp_salesman: sp.hold_salesman || "",
+            repl_stock: repl.stock_num,
+            repl_desc: (repl.year||"") + " " + (repl.make||"") + " " + (repl.model||""),
+            repl_location: repl.lot_location || "",
+            repl_area: repl.lot_area || "",
+            repl_status: repl.status || "",
+          };
+          DB.addReplacement(logEntry);
+
           Sync.submitNote(payload).then(function (ok) {
             if (ok) {
               alert("Replacement submitted!\n\nMove " + repl.stock_num + " from " + (repl.lot_location||"OVR") + " to " + (sp.lot_location||"display"));
@@ -327,6 +355,27 @@ var App = (function () {
             }
           });
         });
+        }); // close isDupe check
+      }
+      return;
+    }
+
+    // Replacement log actions
+    var replAction = el.closest("[data-repl-action]");
+    if (replAction) {
+      e.preventDefault();
+      var ra = replAction.getAttribute("data-repl-action");
+      var rid = parseInt(replAction.getAttribute("data-repl-id"));
+      if (ra === "complete") {
+        DB.updateReplacement(rid, "completed").then(function () { navigate("repl-log"); });
+      } else if (ra === "cancel") {
+        DB.updateReplacement(rid, "cancelled").then(function () { navigate("repl-log"); });
+      } else if (ra === "clear-completed") {
+        if (confirm("Clear all completed and cancelled entries?")) {
+          DB.clearReplacements("completed").then(function () {
+            return DB.clearReplacements("cancelled");
+          }).then(function () { navigate("repl-log"); });
+        }
       }
       return;
     }
