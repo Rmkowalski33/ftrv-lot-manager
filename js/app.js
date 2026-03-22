@@ -32,7 +32,7 @@ var App = (function () {
     "activity": "activity", "sales-section": "activity", "sales-make": "activity", "sales-units": "activity",
     "incoming": "activity", "incoming-status": "activity", "incoming-make": "activity", "incoming-units": "activity",
     "replace-picker": "activity", "repl-log": "coverage",
-    "help": "home",
+    "help": "home", "all-inventory": "home",
     "coverage": "coverage", "coverage-matrix": "coverage", "zone-map": "coverage",
     "overflow-only": "coverage",
   };
@@ -115,6 +115,9 @@ var App = (function () {
     switch (view) {
       case "home":
         renderPromise = Views.homeView();
+        break;
+      case "all-inventory":
+        renderPromise = Views.allInventoryView(param);
         break;
       case "detail":
         renderPromise = Views.unitDetailView(param);
@@ -697,6 +700,51 @@ var App = (function () {
     }
   }
 
+  // ── All Inventory filter ──
+  function filterAllInventory() {
+    var getSelected = function(id) {
+      var sel = document.getElementById(id);
+      if (!sel) return [];
+      var vals = [];
+      for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].selected) vals.push(sel.options[i].value);
+      }
+      return vals;
+    };
+
+    var locFilter = getSelected("aiFilterLocation");
+    var typeFilter = getSelected("aiFilterType");
+    var statusFilter = getSelected("aiFilterStatus");
+    var mfrFilter = getSelected("aiFilterMfr");
+
+    DB.getAllUnits().then(function(units) {
+      var filtered = units.filter(function(u) {
+        if (locFilter.length > 0 && locFilter.indexOf(u.lot_area || "Unassigned") === -1) return false;
+        if (typeFilter.length > 0 && typeFilter.indexOf(u.veh_type || "Other") === -1) return false;
+        if (statusFilter.length > 0 && statusFilter.indexOf(u.status || "Unknown") === -1) return false;
+        if (mfrFilter.length > 0 && mfrFilter.indexOf(u.manufacturer || "Unknown") === -1) return false;
+        return true;
+      });
+
+      filtered.sort(function(a, b) {
+        var cmp = (a.make || "").localeCompare(b.make || "");
+        return cmp !== 0 ? cmp : (a.model || "").localeCompare(b.model || "");
+      });
+
+      var container = document.getElementById("aiResults");
+      if (!container) return;
+      var h = '<div style="margin-bottom:8px;font-size:13px;color:var(--text-3);">' + filtered.length + ' units shown</div>';
+      var maxShow = Math.min(filtered.length, 100);
+      for (var i = 0; i < maxShow; i++) {
+        h += Views.renderUnitCard(filtered[i]);
+      }
+      if (filtered.length > 100) {
+        h += '<div style="text-align:center;padding:12px;font-size:14px;color:var(--text-3);">Showing 100 of ' + filtered.length + ' — use filters to narrow</div>';
+      }
+      container.innerHTML = h;
+    });
+  }
+
   // ── Public API ─────────────────────────────────────────────────
   return {
     init: init,
@@ -705,6 +753,7 @@ var App = (function () {
     filterSPList: filterSPList,
     filterLotCells: filterLotCells,
     filterMakeCards: filterMakeCards,
+    filterAllInventory: filterAllInventory,
   };
 })();
 
