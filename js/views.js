@@ -235,6 +235,14 @@ var Views = (function () {
       return DB.getMeta("exported_at").then(function (exportedAt) {
         var h = '<div class="view">';
 
+        // How to use + Updated timestamp row (above search)
+        if (exportedAt) {
+          h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
+            + '<a href="#help" style="font-size:12px;color:#8899aa;text-decoration:none;">&#8505; How to Use</a>'
+            + '<span style="font-size:12px;color:#8899aa;">Updated ' + esc(exportedAt) + '</span>'
+            + '</div>';
+        }
+
         // Search box
         h += '<div class="search-box">'
           + '<svg class="search-icon" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="7" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="15.5" y1="15.5" x2="21" y2="21" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>'
@@ -261,7 +269,8 @@ var Views = (function () {
           for (var t = 0; t < TERMINAL_STATUSES.length; t++) {
             if (st === TERMINAL_STATUSES[t]) { isTerminal = true; break; }
           }
-          if (!isTerminal && age > 90) aged90++;
+          var modelYear = parseInt(u.year) || 0;
+          if (!isTerminal && age > 90 && modelYear >= 2025) aged90++;
           // Sale pending
           if (st === "SALE PENDING") salePending++;
           // Incoming
@@ -298,7 +307,7 @@ var Views = (function () {
         var coveragePct = totalModels > 0 ? Math.round(floorModels / totalModels * 100) : 0;
 
         h += '<div class="qi-grid">'
-          + '<div class="qi-card qi-red"><div class="qi-val">' + aged90 + '</div><div class="qi-lbl">Aged 90+ Days</div></div>'
+          + '<div class="qi-card qi-red"><div class="qi-val">' + aged90 + '</div><div class="qi-lbl">Aged 90+ (2025+)</div></div>'
           + '<div class="qi-card qi-blue"><div class="qi-val">' + coveragePct + '%</div><div class="qi-lbl">Display Coverage</div></div>'
           + '<div class="qi-card qi-orange"><div class="qi-val">' + salePending + '</div><div class="qi-lbl">Sale Pending</div></div>'
           + '<div class="qi-card qi-green"><div class="qi-val">' + incomingCount + '</div><div class="qi-lbl">Incoming</div></div>'
@@ -307,10 +316,10 @@ var Views = (function () {
         // ── Section B: Navigate (2x2 compact nav tiles) ──
         h += '<div class="section-header">Navigate</div>';
         h += '<div class="quick-nav-grid">';
-        h += '<a class="quick-nav-tile" href="#lots"><div class="quick-nav-label">Lots</div><div class="quick-nav-sub">By location</div></a>';
-        h += '<a class="quick-nav-tile" href="#status"><div class="quick-nav-label">Status</div><div class="quick-nav-sub">By category</div></a>';
-        h += '<a class="quick-nav-tile" href="#makes"><div class="quick-nav-label">Makes</div><div class="quick-nav-sub">By brand</div></a>';
-        h += '<a class="quick-nav-tile" href="#shop"><div class="quick-nav-label">Shop</div><div class="quick-nav-sub">By layout</div></a>';
+        h += '<a class="quick-nav-tile" href="#lots"><div class="quick-nav-label">Lots</div><div class="quick-nav-sub">Search by lot</div></a>';
+        h += '<a class="quick-nav-tile" href="#status"><div class="quick-nav-label">Status</div><div class="quick-nav-sub">Stock, dead, transit</div></a>';
+        h += '<a class="quick-nav-tile" href="#makes"><div class="quick-nav-label">Makes</div><div class="quick-nav-sub">By manufacturer</div></a>';
+        h += '<a class="quick-nav-tile" href="#shop"><div class="quick-nav-label">Type</div><div class="quick-nav-sub">By vehicle type</div></a>';
         h += '</div>';
 
         // ── Section C: Attention Needed ──
@@ -342,24 +351,14 @@ var Views = (function () {
 
         h += '<div class="attn-card">'
           + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#94a3b8;margin-bottom:10px;">Attention Needed</div>'
-          + '<div class="attn-row"><span class="attn-label">Display Holes</span><span class="attn-val" style="color:var(--orange);">' + displayHoles + '</span></div>'
-          + '<div class="attn-row"><span class="attn-label">Audit Flags</span><span class="attn-val" style="color:var(--yellow);">' + auditFlags.length + '</span></div>'
-          + '<div class="attn-row" style="border-bottom:none;"><span class="attn-label">Dead in Display</span><span class="attn-val" style="color:var(--red);">' + deadOnDisplay + '</span></div>'
-          + '</div>';
-
-        // Data freshness
-        if (exportedAt) {
-          h += '<div class="text-center text-muted" style="font-size:12px;padding:8px 0;">Data as of ' + esc(exportedAt) + '</div>';
-        }
-
-        // Help link — simple text link
-        h += '<div class="text-center" style="padding:4px 0 8px;">'
-          + '<a href="#help" style="font-size:13px;color:#8899aa;text-decoration:underline;">How to Use This App</a>'
+          + '<div class="attn-row"><div><span class="attn-label">Display Holes</span><div style="font-size:11px;color:#8899aa;margin-top:2px;">Models needing display placement</div></div><span class="attn-val" style="color:var(--orange);">' + displayHoles + '</span></div>'
+          + '<div class="attn-row"><div><span class="attn-label">Audit Flags</span><div style="font-size:11px;color:#8899aa;margin-top:2px;">Data quality issues to resolve</div></div><span class="attn-val" style="color:var(--yellow);">' + auditFlags.length + '</span></div>'
+          + '<div class="attn-row" style="border-bottom:none;"><div><span class="attn-label">Dead in Display</span><div style="font-size:11px;color:#8899aa;margin-top:2px;">Non-sellable units in customer areas</div></div><span class="attn-val" style="color:var(--red);">' + deadOnDisplay + '</span></div>'
           + '</div>';
 
         // Powered by RAY.i footer
-        h += '<div style="margin:0 -16px;padding:0;background:#0f1420;">'
-          + '<img src="img/powered-by-rayi.png" alt="Powered by RAY.i" style="width:100%;display:block;" />'
+        h += '<div style="margin:0 -16px;overflow:hidden;">'
+          + '<img src="img/powered-by-rayi.png" alt="Powered by RAY.i" style="width:100%;display:block;mix-blend-mode:lighten;opacity:0.85;" />'
           + '</div>';
 
         h += '</div></div>';
@@ -543,36 +542,49 @@ var Views = (function () {
             && (o.make || "").toUpperCase() === (u.make || "").toUpperCase()
             && (o.model || "").toUpperCase() === (u.model || "").toUpperCase();
         });
-        dupes.sort(function (a, b) {
-          return (parseInt(b.status_days) || 0) - (parseInt(a.status_days) || 0);
-        });
+        // Group by status category, then sort by status_days within each group
+        var dupeCatOrder = ["Stock", "Dead", "Transit", "Ordered", "Other"];
+        var dupeCatColors = { Stock: "var(--green)", Dead: "var(--red)", Transit: "var(--blue)", Ordered: "var(--purple)", Other: "var(--muted)" };
+        var dupesByCategory = {};
+        for (var i = 0; i < dupes.length; i++) {
+          var cat = statusCat(dupes[i].status);
+          if (!dupesByCategory[cat]) dupesByCategory[cat] = [];
+          dupesByCategory[cat].push(dupes[i]);
+        }
+        // Sort within each group by status_days descending
+        var catKeys = Object.keys(dupesByCategory);
+        for (var k = 0; k < catKeys.length; k++) {
+          dupesByCategory[catKeys[k]].sort(function (a, b) {
+            return (parseInt(b.status_days) || 0) - (parseInt(a.status_days) || 0);
+          });
+        }
 
         var h = '<div class="view">';
         h += backBtn("detail/" + encodeURIComponent(u.stock_num), "Unit Detail");
         h += '<div class="section-title">DUPLICATE MAKE &amp; MODELS <span style="color:var(--orange);">(' + dupes.length + ')</span></div>';
-        h += '<p style="color:var(--text-3);font-size:13px;margin:0 0 12px;">Same ' + esc(u.make) + ' ' + esc(u.model) + ' across the lot</p>';
+        h += '<p style="color:#8899aa;font-size:13px;margin:0 0 12px;">Same ' + esc(u.make) + ' ' + esc(u.model) + ' across the lot</p>';
 
-        for (var i = 0; i < dupes.length; i++) {
-          var d = dupes[i];
-          var st = (d.status || "").toUpperCase();
-          var stColor = 'var(--text-2)';
-          if (st === 'READY FOR SALE' || st === 'RVASAP' || st === 'SHOWROOM') stColor = 'var(--green)';
-          else if (st === 'SALE PENDING') stColor = 'var(--orange)';
-          else if (st === 'IN SERVICE' || st === 'AWAITING PARTS' || st === 'DAMAGED') stColor = 'var(--red)';
-          else if (st === 'SHIPPED' || st === 'DISPATCHED' || st === 'ORDERED' || st === 'PO ISSUED') stColor = 'var(--blue)';
-          var sDays = d.status_days != null ? d.status_days + 'd in status' : '';
-
-          h += '<div class="result-card" style="margin-bottom:6px;padding:12px 16px;" data-action="detail" data-stock="' + esc(d.stock_num) + '">'
-            + '<div style="display:flex;justify-content:space-between;align-items:center;">'
-            + '<span style="font-size:18px;font-weight:700;">' + esc(d.year) + ' ' + esc(d.make) + ' ' + esc(d.model) + '</span>'
-            + '<span style="font-size:14px;font-weight:700;color:' + stColor + ';">' + esc(d.status || '') + '</span>'
-            + '</div>'
-            + '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">'
-            + '<span style="font-size:14px;color:var(--text-2);">Stk# ' + esc(d.stock_num) + ' &middot; ' + esc(d.lot_location || 'No Lot') + '</span>'
-            + '<span style="font-size:13px;color:var(--text-3);">' + sDays + '</span>'
-            + '</div></div>';
+        for (var ci = 0; ci < dupeCatOrder.length; ci++) {
+          var catName = dupeCatOrder[ci];
+          var catUnits = dupesByCategory[catName];
+          if (!catUnits || catUnits.length === 0) continue;
+          var catColor = dupeCatColors[catName] || "var(--muted)";
+          h += '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:' + catColor + ';margin:12px 0 6px;">' + esc(catName) + ' (' + catUnits.length + ')</div>';
+          for (var i = 0; i < catUnits.length; i++) {
+            var d = catUnits[i];
+            var sDays = d.status_days != null ? d.status_days + 'd in status' : '';
+            h += '<div class="result-card" style="margin-bottom:6px;padding:12px 16px;" data-action="detail" data-stock="' + esc(d.stock_num) + '">'
+              + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+              + '<span style="font-size:18px;font-weight:700;">' + esc(d.year) + ' ' + esc(d.make) + ' ' + esc(d.model) + '</span>'
+              + '<span class="status-badge ' + statusClass(d.status) + '">' + esc(d.status || '') + '</span>'
+              + '</div>'
+              + '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">'
+              + '<span style="font-size:14px;color:var(--text-2);">Stk# ' + esc(d.stock_num) + ' &middot; ' + esc(d.lot_location || 'No Lot') + '</span>'
+              + '<span style="font-size:13px;color:var(--text-3);">' + sDays + '</span>'
+              + '</div></div>';
+          }
         }
-        if (dupes.length === 0) h += '<div style="color:var(--text-3);padding:12px;">No duplicates found</div>';
+        if (dupes.length === 0) h += '<div style="color:#8899aa;padding:12px;">No duplicates found</div>';
         h += '</div>';
         return h;
       });
@@ -599,7 +611,7 @@ var Views = (function () {
         var h = '<div class="view">';
         h += backBtn("detail/" + encodeURIComponent(u.stock_num), "Unit Detail");
         h += '<div class="section-title">COMPARE SIMILAR MODELS <span style="color:var(--blue);">(' + similar.length + ')</span></div>';
-        h += '<p style="color:var(--text-3);font-size:13px;margin:0 0 12px;">Same ' + esc(u.veh_type) + ' / ' + esc(u.body_style) + '</p>';
+        h += '<p style="color:#8899aa;font-size:13px;margin:0 0 12px;">Same ' + esc(u.veh_type) + ' / ' + esc(u.body_style) + '</p>';
 
         // Group by price group
         var byPG = {};
@@ -625,7 +637,7 @@ var Views = (function () {
               + '</div></div>';
           }
         }
-        if (similar.length === 0) h += '<div style="color:var(--text-3);padding:12px;">No similar models found</div>';
+        if (similar.length === 0) h += '<div style="color:#8899aa;padding:12px;">No similar models found</div>';
         h += '</div>';
         return h;
       });
@@ -1171,7 +1183,7 @@ var Views = (function () {
 
       var h = '<div class="view">';
       h += '<div class="section-header" style="margin-top:0;">Shop by Layout</div>';
-      h += '<div style="font-size:18px;color:var(--text-3);margin-bottom:16px;">Browse inventory by type and floor layout</div>';
+      h += '<div style="font-size:18px;color:#8899aa;margin-bottom:16px;">Browse inventory by type and floor layout</div>';
 
       var types = Object.keys(byType).sort(function (a, b) { return byType[b].length - byType[a].length; });
       for (var ti = 0; ti < types.length; ti++) {
@@ -1506,7 +1518,7 @@ var Views = (function () {
       var h = '<div class="view">';
       h += backBtn("coverage", "Coverage");
       h += '<div class="section-header" style="margin-top:0;">Coverage Matrix</div>'
-        + '<div style="font-size:18px;color:var(--text-3);margin-bottom:8px;">Which models are on display vs. sitting in overflow or missing entirely</div>';
+        + '<div style="font-size:18px;color:#8899aa;margin-bottom:8px;">Which models are on display vs. sitting in overflow or missing entirely</div>';
 
       // Type filter buttons
       h += '<div class="cov-type-filters" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">';
@@ -1587,7 +1599,7 @@ var Views = (function () {
       var h = '<div class="view">';
       h += backBtn("coverage", "Coverage");
       h += '<div class="section-header" style="margin-top:0;">Zone Map</div>'
-        + '<div style="font-size:18px;color:var(--text-3);margin-bottom:8px;">Where each model sits across display zones — find what needs reorganized</div>';
+        + '<div style="font-size:18px;color:#8899aa;margin-bottom:8px;">Where each model sits across display zones — find what needs reorganized</div>';
 
       // Type filter buttons
       h += '<div class="cov-type-filters" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">';
@@ -1690,7 +1702,7 @@ var Views = (function () {
         // History
         if (history.length > 0) {
           h += '<div class="section-header" style="display:flex;justify-content:space-between;align-items:center;">Recent Notes'
-            + '<a data-action="clear-notes-history" style="font-size:13px;color:var(--text-3);cursor:pointer;text-decoration:underline;font-weight:400;">Clear</a></div>';
+            + '<a data-action="clear-notes-history" style="font-size:13px;color:#8899aa;cursor:pointer;text-decoration:underline;font-weight:400;">Clear</a></div>';
           for (var i = 0; i < history.length; i++) {
             var n = history[i];
             var typeColor = n.entry_type === "Verify" ? "var(--blue)" : n.entry_type === "Hole" ? "var(--orange)" : "var(--red)";
@@ -1950,7 +1962,7 @@ var Views = (function () {
       var info = flags.filter(function (f) { return f.severity === "INFO"; }).length;
 
       h += '<div class="section-header" style="margin-top:0;">Status &amp; Location Audit</div>'
-        + '<div style="font-size:18px;color:var(--text-3);margin-bottom:12px;">Dead units on display, stale statuses, missing lot codes</div>';
+        + '<div style="font-size:18px;color:#8899aa;margin-bottom:12px;">Dead units on display, stale statuses, missing lot codes</div>';
 
       h += '<div class="stats-row">'
         + '<div class="stat-pill"><div class="stat-val text-red">' + critical + '</div><div class="stat-label">Critical</div></div>'
@@ -2078,7 +2090,7 @@ var Views = (function () {
       var h = '<div class="view">';
       h += backBtn("coverage", "Coverage");
       h += '<div class="section-header" style="margin-top:0;">Overflow Only</div>'
-        + '<div style="font-size:18px;color:var(--text-3);margin-bottom:12px;">Units in overflow with no showroom or display presence — candidates to move onto the floor</div>';
+        + '<div style="font-size:18px;color:#8899aa;margin-bottom:12px;">Units in overflow with no showroom or display presence — candidates to move onto the floor</div>';
 
       h += '<div class="stats-row">'
         + '<div class="stat-pill"><div class="stat-val text-orange">' + filtered.length + '</div><div class="stat-label">Units</div></div>'
@@ -2211,7 +2223,7 @@ var Views = (function () {
       var h = '<div class="view">';
       h += backBtn("audit", "Audit");
       h += '<div class="section-header" style="margin-top:0;">Product Hierarchy Audit</div>'
-        + '<div style="font-size:18px;color:var(--text-3);margin-bottom:12px;">Missing required fields and inconsistent product relationships</div>';
+        + '<div style="font-size:18px;color:#8899aa;margin-bottom:12px;">Missing required fields and inconsistent product relationships</div>';
 
       var totalMissing = 0;
       var mKeys = Object.keys(data.missingByType);
@@ -2284,7 +2296,7 @@ var Views = (function () {
       var h = '<div class="view">';
       h += backBtn("hierarchy", "Hierarchy");
       h += '<div class="section-header" style="margin-top:0;">' + esc(label) + '</div>'
-        + '<div style="font-size:18px;color:var(--text-3);margin-bottom:12px;">'
+        + '<div style="font-size:18px;color:#8899aa;margin-bottom:12px;">'
         + unitList.length + ' unit' + (unitList.length !== 1 ? 's' : '') + ' affected</div>';
 
       var badgeClass = isMissing ? "flag-warning" : "flag-critical";
@@ -2450,7 +2462,7 @@ var Views = (function () {
       }
 
       var h = '<div class="section-title">INVENTORY ACTIVITY</div>';
-      h += '<p style="color:var(--text-3);font-size:13px;margin:0 0 16px;">Data as of ' + esc(exportedAt) + '</p>';
+      h += '<p style="color:#8899aa;font-size:13px;margin:0 0 16px;">Data as of ' + esc(exportedAt) + '</p>';
 
       // ── KPI pills ──
       h += '<div class="stats-row">';
@@ -2752,10 +2764,10 @@ var Views = (function () {
 
   function lotMapView() {
     var h = '<div class="section-title">CLE LOT MAP</div>';
-    h += '<p style="color:var(--text-3);font-size:13px;margin:0 0 12px;">Pinch to zoom · Swipe to pan</p>';
+    h += '<p style="color:#8899aa;font-size:13px;margin:0 0 12px;">Pinch to zoom · Swipe to pan</p>';
 
     h += '<div style="margin-bottom:16px;">';
-    h += '<div style="font-weight:600;margin-bottom:8px;color:var(--text-2);">Page 1 — Overview</div>';
+    h += '<div style="font-weight:600;margin-bottom:8px;color:#c8cdd3;">Page 1 — Overview</div>';
     h += '<div style="overflow:auto;-webkit-overflow-scrolling:touch;background:#fff;border-radius:10px;padding:8px;border:1px solid var(--border);">';
     h += '<img src="img/lot-map-p1.jpg" alt="CLE Lot Map Page 1" style="display:block;width:100%;min-width:600px;height:auto;" />';
     h += '</div></div>';
@@ -2976,7 +2988,7 @@ var Views = (function () {
 
   function helpView() {
     var h = '<div class="section-title">HOW TO USE THIS APP</div>';
-    h += '<p style="color:var(--text-3);font-size:13px;margin:0 0 16px;">CLE Lot Manager — Quick Reference</p>';
+    h += '<p style="color:#8899aa;font-size:13px;margin:0 0 16px;">CLE Lot Manager — Quick Reference</p>';
 
     var sections = [
       {

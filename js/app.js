@@ -238,9 +238,9 @@ var App = (function () {
       + '<div class="skeleton" style="height:80px;"></div></div>';
 
     renderPromise.then(function (html) {
-      // Inject "Data as of" timestamp at top of every view
+      // Inject "Data as of" timestamp at top of every view (skip home — has its own)
       DB.getMeta("exported_at").then(function (exportedAt) {
-        if (exportedAt) {
+        if (exportedAt && view !== "home") {
           var ts = '<div style="text-align:right;font-size:11px;color:#8899aa;padding:2px 8px 0;opacity:0.7;">Updated ' + exportedAt + '</div>';
           container.innerHTML = ts + html;
         } else {
@@ -356,14 +356,10 @@ var App = (function () {
           });
         });
         }); // close isDupe check
-      }
-      return;
-    }
-
-    // Clear notes history
-    if (action === "clear-notes-history") {
-      if (confirm("Clear all recent notes from local history?\n\nThis only clears the display — submitted notes remain on the Google Sheet.")) {
-        DB.clearNotesHistory().then(function() { navigate("notes"); });
+      } else if (action === "clear-notes-history") {
+        if (confirm("Clear all recent notes from local history?\n\nThis only clears the display — submitted notes remain on the Google Sheet.")) {
+          DB.clearNotesHistory().then(function() { navigate("notes"); }).catch(function(e) { alert("Error: " + e); navigate("notes"); });
+        }
       }
       return;
     }

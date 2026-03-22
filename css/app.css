@@ -59,13 +59,13 @@
   --red-dim:   #2a0a0f;
   --blue:      #0032a0;
   --blue-dim:  #e8edf7;
-  --green:     #198754;
+  --green:     #2d8659;
   --green-dim: #d1e7dd;
-  --orange:    #e67700;
+  --orange:    #c27803;
   --orange-dim:#fff3cd;
   --yellow:    #ffc107;
   --yellow-dim:#fff3cd;
-  --purple:    #6f42c1;
+  --purple:    #5a4fcf;
   --purple-dim:#e8dff5;
   --copper:    #b8860b;
   --copper-dim:#f5e6c8;
@@ -307,11 +307,11 @@ body {
   font-size: 11px; font-weight: 700; text-transform: uppercase;
   letter-spacing: .5px; color: #fff; white-space: nowrap;
 }
-.status-stock   { background: var(--green); }
-.status-dead    { background: var(--red); }
-.status-transit { background: var(--blue); }
-.status-ordered { background: var(--purple); }
-.status-pending { background: var(--orange); }
+.status-stock   { background: #2d8659; }
+.status-dead    { background: #C8102E; }
+.status-transit { background: #1a5ca0; }
+.status-ordered { background: #5a4fcf; }
+.status-pending { background: #c27803; }
 
 
 /* ── Utilization Bar ──────────────────────────────────────────── */
@@ -478,12 +478,12 @@ body {
 /* ── Section Headers ──────────────────────────────────────────── */
 .section-header {
   font-size: 11px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 2px; color: #3d4852; margin: 16px 0 8px;
+  letter-spacing: 2px; color: #c8cdd3; margin: 16px 0 8px;
 }
 .section-header:first-child { margin-top: 0; }
 .section-title {
   font-size: 16px; font-weight: 800; text-transform: uppercase;
-  letter-spacing: 1px; color: var(--text-light); margin-bottom: 8px;
+  letter-spacing: 1px; color: #e2e8f0; margin-bottom: 8px;
 }
 
 
@@ -537,7 +537,7 @@ body {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 8px 14px; border-radius: var(--radius-sm);
   background: rgba(255,255,255,.08); border: 1px solid #2d3748;
-  color: #adb5bd; font-size: 14px; font-weight: 600; cursor: pointer;
+  color: #c8cdd3; font-size: 14px; font-weight: 600; cursor: pointer;
   margin-bottom: 12px; text-decoration: none; transition: transform .1s;
 }
 .back-btn:active { transform: scale(.97); }
