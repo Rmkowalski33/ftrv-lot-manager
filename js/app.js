@@ -360,6 +360,18 @@ var App = (function () {
       return;
     }
 
+    // Clear notes history
+    if (action === "clear-notes-history") {
+      if (confirm("Clear all recent notes from local history?\n\nThis only clears the display — submitted notes remain on the Google Sheet.")) {
+        DB.open().then(function () {
+          var t = indexedDB.open("ftrv_lot_manager").result.transaction("notes_history", "readwrite");
+          t.objectStore("notes_history").clear();
+          t.oncomplete = function () { navigate("notes"); };
+        });
+      }
+      return;
+    }
+
     // Replacement log actions
     var replAction = el.closest("[data-repl-action]");
     if (replAction) {
@@ -632,11 +644,45 @@ var App = (function () {
     // Handled via event delegation in handleClick
   }
 
+  // ── Sale Pending list filters ──────────────────────────────────
+  function filterSPList(chipEl, filterKind) {
+    // Toggle active chip
+    var bar = chipEl.parentElement;
+    var chips = bar.querySelectorAll(".chip");
+    for (var i = 0; i < chips.length; i++) chips[i].classList.remove("chip-active");
+    chipEl.classList.add("chip-active");
+
+    // Get active filters
+    var activeType = "ALL", activeDeal = "ALL";
+    var typeBar = document.getElementById("spTypeFilters");
+    var dealBar = document.getElementById("spDealFilters");
+    if (typeBar) {
+      var tc = typeBar.querySelector(".chip-active");
+      if (tc) activeType = tc.getAttribute("data-sp-type") || "ALL";
+    }
+    if (dealBar) {
+      var dc = dealBar.querySelector(".chip-active");
+      if (dc) activeDeal = dc.getAttribute("data-sp-deal") || "ALL";
+    }
+
+    // Filter cards
+    var cards = document.querySelectorAll(".sp-unit-card");
+    for (var i = 0; i < cards.length; i++) {
+      var card = cards[i];
+      var cardType = card.getAttribute("data-unit-type") || "";
+      var cardDeal = card.getAttribute("data-unit-deal") || "";
+      var showType = (activeType === "ALL" || cardType === activeType);
+      var showDeal = (activeDeal === "ALL" || cardDeal === activeDeal);
+      card.style.display = (showType && showDeal) ? "" : "none";
+    }
+  }
+
   // ── Public API ─────────────────────────────────────────────────
   return {
     init: init,
     navigate: navigate,
     selectRadio: selectRadio,
+    filterSPList: filterSPList,
   };
 })();
 

@@ -422,7 +422,7 @@ var Views = (function () {
         + fieldRow("Retail", fmtPrice(u.retail_price))
         + fieldRow("MSRP", fmtPrice(u.msrp));
       if (u.special_price) {
-        h += fieldRow("Special", '<span style="color:var(--green);font-weight:700;">' + fmtPrice(u.special_price) + '</span>');
+        h += '<div class="field-row"><span class="field-label">Special</span><span class="field-value" style="color:var(--green);font-weight:700;">' + esc(fmtPrice(u.special_price)) + '</span></div>';
       }
       h += '</div>';
     }
@@ -1612,7 +1612,8 @@ var Views = (function () {
 
         // History
         if (history.length > 0) {
-          h += '<div class="section-header">Recent Notes</div>';
+          h += '<div class="section-header" style="display:flex;justify-content:space-between;align-items:center;">Recent Notes'
+            + '<a data-action="clear-notes-history" style="font-size:13px;color:var(--text-3);cursor:pointer;text-decoration:underline;font-weight:400;">Clear</a></div>';
           for (var i = 0; i < history.length; i++) {
             var n = history[i];
             var typeClass = n.entry_type === "Verify" ? "flag-info"
@@ -2570,6 +2571,40 @@ var Views = (function () {
       return h;
     }
 
+    // Type + Deal Status filter chips for sale pending sections
+    var isPending = (section === "pending" || section === "all-pending" || section === "pending-display");
+    if (isPending && units.length > 3) {
+      // Type filters
+      var typeSet = {};
+      var dealSet = {};
+      for (var fi = 0; fi < units.length; fi++) {
+        var vt = (units[fi].veh_type || "OTHER").toUpperCase();
+        typeSet[vt] = (typeSet[vt] || 0) + 1;
+        var ds = units[fi].deal_status || "";
+        if (ds) dealSet[ds] = (dealSet[ds] || 0) + 1;
+      }
+      var typeKeys = Object.keys(typeSet).sort();
+      if (typeKeys.length > 1) {
+        h += '<div style="margin-bottom:8px;color:var(--text-3);font-size:11px;text-transform:uppercase;letter-spacing:1px;">Filter by Type</div>';
+        h += '<div class="chip-bar" id="spTypeFilters">';
+        h += '<span class="chip chip-active" data-sp-type="ALL" onclick="App.filterSPList(this,\'type\')">All</span>';
+        for (var ti = 0; ti < typeKeys.length; ti++) {
+          h += '<span class="chip" data-sp-type="' + typeKeys[ti] + '" onclick="App.filterSPList(this,\'type\')">' + esc(typeKeys[ti]) + ' (' + typeSet[typeKeys[ti]] + ')</span>';
+        }
+        h += '</div>';
+      }
+      var dealKeys = Object.keys(dealSet).sort();
+      if (dealKeys.length > 0) {
+        h += '<div style="margin:8px 0 4px;color:var(--text-3);font-size:11px;text-transform:uppercase;letter-spacing:1px;">Filter by Deal Status</div>';
+        h += '<div class="chip-bar" id="spDealFilters">';
+        h += '<span class="chip chip-active" data-sp-deal="ALL" onclick="App.filterSPList(this,\'deal\')">All</span>';
+        for (var di = 0; di < dealKeys.length; di++) {
+          h += '<span class="chip" data-sp-deal="' + esc(dealKeys[di]) + '" onclick="App.filterSPList(this,\'deal\')">' + esc(dealKeys[di]) + ' (' + dealSet[dealKeys[di]] + ')</span>';
+        }
+        h += '</div>';
+      }
+    }
+
     units.sort(function (a, b) {
       var cmp = (a.make || "").localeCompare(b.make || "");
       return cmp !== 0 ? cmp : (a.model || "").localeCompare(b.model || "");
@@ -2585,7 +2620,9 @@ var Views = (function () {
       var statusColor = statusColors[section] || "var(--text-2)";
       var statusLabel = statusLabels[section] || (u.status || "");
 
-      h += '<a class="card card-interactive" href="#' + detailTarget + '" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">';
+      var spTypeAttr = isPending ? ' data-unit-type="' + esc((u.veh_type || "OTHER").toUpperCase()) + '"' : '';
+      var spDealAttr = isPending ? ' data-unit-deal="' + esc(u.deal_status || "") + '"' : '';
+      h += '<a class="card card-interactive sp-unit-card" href="#' + detailTarget + '"' + spTypeAttr + spDealAttr + ' style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">';
       h += '<div>';
       h += '<div style="font-size:18px;font-weight:600;">' + esc(u.year || "") + ' ' + esc(u.make || "") + ' ' + esc(u.model || "") + '</div>';
       h += '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">' + esc(u.stock_num || "") + ' · ' + esc(u.veh_type || "") + (u.floor_layout ? ' · ' + esc(u.floor_layout) : '') + '</div>';
