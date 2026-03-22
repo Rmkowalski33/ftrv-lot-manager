@@ -51,7 +51,7 @@
   /* Text — dark on light cards, light on dark backgrounds */
   --text:      #1a1a2e;
   --text-2:    #495057;
-  --text-3:    #5a6370;
+  --text-3:    #4a5568;
   --text-light: #f1f5f9;
 
   /* Accent — FTRV brand */
@@ -469,16 +469,16 @@ body {
 
 
 /* ── Empty State ──────────────────────────────────────────────── */
-.empty-state { text-align: center; padding: 40px 20px; color: #6c757d; }
+.empty-state { text-align: center; padding: 40px 20px; color: #4a5568; }
 .empty-icon  { font-size: 48px; margin-bottom: 12px; }
 .empty-title { font-size: 20px; font-weight: 700; color: var(--text-light); }
-.empty-desc  { font-size: 14px; color: #6c757d; margin-top: 6px; }
+.empty-desc  { font-size: 14px; color: #4a5568; margin-top: 6px; }
 
 
 /* ── Section Headers ──────────────────────────────────────────── */
 .section-header {
   font-size: 11px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 2px; color: #495057; margin: 16px 0 8px;
+  letter-spacing: 2px; color: #3d4852; margin: 16px 0 8px;
 }
 .section-header:first-child { margin-top: 0; }
 .section-title {
@@ -646,3 +646,41 @@ thead .cov-th-sticky { background: var(--blue); }
   box-shadow: none;
 }
 .home-hero .stat-label { color: #94a3b8; }
+
+
+/* ── Quick Insights Grid (Home dashboard) ─────────────────── */
+.qi-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px;
+}
+.qi-card {
+  background: #fff; border-radius: var(--radius); padding: 14px 12px;
+  border: 1px solid var(--border); border-left: 3px solid #ccc;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.qi-card.qi-red    { border-left-color: var(--red); }
+.qi-card.qi-blue   { border-left-color: var(--blue); }
+.qi-card.qi-orange { border-left-color: var(--orange); }
+.qi-card.qi-green  { border-left-color: var(--green); }
+.qi-val {
+  font-size: 26px; font-weight: 800; line-height: 1; color: var(--text);
+}
+.qi-lbl {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .5px; color: var(--text-3); margin-top: 4px;
+}
+
+/* ── Attention Needed Card (Home dashboard) ───────────────── */
+.attn-card {
+  background: linear-gradient(145deg, #1a1f30 0%, #0d1220 100%);
+  border: 1px solid #2d3748; border-radius: var(--radius);
+  padding: 16px; margin-bottom: 10px; color: #fff;
+}
+.attn-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.attn-label { font-size: 15px; font-weight: 600; color: #e4e4e7; }
+.attn-val   { font-size: 22px; font-weight: 800; }
+
+/* ── Zone Map Showroom Column ─────────────────────────────── */
+.cov-shr { background: rgba(0,50,160,.12) !important; color: var(--blue); font-weight: 700; }

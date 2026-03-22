@@ -246,23 +246,66 @@ var Views = (function () {
         // Dashboard
         h += '<div id="searchDashboard">';
 
-        // KPI row — hero section with dark background
-        var stockCount = 0, deadCount = 0, transitCount = 0;
+        // ── Section A: Quick Insights (2x2 stat cards) ──
+        var aged90 = 0, salePending = 0, incomingCount = 0;
+        var deadOnDisplay = 0;
+        var DEAD_DISPLAY_STATUSES = ["IN SERVICE", "AWAITING PARTS", "DAMAGED"];
+        var INCOMING_STATUSES = ["SHIPPED","DISPATCHED","TRANSFER","ORDERED","PO ISSUED","RETAIL ORDERED"];
         for (var i = 0; i < units.length; i++) {
-          var cat = statusCat(units[i].status);
-          if (cat === "Stock") stockCount++;
-          else if (cat === "Dead") deadCount++;
-          else if (cat === "Transit") transitCount++;
+          var u = units[i];
+          var st = (u.status || "").toUpperCase();
+          var age = parseInt(u.age) || 0;
+          var area = (u.lot_area || "").toUpperCase();
+          // Aged 90+ (non-terminal)
+          var isTerminal = false;
+          for (var t = 0; t < TERMINAL_STATUSES.length; t++) {
+            if (st === TERMINAL_STATUSES[t]) { isTerminal = true; break; }
+          }
+          if (!isTerminal && age > 90) aged90++;
+          // Sale pending
+          if (st === "SALE PENDING") salePending++;
+          // Incoming
+          for (var ii = 0; ii < INCOMING_STATUSES.length; ii++) {
+            if (st === INCOMING_STATUSES[ii]) { incomingCount++; break; }
+          }
+          // Dead in display
+          for (var di = 0; di < DEAD_DISPLAY_STATUSES.length; di++) {
+            if (st === DEAD_DISPLAY_STATUSES[di] && (area === "DISPLAY" || area === "SHOWROOM")) {
+              deadOnDisplay++;
+              break;
+            }
+          }
         }
-        h += '<div class="home-hero">'
-          + '<div class="stats-row">'
-          + '<div class="stat-pill"><div class="stat-val text-blue">' + units.length + '</div><div class="stat-label">CLE Units</div></div>'
-          + '<div class="stat-pill"><div class="stat-val text-green">' + stockCount + '</div><div class="stat-label">Sellable</div></div>'
-          + '<div class="stat-pill"><div class="stat-val text-red">' + deadCount + '</div><div class="stat-label">Dead</div></div>'
-          + '</div></div>';
 
-        // Quick-nav tiles — compact with left-border accent
-        h += '<div class="section-header">Explore Inventory</div>';
+        // Display coverage: models with at least 1 unit in DISPLAY or SHOWROOM / total active models
+        var modelOnFloor = {};
+        var modelAll = {};
+        for (var i = 0; i < units.length; i++) {
+          var u = units[i];
+          var st = (u.status || "").toUpperCase();
+          var isTerminal2 = false;
+          for (var t = 0; t < TERMINAL_STATUSES.length; t++) {
+            if (st === TERMINAL_STATUSES[t]) { isTerminal2 = true; break; }
+          }
+          if (isTerminal2) continue;
+          var mk = (u.make || "") + "|" + (u.model || "");
+          modelAll[mk] = true;
+          var area = (u.lot_area || "").toUpperCase();
+          if (area === "DISPLAY" || area === "SHOWROOM") modelOnFloor[mk] = true;
+        }
+        var totalModels = Object.keys(modelAll).length;
+        var floorModels = Object.keys(modelOnFloor).length;
+        var coveragePct = totalModels > 0 ? Math.round(floorModels / totalModels * 100) : 0;
+
+        h += '<div class="qi-grid">'
+          + '<div class="qi-card qi-red"><div class="qi-val">' + aged90 + '</div><div class="qi-lbl">Aged 90+ Days</div></div>'
+          + '<div class="qi-card qi-blue"><div class="qi-val">' + coveragePct + '%</div><div class="qi-lbl">Display Coverage</div></div>'
+          + '<div class="qi-card qi-orange"><div class="qi-val">' + salePending + '</div><div class="qi-lbl">Sale Pending</div></div>'
+          + '<div class="qi-card qi-green"><div class="qi-val">' + incomingCount + '</div><div class="qi-lbl">Incoming</div></div>'
+          + '</div>';
+
+        // ── Section B: Navigate (2x2 compact nav tiles) ──
+        h += '<div class="section-header">Navigate</div>';
         h += '<div class="quick-nav-grid">';
         h += '<a class="quick-nav-tile" href="#lots"><div class="quick-nav-label">Lots</div><div class="quick-nav-sub">By location</div></a>';
         h += '<a class="quick-nav-tile" href="#status"><div class="quick-nav-label">Status</div><div class="quick-nav-sub">By category</div></a>';
@@ -270,42 +313,53 @@ var Views = (function () {
         h += '<a class="quick-nav-tile" href="#shop"><div class="quick-nav-label">Shop</div><div class="quick-nav-sub">By layout</div></a>';
         h += '</div>';
 
-        // Status category breakdown — dark card style
-        h += '<div class="home-hero" style="margin-top:4px;">';
-        h += '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#94a3b8;margin-bottom:10px;">Status Overview</div>';
-        for (var ci = 0; ci < STATUS_CATS.length; ci++) {
-          var cat = STATUS_CATS[ci];
-          var count = 0;
-          for (var i = 0; i < units.length; i++) {
-            if (statusCat(units[i].status) === cat.name) count++;
+        // ── Section C: Attention Needed ──
+        // Compute overflow-only (display holes) count
+        var mmOnFloor2 = {};
+        var ovrModels = {};
+        for (var i = 0; i < units.length; i++) {
+          var u = units[i];
+          var st = (u.status || "").toUpperCase();
+          var isT3 = false;
+          for (var t = 0; t < TERMINAL_STATUSES.length; t++) { if (st === TERMINAL_STATUSES[t]) { isT3 = true; break; } }
+          if (isT3) continue;
+          var mk = (u.make || "") + "|" + (u.model || "");
+          var bucket = lotBucket(u.lot_location || "");
+          if (bucket === "SHOWROOM" || (bucket !== "OVERFLOW" && bucket !== "OTHER")) {
+            mmOnFloor2[mk] = true;
           }
-          if (count === 0) continue;
-          var pct = Math.round(count / units.length * 100);
-          h += '<div style="padding:8px 0;' + (ci < STATUS_CATS.length - 1 ? 'border-bottom:1px solid rgba(255,255,255,.08);' : '') + 'cursor:pointer;" data-action="status-cat" data-category="' + cat.name + '">'
-            + '<div style="display:flex;justify-content:space-between;align-items:center;">'
-            + '<div><span style="font-size:16px;font-weight:700;color:#e4e4e7;">' + esc(cat.name) + '</span>'
-            + '<span style="font-size:13px;color:#94a3b8;margin-left:8px;">' + esc(cat.label) + '</span></div>'
-            + '<span style="font-size:22px;font-weight:800;color:var(--' + cat.color + ');">' + count + '</span>'
-            + '</div>'
-            + '<div class="util-bar mt-8" style="background:rgba(255,255,255,.1);"><div class="util-fill util-fill-' + cat.color + '" style="width:' + pct + '%;"></div></div>'
-            + '</div>';
+          if (bucket === "OVERFLOW") {
+            ovrModels[mk] = (ovrModels[mk] || 0) + 1;
+          }
         }
-        h += '</div>';
+        var displayHoles = 0;
+        var ovrKeys = Object.keys(ovrModels);
+        for (var i = 0; i < ovrKeys.length; i++) {
+          if (!mmOnFloor2[ovrKeys[i]]) displayHoles += ovrModels[ovrKeys[i]];
+        }
+
+        var auditFlags = computeAuditFlags(units);
+
+        h += '<div class="attn-card">'
+          + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#94a3b8;margin-bottom:10px;">Attention Needed</div>'
+          + '<div class="attn-row"><span class="attn-label">Display Holes</span><span class="attn-val" style="color:var(--orange);">' + displayHoles + '</span></div>'
+          + '<div class="attn-row"><span class="attn-label">Audit Flags</span><span class="attn-val" style="color:var(--yellow);">' + auditFlags.length + '</span></div>'
+          + '<div class="attn-row" style="border-bottom:none;"><span class="attn-label">Dead in Display</span><span class="attn-val" style="color:var(--red);">' + deadOnDisplay + '</span></div>'
+          + '</div>';
 
         // Data freshness
         if (exportedAt) {
           h += '<div class="text-center text-muted" style="font-size:12px;padding:8px 0;">Data as of ' + esc(exportedAt) + '</div>';
         }
 
-        // Help link — proper card/button
-        h += '<a href="#help" class="card card-interactive" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--text);padding:14px 16px;">'
-          + '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
-          + '<div><div style="font-size:15px;font-weight:700;">How to Use This App</div>'
-          + '<div style="font-size:12px;color:var(--text-3);">Quick guide for lot managers</div></div></a>';
+        // Help link — simple text link
+        h += '<div class="text-center" style="padding:4px 0 8px;">'
+          + '<a href="#help" style="font-size:13px;color:#8899aa;text-decoration:underline;">How to Use This App</a>'
+          + '</div>';
 
-        // Powered by RAY.i footer — explicit dark background to blend
-        h += '<div style="padding:0;display:flex;justify-content:center;align-items:center;margin:4px -16px 0;background:#0f1420;">'
-          + '<img src="img/powered-by-rayi.png" alt="Powered by RAY.i" style="width:100%;max-width:375px;" />'
+        // Powered by RAY.i footer
+        h += '<div style="margin:0 -16px;padding:0;background:#0f1420;">'
+          + '<img src="img/powered-by-rayi.png" alt="Powered by RAY.i" style="width:100%;display:block;" />'
           + '</div>';
 
         h += '</div></div>';
@@ -1572,7 +1626,7 @@ var Views = (function () {
 
           h += '<tr class="cov-model-row' + rowClass + '" data-vt="' + esc(gVt) + '">'
             + '<td class="cov-th-sticky cov-model-name">' + esc(md.model) + '</td>'
-            + '<td class="cov-num' + (md.showroom > 0 ? ' cov-has' : '') + '">' + (md.showroom || '') + '</td>';
+            + '<td class="cov-num' + (md.showroom > 0 ? ' cov-shr' : '') + '">' + (md.showroom || '') + '</td>';
 
           for (var di = 0; di < DISP_ZONES.length; di++) {
             var zoneCount = md.zones[DISP_ZONES[di]] || 0;
@@ -1618,17 +1672,17 @@ var Views = (function () {
         // New note type cards
         h += '<div class="section-header">New Field Note</div>';
 
-        h += '<div class="note-type-card" data-action="note-form" data-type="verify">'
+        h += '<div class="note-type-card" data-action="note-form" data-type="verify" style="border-left:3px solid var(--green);">'
           + '<div class="note-type-icon" style="background:var(--green-dim);color:var(--green);"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg></div>'
           + '<div><div class="note-type-label">Verify Location</div>'
           + '<div class="note-type-desc">Confirm or correct a unit\'s lot location</div></div></div>';
 
-        h += '<div class="note-type-card" data-action="note-form" data-type="hole">'
+        h += '<div class="note-type-card" data-action="note-form" data-type="hole" style="border-left:3px solid var(--orange);">'
           + '<div class="note-type-icon" style="background:var(--orange-dim);color:var(--orange);"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg></div>'
           + '<div><div class="note-type-label">Coverage Hole</div>'
           + '<div class="note-type-desc">Flag an empty display spot</div></div></div>';
 
-        h += '<div class="note-type-card" data-action="note-form" data-type="reorg">'
+        h += '<div class="note-type-card" data-action="note-form" data-type="reorg" style="border-left:3px solid var(--blue);">'
           + '<div class="note-type-icon" style="background:var(--blue-dim);color:var(--blue);"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg></div>'
           + '<div><div class="note-type-label">Reorganization</div>'
           + '<div class="note-type-desc">Suggest units to move or regroup</div></div></div>';
@@ -1655,7 +1709,7 @@ var Views = (function () {
                 }
               } catch (e) { /* keep raw */ }
             }
-            h += '<div class="card" style="padding:14px 16px;">'
+            h += '<div class="card" style="padding:12px;background:#f8f9fa;">'
               + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
               + '<span style="display:inline-block;padding:3px 10px;border-radius:4px;font-size:12px;font-weight:700;background:' + typeBg + ';color:' + typeColor + ';">' + esc(n.entry_type) + '</span>'
               + '<span style="font-size:12px;color:var(--text-3);">' + esc(tsDisplay) + '</span>'
@@ -2634,12 +2688,12 @@ var Views = (function () {
       var dealKeys = Object.keys(dealSet).sort();
       if (dealKeys.length > 0) {
         h += '<div style="margin:8px 0 4px;color:var(--text-3);font-size:11px;text-transform:uppercase;letter-spacing:1px;">Filter by Deal Status</div>';
-        h += '<div class="chip-bar" id="spDealFilters">';
-        h += '<span class="chip chip-active" data-sp-deal="ALL" onclick="App.filterSPList(this,\'deal\')">All</span>';
+        h += '<select class="form-select" id="spDealFilter" onchange="App.filterSPList(this,\'deal\')" style="margin-bottom:8px;">';
+        h += '<option value="ALL">All Deal Statuses</option>';
         for (var di = 0; di < dealKeys.length; di++) {
-          h += '<span class="chip" data-sp-deal="' + esc(dealKeys[di]) + '" onclick="App.filterSPList(this,\'deal\')">' + esc(dealKeys[di]) + ' (' + dealSet[dealKeys[di]] + ')</span>';
+          h += '<option value="' + esc(dealKeys[di]) + '">' + esc(dealKeys[di]) + ' (' + dealSet[dealKeys[di]] + ')</option>';
         }
-        h += '</div>';
+        h += '</select>';
       }
     }
 

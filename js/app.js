@@ -241,7 +241,7 @@ var App = (function () {
       // Inject "Data as of" timestamp at top of every view
       DB.getMeta("exported_at").then(function (exportedAt) {
         if (exportedAt) {
-          var ts = '<div style="text-align:right;font-size:11px;color:var(--text-3);padding:2px 8px 0;opacity:0.7;">Updated ' + exportedAt + '</div>';
+          var ts = '<div style="text-align:right;font-size:11px;color:#8899aa;padding:2px 8px 0;opacity:0.7;">Updated ' + exportedAt + '</div>';
           container.innerHTML = ts + html;
         } else {
           container.innerHTML = html;
@@ -641,24 +641,25 @@ var App = (function () {
   }
 
   // ── Sale Pending list filters ──────────────────────────────────
-  function filterSPList(chipEl, filterKind) {
-    // Toggle active chip
-    var bar = chipEl.parentElement;
-    var chips = bar.querySelectorAll(".chip");
-    for (var i = 0; i < chips.length; i++) chips[i].classList.remove("chip-active");
-    chipEl.classList.add("chip-active");
+  function filterSPList(el, filterKind) {
+    // For type filters (chips), toggle active chip
+    if (filterKind === "type") {
+      var bar = el.parentElement;
+      var chips = bar.querySelectorAll(".chip");
+      for (var i = 0; i < chips.length; i++) chips[i].classList.remove("chip-active");
+      el.classList.add("chip-active");
+    }
 
     // Get active filters
     var activeType = "ALL", activeDeal = "ALL";
     var typeBar = document.getElementById("spTypeFilters");
-    var dealBar = document.getElementById("spDealFilters");
+    var dealSelect = document.getElementById("spDealFilter");
     if (typeBar) {
       var tc = typeBar.querySelector(".chip-active");
       if (tc) activeType = tc.getAttribute("data-sp-type") || "ALL";
     }
-    if (dealBar) {
-      var dc = dealBar.querySelector(".chip-active");
-      if (dc) activeDeal = dc.getAttribute("data-sp-deal") || "ALL";
+    if (dealSelect) {
+      activeDeal = dealSelect.value || "ALL";
     }
 
     // Filter cards
