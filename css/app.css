@@ -684,4 +684,4 @@ thead .cov-th-sticky { background: var(--blue); }
 .attn-val   { font-size: 22px; font-weight: 800; }
 
 /* ── Zone Map Showroom Column ─────────────────────────────── */
-.cov-shr { background: rgba(0,50,160,.12) !important; color: var(--blue); font-weight: 700; }
+.cov-shr { background: rgba(0,50,160,.25) !important; color: #60a5fa; font-weight: 700; }

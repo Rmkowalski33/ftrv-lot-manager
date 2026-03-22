@@ -2594,32 +2594,7 @@ var Views = (function () {
         + '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Deals closed today</div></div>'
         + '<span class="stat-val" style="font-size:28px;color:var(--green);">' + soldToday.length + '</span></a>';
 
-      // Sold Not Delivered — units with sold/SP status + deal_delivery_date in the future or no delivery yet
-      var soldNotDelivered = [];
-      var todayDate = new Date(_todayStr());
-      for (var i = 0; i < units.length; i++) {
-        var u = units[i];
-        var st = (u.status || "").toUpperCase();
-        // Units that are sold or sale pending with a deal but not yet delivered
-        if (st === "SALE PENDING" || st === "SOLD") {
-          var delivDate = u.deal_delivery_date || u.exp_delivery_date || "";
-          if (delivDate) {
-            var dd = new Date(_normalizeDate(delivDate));
-            if (!isNaN(dd.getTime()) && dd >= todayDate) {
-              soldNotDelivered.push(u);
-            }
-          } else if (st === "SALE PENDING") {
-            // SP with no delivery date = not delivered yet
-            soldNotDelivered.push(u);
-          }
-        }
-      }
-      if (soldNotDelivered.length > 0) {
-        h += '<a class="card card-interactive" href="#sales-section/not-delivered/ALL" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;border-left:3px solid #a855f7;">'
-          + '<div><div style="font-size:18px;font-weight:600;">Sold Not Delivered</div>'
-          + '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Pending delivery or pickup</div></div>'
-          + '<span class="stat-val" style="font-size:28px;color:#a855f7;">' + soldNotDelivered.length + '</span></a>';
-      }
+      // (Sold Not Delivered removed — redundant with Sale Pending)
 
       // ── Incoming section ──
       h += '<div class="section-title" style="margin-top:20px;">INBOUND</div>';
@@ -2684,27 +2659,6 @@ var Views = (function () {
         }
         return results;
       });
-    } else if (section === "not-delivered") {
-      return DB.getAllUnits().then(function (units) {
-        var results = [];
-        var todayDate = new Date(_todayStr());
-        for (var i = 0; i < units.length; i++) {
-          var u = units[i];
-          var st = (u.status || "").toUpperCase();
-          if (st === "SALE PENDING" || st === "SOLD") {
-            var delivDate = u.deal_delivery_date || u.exp_delivery_date || "";
-            if (delivDate) {
-              var dd = new Date(_normalizeDate(delivDate));
-              if (!isNaN(dd.getTime()) && dd >= todayDate) {
-                results.push(u);
-              }
-            } else if (st === "SALE PENDING") {
-              results.push(u);
-            }
-          }
-        }
-        return results;
-      });
     } else if (section === "retail-ordered") {
       return DB.getAllUnits().then(function (units) {
         var results = [];
@@ -2735,7 +2689,7 @@ var Views = (function () {
           if ((list[i].veh_type || "").toUpperCase() === vehType.toUpperCase()) filtered.push(list[i]);
         }
       }
-      var labels = { "pending": "New Today", "all-pending": "All Sale Pending", "pending-display": "Pending in Display/Showroom", "not-delivered": "Sold Not Delivered", "retail-ordered": "Retail Ordered Today", "sold": "Retail Sold Today" };
+      var labels = { "pending": "New Today", "all-pending": "All Sale Pending", "pending-display": "Pending in Display/Showroom", "retail-ordered": "Retail Ordered Today", "sold": "Retail Sold Today" };
       var label = labels[section] || section;
       var suffix = vehType === "ALL" ? "" : " — " + vehType;
       return _renderSalesUnitList(filtered, label + suffix, section);
@@ -2875,8 +2829,8 @@ var Views = (function () {
       var detailTarget = (section === "sold")
         ? "sales-units/sold/" + encodeURIComponent(u.stock_num)
         : "detail/" + encodeURIComponent(u.stock_num);
-      var statusColors = { "pending": "var(--orange)", "all-pending": "var(--orange)", "pending-display": "var(--orange)", "not-delivered": "#a855f7", "retail-ordered": "#a855f7", "sold": "var(--green)" };
-      var statusLabels = { "pending": "PENDING", "all-pending": "PENDING", "pending-display": "PENDING", "not-delivered": "NOT DELIVERED", "retail-ordered": "RETAIL ORD", "sold": "SOLD" };
+      var statusColors = { "pending": "var(--orange)", "all-pending": "var(--orange)", "pending-display": "var(--orange)", "retail-ordered": "#a855f7", "sold": "var(--green)" };
+      var statusLabels = { "pending": "PENDING", "all-pending": "PENDING", "pending-display": "PENDING", "retail-ordered": "RETAIL ORD", "sold": "SOLD" };
       var statusColor = statusColors[section] || "var(--text-2)";
       var statusLabel = statusLabels[section] || (u.status || "");
 
