@@ -260,13 +260,13 @@ var Views = (function () {
           + '<div class="stat-pill"><div class="stat-val text-red">' + deadCount + '</div><div class="stat-label">Dead</div></div>'
           + '</div>';
 
-        // Quick-nav tiles
+        // Quick-nav tiles — clean text, no emoji
         h += '<div class="section-header">Explore Inventory</div>';
         h += '<div class="quick-nav-grid">';
-        h += '<a class="quick-nav-tile" href="#lots"><div class="quick-nav-icon" style="background:var(--blue-dim);color:var(--blue);">&#127960;</div><div class="quick-nav-label">Lots</div><div class="quick-nav-sub">By location</div></a>';
-        h += '<a class="quick-nav-tile" href="#status"><div class="quick-nav-icon" style="background:var(--green-dim);color:var(--green);">&#128202;</div><div class="quick-nav-label">Status</div><div class="quick-nav-sub">By category</div></a>';
-        h += '<a class="quick-nav-tile" href="#makes"><div class="quick-nav-icon" style="background:var(--orange-dim);color:var(--orange);">&#127967;</div><div class="quick-nav-label">Makes</div><div class="quick-nav-sub">By brand</div></a>';
-        h += '<a class="quick-nav-tile" href="#shop"><div class="quick-nav-icon" style="background:var(--purple-dim);color:var(--purple);">&#128722;</div><div class="quick-nav-label">Shop</div><div class="quick-nav-sub">By layout</div></a>';
+        h += '<a class="quick-nav-tile" href="#lots"><div class="quick-nav-label">Lots</div><div class="quick-nav-sub">By location</div></a>';
+        h += '<a class="quick-nav-tile" href="#status"><div class="quick-nav-label">Status</div><div class="quick-nav-sub">By category</div></a>';
+        h += '<a class="quick-nav-tile" href="#makes"><div class="quick-nav-label">Makes</div><div class="quick-nav-sub">By brand</div></a>';
+        h += '<a class="quick-nav-tile" href="#shop"><div class="quick-nav-label">Shop</div><div class="quick-nav-sub">By layout</div></a>';
         h += '</div>';
 
         // Status category breakdown
