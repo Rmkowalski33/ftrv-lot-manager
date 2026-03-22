@@ -363,11 +363,7 @@ var App = (function () {
     // Clear notes history
     if (action === "clear-notes-history") {
       if (confirm("Clear all recent notes from local history?\n\nThis only clears the display — submitted notes remain on the Google Sheet.")) {
-        DB.open().then(function () {
-          var t = indexedDB.open("ftrv_lot_manager").result.transaction("notes_history", "readwrite");
-          t.objectStore("notes_history").clear();
-          t.oncomplete = function () { navigate("notes"); };
-        });
+        DB.clearNotesHistory().then(function() { navigate("notes"); });
       }
       return;
     }

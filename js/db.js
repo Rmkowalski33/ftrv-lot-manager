@@ -208,6 +208,17 @@ var DB = (function () {
     });
   }
 
+  function clearNotesHistory() {
+    return open().then(function () {
+      return new Promise(function(resolve, reject) {
+        var t = db.transaction("notes_history", "readwrite");
+        t.objectStore("notes_history").clear();
+        t.oncomplete = function() { resolve(); };
+        t.onerror = function() { reject(t.error); };
+      });
+    });
+  }
+
   // ── Replacement Log ──────────────────────────────────────────────
   function _hasStore(name) {
     return db && db.objectStoreNames.contains(name);
@@ -317,6 +328,7 @@ var DB = (function () {
     clearSentNotes: clearSentNotes,
     addToHistory: addToHistory,
     getNotesHistory: getNotesHistory,
+    clearNotesHistory: clearNotesHistory,
     addReplacement: addReplacement,
     getActiveReplacements: getActiveReplacements,
     getAllReplacements: getAllReplacements,

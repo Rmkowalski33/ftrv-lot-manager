@@ -246,7 +246,7 @@ var Views = (function () {
         // Dashboard
         h += '<div id="searchDashboard">';
 
-        // KPI row
+        // KPI row — hero section with dark background
         var stockCount = 0, deadCount = 0, transitCount = 0;
         for (var i = 0; i < units.length; i++) {
           var cat = statusCat(units[i].status);
@@ -254,13 +254,14 @@ var Views = (function () {
           else if (cat === "Dead") deadCount++;
           else if (cat === "Transit") transitCount++;
         }
-        h += '<div class="stats-row">'
+        h += '<div class="home-hero">'
+          + '<div class="stats-row">'
           + '<div class="stat-pill"><div class="stat-val text-blue">' + units.length + '</div><div class="stat-label">CLE Units</div></div>'
           + '<div class="stat-pill"><div class="stat-val text-green">' + stockCount + '</div><div class="stat-label">Sellable</div></div>'
           + '<div class="stat-pill"><div class="stat-val text-red">' + deadCount + '</div><div class="stat-label">Dead</div></div>'
-          + '</div>';
+          + '</div></div>';
 
-        // Quick-nav tiles — clean text, no emoji
+        // Quick-nav tiles — compact with left-border accent
         h += '<div class="section-header">Explore Inventory</div>';
         h += '<div class="quick-nav-grid">';
         h += '<a class="quick-nav-tile" href="#lots"><div class="quick-nav-label">Lots</div><div class="quick-nav-sub">By location</div></a>';
@@ -269,8 +270,9 @@ var Views = (function () {
         h += '<a class="quick-nav-tile" href="#shop"><div class="quick-nav-label">Shop</div><div class="quick-nav-sub">By layout</div></a>';
         h += '</div>';
 
-        // Status category breakdown
-        h += '<div class="section-header">Status Overview</div>';
+        // Status category breakdown — dark card style
+        h += '<div class="home-hero" style="margin-top:4px;">';
+        h += '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#94a3b8;margin-bottom:10px;">Status Overview</div>';
         for (var ci = 0; ci < STATUS_CATS.length; ci++) {
           var cat = STATUS_CATS[ci];
           var count = 0;
@@ -279,28 +281,30 @@ var Views = (function () {
           }
           if (count === 0) continue;
           var pct = Math.round(count / units.length * 100);
-          h += '<div class="card card-interactive" data-action="status-cat" data-category="' + cat.name + '">'
+          h += '<div style="padding:8px 0;' + (ci < STATUS_CATS.length - 1 ? 'border-bottom:1px solid rgba(255,255,255,.08);' : '') + 'cursor:pointer;" data-action="status-cat" data-category="' + cat.name + '">'
             + '<div style="display:flex;justify-content:space-between;align-items:center;">'
-            + '<div><span style="font-size:20px;font-weight:700;">' + esc(cat.name) + '</span>'
-            + '<span style="font-size:18px;color:var(--text-3);margin-left:8px;">' + esc(cat.label) + '</span></div>'
-            + '<span class="stat-val text-' + cat.color + '" style="font-size:28px;">' + count + '</span>'
+            + '<div><span style="font-size:16px;font-weight:700;color:#e4e4e7;">' + esc(cat.name) + '</span>'
+            + '<span style="font-size:13px;color:#94a3b8;margin-left:8px;">' + esc(cat.label) + '</span></div>'
+            + '<span style="font-size:22px;font-weight:800;color:var(--' + cat.color + ');">' + count + '</span>'
             + '</div>'
-            + '<div class="util-bar mt-8"><div class="util-fill util-fill-' + cat.color + '" style="width:' + pct + '%;"></div></div>'
+            + '<div class="util-bar mt-8" style="background:rgba(255,255,255,.1);"><div class="util-fill util-fill-' + cat.color + '" style="width:' + pct + '%;"></div></div>'
             + '</div>';
         }
+        h += '</div>';
 
         // Data freshness
         if (exportedAt) {
           h += '<div class="text-center text-muted" style="font-size:12px;padding:8px 0;">Data as of ' + esc(exportedAt) + '</div>';
         }
 
-        // Help link
-        h += '<div style="text-align:center;padding:4px 0;">'
-          + '<a href="#help" style="font-size:13px;color:var(--text-3);text-decoration:none;">How to Use This App</a>'
-          + '</div>';
+        // Help link — proper card/button
+        h += '<a href="#help" class="card card-interactive" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--text);padding:14px 16px;">'
+          + '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+          + '<div><div style="font-size:15px;font-weight:700;">How to Use This App</div>'
+          + '<div style="font-size:12px;color:var(--text-3);">Quick guide for lot managers</div></div></a>';
 
-        // Powered by RAY.i footer — seamless blend into app background
-        h += '<div style="padding:0;display:flex;justify-content:center;align-items:center;margin:4px -16px 0;">'
+        // Powered by RAY.i footer — explicit dark background to blend
+        h += '<div style="padding:0;display:flex;justify-content:center;align-items:center;margin:4px -16px 0;background:#0f1420;">'
           + '<img src="img/powered-by-rayi.png" alt="Powered by RAY.i" style="width:100%;max-width:375px;" />'
           + '</div>';
 
@@ -598,10 +602,29 @@ var Views = (function () {
         + '<div><div style="font-size:16px;font-weight:600;">CLE Lot Map</div>'
         + '<div style="font-size:12px;color:var(--text-3);">View full lot layout</div></div></a>';
 
+      // Showroom grid
+      h += '<div class="section-header">Showrooms</div>';
+      h += '<div class="lot-grid">';
+      var showroomCodes = ["SHR01","SHR02","SHR03"];
+      for (var si = 0; si < showroomCodes.length; si++) {
+        var scode = showroomCodes[si];
+        var scount = 0;
+        for (var j = 0; j < units.length; j++) {
+          var slot = (units[j].lot_location || "").toUpperCase().replace("CLE-", "");
+          if (slot.indexOf(scode) === 0) scount++;
+        }
+        h += '<div class="lot-cell" data-action="zone-detail" data-zone="' + scode + '">'
+          + '<div class="lot-cell-code">' + scode + '</div>'
+          + '<div class="lot-cell-count">' + scount + '</div>'
+          + '<div class="lot-cell-desc">' + esc((ZONE_INFO[scode] || "").split(" — ")[1] || "") + '</div>'
+          + '</div>';
+      }
+      h += '</div>';
+
       // Display zone grid
       h += '<div class="section-header">Display Zones</div>';
       h += '<div class="lot-grid">';
-      var displayCodes = ["SHR01","SHR02","SHR03","DISP01","DISP02","DISP03","DISP04","DISP05","DISP06","DISP07","DISP08","DISP10","DISP11"];
+      var displayCodes = ["DISP01","DISP02","DISP03","DISP04","DISP05","DISP06","DISP07","DISP08","DISP10","DISP11"];
       for (var di = 0; di < displayCodes.length; di++) {
         var code = displayCodes[di];
         var count = 0;
@@ -1278,17 +1301,17 @@ var Views = (function () {
       }
 
       h += '<a class="note-type-card" href="#coverage-matrix">'
-        + '<div class="note-type-icon" style="background:var(--blue-dim);color:var(--blue);">&#128200;</div>'
+        + '<div class="note-type-icon" style="background:var(--blue-dim);color:var(--blue);"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div>'
         + '<div><div class="note-type-label">Coverage Matrix</div>'
         + '<div class="note-type-desc">Model placement gaps — what needs displayed</div></div></a>';
 
       h += '<a class="note-type-card" href="#zone-map">'
-        + '<div class="note-type-icon" style="background:var(--green-dim);color:var(--green);">&#128506;</div>'
+        + '<div class="note-type-icon" style="background:var(--green-dim);color:var(--green);"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg></div>'
         + '<div><div class="note-type-label">Zone Map</div>'
         + '<div class="note-type-desc">Per-zone model grid — what needs reorganized</div></div></a>';
 
       h += '<a class="note-type-card" href="#overflow-only">'
-        + '<div class="note-type-icon" style="background:var(--orange-dim);color:var(--orange);">&#128230;</div>'
+        + '<div class="note-type-icon" style="background:var(--orange-dim);color:var(--orange);"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg></div>'
         + '<div><div class="note-type-label">Overflow Only</div>'
         + '<div class="note-type-desc">Units in overflow with no showroom or display presence'
         + (ovrOnly > 0 ? ' <span style="color:var(--orange);font-weight:700;">(' + ovrOnly + ')</span>' : '')
@@ -1297,7 +1320,7 @@ var Views = (function () {
       // Replacement Log tile — show active count
       return DB.getActiveReplacements().then(function (activeRepls) {
         h += '<a class="note-type-card" href="#repl-log">'
-          + '<div class="note-type-icon" style="background:#451a03;color:var(--orange);">&#128260;</div>'
+          + '<div class="note-type-icon" style="background:#451a03;color:var(--orange);"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg></div>'
           + '<div><div class="note-type-label">Replacement Log</div>'
           + '<div class="note-type-desc">Track replacement picks — complete or cancel'
           + (activeRepls.length > 0 ? ' <span style="color:var(--orange);font-weight:700;">(' + activeRepls.length + ' active)</span>' : '')
@@ -1596,17 +1619,17 @@ var Views = (function () {
         h += '<div class="section-header">New Field Note</div>';
 
         h += '<div class="note-type-card" data-action="note-form" data-type="verify">'
-          + '<div class="note-type-icon" style="background:var(--green-dim);color:var(--green);">&#128205;</div>'
+          + '<div class="note-type-icon" style="background:var(--green-dim);color:var(--green);"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg></div>'
           + '<div><div class="note-type-label">Verify Location</div>'
           + '<div class="note-type-desc">Confirm or correct a unit\'s lot location</div></div></div>';
 
         h += '<div class="note-type-card" data-action="note-form" data-type="hole">'
-          + '<div class="note-type-icon" style="background:var(--orange-dim);color:var(--orange);">&#128308;</div>'
+          + '<div class="note-type-icon" style="background:var(--orange-dim);color:var(--orange);"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg></div>'
           + '<div><div class="note-type-label">Coverage Hole</div>'
           + '<div class="note-type-desc">Flag an empty display spot</div></div></div>';
 
         h += '<div class="note-type-card" data-action="note-form" data-type="reorg">'
-          + '<div class="note-type-icon" style="background:var(--blue-dim);color:var(--blue);">&#128260;</div>'
+          + '<div class="note-type-icon" style="background:var(--blue-dim);color:var(--blue);"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg></div>'
           + '<div><div class="note-type-label">Reorganization</div>'
           + '<div class="note-type-desc">Suggest units to move or regroup</div></div></div>';
 
@@ -1616,15 +1639,30 @@ var Views = (function () {
             + '<a data-action="clear-notes-history" style="font-size:13px;color:var(--text-3);cursor:pointer;text-decoration:underline;font-weight:400;">Clear</a></div>';
           for (var i = 0; i < history.length; i++) {
             var n = history[i];
-            var typeClass = n.entry_type === "Verify" ? "flag-info"
-              : n.entry_type === "Hole" ? "flag-warning" : "flag-critical";
-            h += '<div class="card">'
-              + '<div class="gap-row mb-8"><span class="flag-badge ' + typeClass + '">' + esc(n.entry_type) + '</span>'
-              + '<span class="flag-badge" style="background:' + (n.status === "Submitted" ? 'var(--green-dim);color:var(--green)' : 'var(--surface-3);color:var(--text-2)') + ';">' + esc(n.status || "Submitted") + '</span></div>'
-              + (n.stock ? '<div style="font-size:20px;font-weight:700;">Stk# ' + esc(n.stock) + '</div>' : '')
-              + (n.description ? '<div style="font-size:18px;color:var(--text-2);margin-top:4px;">' + esc(n.description) + '</div>' : '')
-              + '<div style="font-size:18px;color:var(--text-3);margin-top:6px;">'
-              + esc(n.timestamp) + (n.user ? ' &middot; ' + esc(n.user) : '') + '</div>'
+            var typeColor = n.entry_type === "Verify" ? "var(--blue)" : n.entry_type === "Hole" ? "var(--orange)" : "var(--red)";
+            var typeBg = n.entry_type === "Verify" ? "var(--blue-dim)" : n.entry_type === "Hole" ? "var(--orange-dim)" : "#fde8e8";
+            // Format timestamp nicely
+            var tsDisplay = n.timestamp || "";
+            if (tsDisplay) {
+              try {
+                var d = new Date(tsDisplay);
+                if (!isNaN(d.getTime())) {
+                  var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+                  var hr = d.getHours(), ampm = hr >= 12 ? "PM" : "AM";
+                  hr = hr % 12; if (hr === 0) hr = 12;
+                  var min = d.getMinutes(); var minStr = min < 10 ? "0" + min : "" + min;
+                  tsDisplay = months[d.getMonth()] + " " + d.getDate() + ", " + hr + ":" + minStr + " " + ampm;
+                }
+              } catch (e) { /* keep raw */ }
+            }
+            h += '<div class="card" style="padding:14px 16px;">'
+              + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
+              + '<span style="display:inline-block;padding:3px 10px;border-radius:4px;font-size:12px;font-weight:700;background:' + typeBg + ';color:' + typeColor + ';">' + esc(n.entry_type) + '</span>'
+              + '<span style="font-size:12px;color:var(--text-3);">' + esc(tsDisplay) + '</span>'
+              + '</div>'
+              + (n.stock ? '<div style="font-size:18px;font-weight:800;color:var(--text);">Stk# ' + esc(n.stock) + '</div>' : '')
+              + (n.description ? '<div style="font-size:14px;color:var(--text-2);margin-top:4px;line-height:1.4;">' + esc(n.description) + '</div>' : '')
+              + (n.user ? '<div style="font-size:12px;color:var(--text-3);margin-top:6px;">' + esc(n.user) + '</div>' : '')
               + '</div>';
           }
         }
@@ -1827,14 +1865,14 @@ var Views = (function () {
       h += '<div class="section-header">Audit Tools</div>';
 
       h += '<a class="note-type-card" href="#audit-status">'
-        + '<div class="note-type-icon" style="background:var(--red-dim);color:var(--red);">&#128680;</div>'
+        + '<div class="note-type-icon" style="background:var(--red-dim);color:var(--red);"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>'
         + '<div><div class="note-type-label">Status &amp; Location</div>'
         + '<div class="note-type-desc">Dead units on display, stale statuses, missing lot codes'
         + (critical > 0 ? ' <span style="color:var(--red);font-weight:700;">(' + critical + ' critical)</span>' : '')
         + '</div></div></a>';
 
       h += '<a class="note-type-card" href="#hierarchy">'
-        + '<div class="note-type-icon" style="background:var(--purple-dim);color:var(--purple);">&#128736;</div>'
+        + '<div class="note-type-icon" style="background:var(--purple-dim);color:var(--purple);"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></div>'
         + '<div><div class="note-type-label">Product Hierarchy</div>'
         + '<div class="note-type-desc">Missing or inconsistent product data'
         + (hierCount > 0 ? ' <span style="color:var(--purple);font-weight:700;">(' + hierCount + ')</span>' : '')
@@ -2664,13 +2702,13 @@ var Views = (function () {
 
     h += '<div style="margin-bottom:16px;">';
     h += '<div style="font-weight:600;margin-bottom:8px;color:var(--text-2);">Page 1 — Overview</div>';
-    h += '<div style="overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--border);border-radius:var(--radius);background:#fff;">';
+    h += '<div style="overflow:auto;-webkit-overflow-scrolling:touch;background:#fff;border-radius:10px;padding:8px;border:1px solid var(--border);">';
     h += '<img src="img/lot-map-p1.jpg" alt="CLE Lot Map Page 1" style="display:block;width:100%;min-width:600px;height:auto;" />';
     h += '</div></div>';
 
     h += '<div style="margin-bottom:16px;">';
     h += '<div style="font-weight:600;margin-bottom:8px;color:var(--text-2);">Page 2 — Legend & Codes</div>';
-    h += '<div style="overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--border);border-radius:var(--radius);background:#fff;">';
+    h += '<div style="overflow:auto;-webkit-overflow-scrolling:touch;background:#fff;border-radius:10px;padding:8px;border:1px solid var(--border);">';
     h += '<img src="img/lot-map-p2.jpg" alt="CLE Lot Map Page 2" style="display:block;width:100%;min-width:600px;height:auto;" />';
     h += '</div></div>';
 

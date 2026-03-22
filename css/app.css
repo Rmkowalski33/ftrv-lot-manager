@@ -51,7 +51,7 @@
   /* Text — dark on light cards, light on dark backgrounds */
   --text:      #1a1a2e;
   --text-2:    #495057;
-  --text-3:    #868e96;
+  --text-3:    #5a6370;
   --text-light: #f1f5f9;
 
   /* Accent — FTRV brand */
@@ -182,7 +182,7 @@ body {
 .card {
   background: #fff; border-radius: var(--radius);
   border: 1px solid var(--border); padding: 16px; margin-bottom: 10px;
-  color: var(--text);
+  color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 .card-glass {
   background: rgba(255,255,255,.95);
@@ -217,6 +217,7 @@ body {
 .stat-pill {
   flex: 1; background: #fff; border: 1px solid var(--border);
   border-radius: var(--radius); padding: 12px 6px; text-align: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 .stat-val { font-size: 26px; font-weight: 800; line-height: 1; color: var(--text); }
 .stat-label {
@@ -267,9 +268,11 @@ body {
 }
 .quick-nav-tile {
   display: flex; flex-direction: column; align-items: center;
-  padding: 16px 10px; background: #fff; border: 1px solid var(--border);
+  padding: 14px 10px; background: #fff; border: 1px solid var(--border);
+  border-left: 3px solid var(--blue);
   border-radius: var(--radius); text-decoration: none; color: var(--text);
   transition: transform .12s, box-shadow .12s; text-align: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 .quick-nav-tile:active { transform: scale(.97); box-shadow: 0 0 0 2px var(--red); }
 .quick-nav-icon {
@@ -278,7 +281,7 @@ body {
   font-size: 20px; margin-bottom: 8px;
 }
 .quick-nav-label { font-size: 15px; font-weight: 700; color: var(--text); }
-.quick-nav-sub { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+.quick-nav-sub { font-size: 12px; color: #5a6370; margin-top: 2px; }
 
 
 /* ── Result Items ─────────────────────────────────────────────── */
@@ -287,6 +290,7 @@ body {
   border-radius: var(--radius); margin-bottom: 8px;
   border: 1px solid var(--border); text-decoration: none; color: var(--text);
   cursor: pointer; transition: transform .12s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 .result-card:active { transform: scale(.98); }
 .result-ymm { font-size: 16px; font-weight: 700; }
@@ -363,8 +367,10 @@ body {
 }
 .lot-cell {
   background: #fff; border: 1px solid var(--border);
+  border-left: 3px solid var(--blue);
   border-radius: var(--radius-sm); padding: 12px; text-align: center;
   cursor: pointer; transition: transform .12s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 .lot-cell:active { transform: scale(.96); }
 .lot-cell-code { font-size: 13px; font-weight: 700; color: var(--text); }
@@ -450,6 +456,7 @@ body {
   background: #fff; border: 1px solid var(--border);
   border-radius: var(--radius); margin-bottom: 8px; cursor: pointer;
   transition: transform .12s; text-decoration: none; color: var(--text);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 .note-type-card:active { transform: scale(.98); }
 .note-type-icon {
@@ -471,7 +478,7 @@ body {
 /* ── Section Headers ──────────────────────────────────────────── */
 .section-header {
   font-size: 11px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 2px; color: #6c757d; margin: 16px 0 8px;
+  letter-spacing: 2px; color: #495057; margin: 16px 0 8px;
 }
 .section-header:first-child { margin-top: 0; }
 .section-title {
@@ -625,3 +632,17 @@ thead .cov-th-sticky { background: var(--blue); }
 }
 .cov-legend-item { display: flex; align-items: center; gap: 4px; }
 .cov-legend-dot { width: 8px; height: 8px; border-radius: 2px; }
+
+
+/* ── Home Hero Section ───────────────────────────────────────── */
+.home-hero {
+  background: linear-gradient(145deg, #1a1f30 0%, #0d1220 100%);
+  border: 1px solid #2d3748; border-radius: var(--radius);
+  padding: 16px; margin-bottom: 14px; color: #fff;
+}
+.home-hero .stats-row { margin-bottom: 0; }
+.home-hero .stat-pill {
+  background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.12);
+  box-shadow: none;
+}
+.home-hero .stat-label { color: #94a3b8; }
