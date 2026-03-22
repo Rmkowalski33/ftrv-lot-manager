@@ -1716,7 +1716,7 @@ var Views = (function () {
       + '<option value="Brand Grouping">Same brand not grouped together</option>'
       + '<option value="Type Grouping">Wrong type in this zone (TT in FW area, etc.)</option>'
       + '<option value="Price Grouping">Similar price points should be together</option>'
-      + '<option value="Size Grouping">Similar sizes should be together</option>'
+      + '<option value="Layout Grouping">Similar floor layouts should be together</option>'
       + '</optgroup>'
       + '<optgroup label="Display Management">'
       + '<option value="Duplicate">Duplicate model on display — free the spot</option>'
