@@ -3232,89 +3232,227 @@ var Views = (function () {
   // ══════════════════════════════════════════════════════════════════
 
   function helpView() {
-    var h = '<div class="section-title">HOW TO USE THIS APP</div>';
-    h += '<p style="color:#8899aa;font-size:13px;margin:0 0 16px;">CLE Lot Manager — Quick Reference</p>';
+    var h = '';
 
-    var sections = [
-      {
-        title: "Home Tab",
-        icon: "🏠",
-        items: [
-          "Search by stock number or last 8 of VIN",
-          "Browse inventory by Lots, Status, Makes, or Floor Layout",
-          "Status Overview shows sellable, dead, transit, and ordered counts"
-        ]
-      },
-      {
-        title: "Notes Tab",
-        icon: "📝",
-        items: [
-          "Log field observations: holes, verifications, reorgs, and general notes",
-          "Notes push to the CLE Lot Report Google Sheet for tracking",
-          "View submission history to see what's been logged"
-        ]
-      },
-      {
-        title: "Audit Tab",
-        icon: "✅",
-        items: [
-          "Status & Location Audit: flags units with data issues (wrong PC, missing lot, etc.)",
-          "Product Hierarchy: flags missing vehicle type, body style, or manufacturer (new units only)"
-        ]
-      },
-      {
-        title: "Activity Tab",
-        icon: "↕️",
-        items: [
-          "Sale Pending Today: units put into sale pending today (status days = 0)",
-          "Pending in Display: sale pending units in showroom/display that need pulling",
-          "Select Replacement: pick an overflow unit to backfill a sale pending display slot",
-          "Retail Ordered Today: customer orders placed today (by order date)",
-          "Incoming Pipeline: ordered, shipped, and in-transit units by stage/type/make"
-        ]
-      },
-      {
-        title: "Coverage Tab",
-        icon: "📊",
-        items: [
-          "Coverage Matrix: every model's placement (showroom, display, overflow, incoming)",
-          "Zone Map: per-zone model grid for reorganization planning",
-          "Overflow Only: units in overflow with no showroom or display presence",
-          "Replacement Log: track your replacement picks — mark complete or cancel"
-        ]
-      },
-      {
-        title: "Unit Replacement Tool",
-        icon: "🔄",
-        items: [
-          "From a sale pending unit in display/showroom, tap 'Select Replacement from Overflow'",
-          "Candidates are grouped: Same Model (best) → Same Make → Same Type",
-          "Sorted by freshness — newest units first",
-          "Selection is logged to the Google Sheet and tracked in the Replacement Log",
-          "Duplicate assignments are blocked — each overflow unit can only be assigned once"
-        ]
-      },
-      {
-        title: "Data Refresh",
-        icon: "🔄",
-        items: [
-          "Data updates when the CLE Lot Report runs (usually daily)",
-          "Close all app tabs and reopen to pick up new data",
-          "The 'Updated' timestamp at the top shows when data was last refreshed"
-        ]
-      }
+    // Header
+    h += '<div style="text-align:center;margin-bottom:20px;">';
+    h += '<div style="font-size:22px;font-weight:800;color:var(--text-1);margin-bottom:4px;">CLE Lot Manager</div>';
+    h += '<div style="font-size:13px;color:var(--text-3);">User Guide &amp; Feature Reference</div>';
+    h += '</div>';
+
+    // ── Table of Contents ──
+    h += '<div class="card" style="margin-bottom:16px;">';
+    h += '<div style="font-size:14px;font-weight:700;margin-bottom:8px;color:var(--text-1);">QUICK LINKS</div>';
+    var tocItems = [
+      ["#help-search", "Search & Lookup"],
+      ["#help-home", "Home Tab & KPIs"],
+      ["#help-browse", "Browsing Inventory"],
+      ["#help-unit", "Unit Detail Pages"],
+      ["#help-activity", "Activity & Sales"],
+      ["#help-replacement", "Unit Replacement Tool"],
+      ["#help-notes", "Field Notes"],
+      ["#help-coverage", "Coverage & Analysis"],
+      ["#help-audit", "Data Audits"],
+      ["#help-refresh", "Data Refresh"],
     ];
-
-    for (var s = 0; s < sections.length; s++) {
-      var sec = sections[s];
-      h += '<div class="card" style="margin-bottom:8px;">';
-      h += '<div style="font-size:18px;font-weight:700;margin-bottom:8px;">' + sec.icon + ' ' + esc(sec.title) + '</div>';
-      h += '<ul style="margin:0;padding-left:20px;color:var(--text-2);font-size:14px;line-height:1.8;">';
-      for (var i = 0; i < sec.items.length; i++) {
-        h += '<li>' + esc(sec.items[i]) + '</li>';
-      }
-      h += '</ul></div>';
+    for (var t = 0; t < tocItems.length; t++) {
+      h += '<div style="padding:6px 0;border-bottom:1px solid var(--border);">'
+        + '<a href="' + tocItems[t][0] + '" onclick="event.preventDefault();var el=document.getElementById(\'' + tocItems[t][0].substring(1) + '\');if(el)el.scrollIntoView({behavior:\'smooth\'});" style="font-size:14px;color:var(--blue);text-decoration:none;font-weight:600;">'
+        + (t + 1) + '. ' + tocItems[t][1] + '</a></div>';
     }
+    h += '</div>';
+
+    // Helper for section headers
+    function secHeader(id, num, title) {
+      return '<div id="' + id + '" style="margin-top:24px;margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid var(--blue);">'
+        + '<span style="font-size:16px;font-weight:800;color:var(--text-1);">' + num + '. ' + title + '</span></div>';
+    }
+
+    function stepCard(num, title, detail) {
+      return '<div style="display:flex;gap:10px;margin-bottom:8px;align-items:flex-start;">'
+        + '<div style="min-width:28px;height:28px;background:var(--blue);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;">' + num + '</div>'
+        + '<div><div style="font-size:14px;font-weight:700;color:var(--text-1);">' + title + '</div>'
+        + '<div style="font-size:13px;color:var(--text-2);margin-top:2px;line-height:1.5;">' + detail + '</div></div></div>';
+    }
+
+    function tipCard(text, color) {
+      color = color || 'var(--blue)';
+      return '<div style="border-left:3px solid ' + color + ';background:var(--surface-2);padding:10px 12px;margin:8px 0;border-radius:0 var(--radius) var(--radius) 0;">'
+        + '<div style="font-size:13px;color:var(--text-2);line-height:1.5;">' + text + '</div></div>';
+    }
+
+    function featureRow(name, desc) {
+      return '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">'
+        + '<span style="font-size:13px;font-weight:600;color:var(--text-1);">' + name + '</span>'
+        + '<span style="font-size:13px;color:var(--text-2);text-align:right;max-width:55%;">' + desc + '</span></div>';
+    }
+
+    // ── 1. SEARCH ──
+    h += secHeader('help-search', '1', 'Search & Lookup');
+    h += '<div class="card">';
+    h += '<div style="font-size:13px;color:var(--text-2);line-height:1.6;margin-bottom:10px;">The search bar at the top of the Home tab lets you instantly find any unit.</div>';
+    h += featureRow('Stock Number', 'Enter the full stock number (e.g., 224840)');
+    h += featureRow('VIN (last 8)', 'Enter the last 8 characters of the VIN');
+    h += featureRow('Results', 'Tap any result to open the full unit detail page');
+    h += tipCard('Search is instant &mdash; results appear as you type. No need to press Enter.');
+    h += '</div>';
+
+    // ── 2. HOME TAB ──
+    h += secHeader('help-home', '2', 'Home Tab & KPIs');
+    h += '<div class="card">';
+    h += '<div style="font-size:14px;font-weight:700;margin-bottom:8px;color:var(--text-1);">Quick Insight Cards</div>';
+    h += '<div style="font-size:13px;color:var(--text-2);margin-bottom:10px;">Four tappable KPI cards at the top. Each drills through to the relevant data:</div>';
+    h += featureRow('2025 Models', 'Count of MY2025 units still in active inventory');
+    h += featureRow('Display Coverage', '% of active models with at least one unit on the floor');
+    h += featureRow('Sale Pending', 'Total units in SP status (taps to All Sale Pending)');
+    h += featureRow('Incoming', 'Units ordered/shipped/in transit (taps to pipeline)');
+    h += '</div>';
+
+    h += '<div class="card">';
+    h += '<div style="font-size:14px;font-weight:700;margin-bottom:8px;color:var(--text-1);">Navigate Tiles</div>';
+    h += featureRow('Lots', 'Browse by physical lot location (showrooms, display zones, overflow)');
+    h += featureRow('Status', 'Browse by status category (Stock, Dead, Transit, Ordered)');
+    h += featureRow('Makes', 'Browse by manufacturer and make');
+    h += featureRow('Type', 'Browse by vehicle type and floor layout');
+    h += '</div>';
+
+    h += '<div class="card">';
+    h += '<div style="font-size:14px;font-weight:700;margin-bottom:8px;color:var(--text-1);">Attention Needed</div>';
+    h += '<div style="font-size:13px;color:var(--text-2);margin-bottom:8px;">Highlights items requiring action. Each row is tappable:</div>';
+    h += featureRow('Display Holes', 'Models in overflow with NO showroom/display presence');
+    h += featureRow('Audit Flags', 'Data quality issues needing correction');
+    h += featureRow('Dead in Display', 'Non-sellable units (In Service, etc.) in customer areas');
+    h += '</div>';
+
+    // ── 3. BROWSING ──
+    h += secHeader('help-browse', '3', 'Browsing Inventory');
+    h += '<div class="card">';
+    h += '<div style="font-size:13px;color:var(--text-2);line-height:1.6;margin-bottom:10px;">All browse views support filters. Look for dropdown filters at the top of each list for Type, Manufacturer, Location, or Status.</div>';
+    h += featureRow('Lots View', 'Showrooms, Display Zones, Overflow, and all other lot areas as tiles');
+    h += featureRow('Status View', 'Grouped by category: Stock, Dead, Transit, Ordered');
+    h += featureRow('Makes View', 'Manufacturer &#x2192; Make &#x2192; Model hierarchy with type dropdown');
+    h += featureRow('Type View', 'Vehicle type &#x2192; Floor layout &#x2192; Sub-floorplan grouping');
+    h += featureRow('View All Inventory', 'Full list with multi-select filters for Location, Type, Status, Manufacturer');
+    h += featureRow('Lot Map', 'Visual reference of the CLE lot layout (pinch to zoom)');
+    h += '</div>';
+
+    // ── 4. UNIT DETAIL ──
+    h += secHeader('help-unit', '4', 'Unit Detail Pages');
+    h += '<div class="card">';
+    h += '<div style="font-size:13px;color:var(--text-2);line-height:1.6;margin-bottom:10px;">Tap any unit from search or browse to see its full detail. The page is organized into clean sections:</div>';
+    h += featureRow('Unit Info', 'Stock#, VIN, Year, Make, Model, Type, Body Style, Layout, Condition');
+    h += featureRow('Location', 'PC, Lot Location, Area. Verify Location and Suggest Move buttons inside.');
+    h += featureRow('Transfer Notes', 'Shown for transit units if transfer notes exist');
+    h += featureRow('Retail Deal', 'Sale Pending only: Salesman, Deal#, Deal Status, Type, Delivery Dates, Funding');
+    h += featureRow('Pricing', 'MSRP &#x2192; Retail &#x2192; Special Price (green if discounted)');
+    h += '</div>';
+
+    h += '<div class="card">';
+    h += '<div style="font-size:14px;font-weight:700;margin-bottom:8px;color:var(--text-1);">Bottom Buttons</div>';
+    h += featureRow('Duplicate Make &amp; Models', 'Other units of the same make + model, grouped by status');
+    h += featureRow('Compare Similar Models', 'Units of the same type and body style for comparison');
+    h += featureRow('Select Replacement', 'Sale Pending in display only &mdash; pick an overflow backfill unit');
+    h += '</div>';
+
+    // ── 5. ACTIVITY ──
+    h += secHeader('help-activity', '5', 'Activity & Sales');
+    h += '<div class="card">';
+    h += '<div style="font-size:14px;font-weight:700;margin-bottom:8px;color:var(--text-1);">Sale Pending Sections</div>';
+    h += featureRow('New Today', 'Units entering SP today (status days = 0)');
+    h += featureRow('All Sale Pending', 'Every SP unit regardless of duration');
+    h += featureRow('Pending in Display', 'SP units in display/showroom &mdash; need to pull &amp; replace');
+    h += '</div>';
+
+    h += '<div class="card">';
+    h += '<div style="font-size:14px;font-weight:700;margin-bottom:8px;color:var(--text-1);">Sale Pending Tile Colors</div>';
+    h += '<div style="font-size:13px;color:var(--text-2);margin-bottom:8px;">Each tile is color-coded to help you prioritize:</div>';
+    h += featureRow('Status Days', '<span style="color:var(--green);">Green</span> 0-2d &bull; <span style="color:var(--orange);">Orange</span> 3-7d &bull; <span style="color:#C8102E;">Red</span> 8d+');
+    h += featureRow('Deal Status', '<span style="color:var(--green);">Green</span> = Approved/Funded &bull; <span style="color:var(--orange);">Orange</span> = Pending &bull; <span style="color:#C8102E;">Red</span> = Declined');
+    h += featureRow('Left Border', '<span style="color:var(--orange);">Orange</span> = Unit is in Display or Showroom (needs pulling)');
+    h += featureRow('Filters', 'Type chips + Manufacturer &amp; Deal Status dropdowns');
+    h += '</div>';
+
+    h += '<div class="card">';
+    h += '<div style="font-size:14px;font-weight:700;margin-bottom:8px;color:var(--text-1);">Other Activity</div>';
+    h += featureRow('Retail Ordered Today', 'Customer orders placed today (uses OrderDate field)');
+    h += featureRow('Retail Sold Today', 'Deals closed today from the Retail Units data');
+    h += featureRow('Incoming Pipeline', 'Browse by stage (Ordered &#x2192; PO Issued &#x2192; Shipped &#x2192; Dispatched)');
+    h += '</div>';
+
+    // ── 6. REPLACEMENT TOOL ──
+    h += secHeader('help-replacement', '6', 'Unit Replacement Tool');
+    h += '<div class="card">';
+    h += '<div style="font-size:13px;color:var(--text-2);line-height:1.6;margin-bottom:12px;">When a sale pending unit is in display or showroom, you need to pull it and replace it with a unit from overflow.</div>';
+    h += stepCard(1, 'Find the SP Unit', 'Go to Activity &#x2192; Pending in Display, or search by stock number.');
+    h += stepCard(2, 'Open Unit Detail', 'Tap the tile to see full details.');
+    h += stepCard(3, 'Tap Select Replacement', 'Button appears at the bottom for SP units in display/showroom.');
+    h += stepCard(4, 'Choose a Candidate', 'Candidates grouped: Same Model (best) &#x2192; Same Make &#x2192; Same Type. Sorted by freshness.');
+    h += stepCard(5, 'Confirm Selection', 'Tap the candidate, confirm. Logged to Google Sheet &amp; tracked in Replacement Log.');
+    h += '</div>';
+
+    h += tipCard('<strong>Duplicate blocking:</strong> Each overflow unit can only be assigned once. If already assigned, the app will block it and direct you to the Replacement Log.', 'var(--orange)');
+
+    h += '<div class="card">';
+    h += '<div style="font-size:14px;font-weight:700;margin-bottom:8px;color:var(--text-1);">Replacement Log (Coverage Tab)</div>';
+    h += featureRow('Active', 'Pending replacements with stale detection warnings');
+    h += featureRow('Mark Complete', 'When the forklift move is done');
+    h += featureRow('Cancel', 'Changed your mind or unit unavailable');
+    h += featureRow('Stale Detection', 'Warns if the replacement unit status changed since you picked it');
+    h += '</div>';
+
+    // ── 7. NOTES ──
+    h += secHeader('help-notes', '7', 'Field Notes');
+    h += '<div class="card">';
+    h += '<div style="font-size:13px;color:var(--text-2);line-height:1.6;margin-bottom:10px;">Log observations while walking the lot. All notes push to the CLE Lot Report Google Sheet, organized into horizontal sections by type.</div>';
+    h += featureRow('Verify Location', 'Confirm or correct where a unit physically sits');
+    h += featureRow('Coverage Hole', 'Report an empty display spot that needs filling');
+    h += featureRow('Reorganization', 'Suggest moving units between zones (with reason dropdown)');
+    h += '</div>';
+
+    h += tipCard('<strong>Best practice:</strong> When reporting a hole, always include nearby stock numbers. This helps the lot crew find the exact spot.', 'var(--green)');
+
+    // ── 8. COVERAGE ──
+    h += secHeader('help-coverage', '8', 'Coverage & Analysis');
+    h += '<div class="card">';
+    h += featureRow('Coverage Matrix', 'Every model&#x2019;s placement: SHR (blue), DSP (green), OVR, INC, OTH. Gap column flags missing coverage.');
+    h += featureRow('Zone Map', 'Per-zone column grid (DISP01-11). Shows which models are in each zone.');
+    h += featureRow('Overflow Only', 'Units in overflow with no display/showroom presence &mdash; candidates to move onto the floor.');
+    h += featureRow('Replacement Log', 'Track replacement picks, mark complete or cancel.');
+    h += featureRow('Type Filters', 'Both Coverage Matrix and Zone Map have type filter buttons at the top.');
+    h += '</div>';
+
+    // ── 9. AUDIT ──
+    h += secHeader('help-audit', '9', 'Data Audits');
+    h += '<div class="card">';
+    h += featureRow('Status &amp; Location', 'Dead inventory in display, missing lot codes, PC mismatches, stale statuses');
+    h += featureRow('Product Hierarchy', 'Missing Type, Body Style, Manufacturer, Make, or Model (new units only)');
+    h += featureRow('Severity', '<span style="color:#C8102E;">CRITICAL</span> (red) &bull; <span style="color:var(--orange);">WARNING</span> (orange) &bull; <span style="color:var(--yellow);">INFO</span> (yellow)');
+    h += '</div>';
+
+    // ── 10. DATA REFRESH ──
+    h += secHeader('help-refresh', '10', 'Data Refresh');
+    h += '<div class="card">';
+    h += '<div style="font-size:13px;color:var(--text-2);line-height:1.6;margin-bottom:10px;">Data updates when the CLE Lot Report runs (typically daily).</div>';
+    h += stepCard(1, 'Run the CLE Lot Report', 'This triggers the data pipeline and pushes updated JSON to the app.');
+    h += stepCard(2, 'Close All Tabs', 'Close every tab/instance of the app on your phone.');
+    h += stepCard(3, 'Reopen the App', 'The new service worker installs and loads fresh data.');
+    h += '</div>';
+
+    h += tipCard('<strong>Troubleshooting:</strong> If data looks stale after reopening, clear your browser cache (Settings &#x2192; Safari/Chrome &#x2192; Clear Cache) and reload.', 'var(--orange)');
+
+    // ── Daily Workflow ──
+    h += '<div style="margin-top:24px;margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid var(--green);">'
+      + '<span style="font-size:16px;font-weight:800;color:var(--text-1);">Recommended Daily Workflow</span></div>';
+
+    h += '<div class="card">';
+    h += stepCard(1, 'Check Activity Tab', 'Review new sale pending units and pending in display.');
+    h += stepCard(2, 'Pull &amp; Replace', 'For SP units in display, use the replacement picker to assign overflow backfills.');
+    h += stepCard(3, 'Walk the Lot', 'Log holes, verify locations, and suggest reorgs via the Notes tab.');
+    h += stepCard(4, 'Track Moves', 'Check the Replacement Log on Coverage to mark completed moves.');
+    h += stepCard(5, 'Review Coverage', 'Use the Coverage Matrix to spot remaining gaps.');
+    h += '</div>';
+
+    h += '<div style="text-align:center;padding:16px 0;font-size:12px;color:var(--text-3);">CLE Lot Manager v1.0 &bull; Powered by RAY.i</div>';
 
     return Promise.resolve(h);
   }
