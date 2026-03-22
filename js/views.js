@@ -379,8 +379,17 @@ var Views = (function () {
       + '<a class="btn btn-ghost" style="flex:1;" data-action="reorg-note" data-stock="' + esc(u.stock_num) + '">Suggest Move</a>'
       + '</div>';
 
-    // "Select Replacement" button for sale pending units in display/showroom
+    // Deal info for sale pending units
     var isSP = (u.status || "").toUpperCase() === "SALE PENDING";
+    if (isSP && (u.deal_status || u.deal_number || u.hold_salesman)) {
+      h += '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">';
+      if (u.hold_salesman) h += fieldRow("Salesman", u.hold_salesman);
+      if (u.deal_number) h += fieldRow("Deal #", u.deal_number);
+      if (u.deal_status) h += fieldRow("Deal Status", u.deal_status);
+      h += '</div>';
+    }
+
+    // "Select Replacement" button for sale pending units in display/showroom
     var inDisplay = (u.lot_area || "").toUpperCase() === "DISPLAY" || (u.lot_area || "").toUpperCase() === "SHOWROOM";
     if (isSP && inDisplay) {
       h += '<a class="btn" href="#replace-picker/' + encodeURIComponent(u.stock_num) + '" style="display:block;margin-top:8px;background:var(--orange);color:#fff;text-align:center;font-weight:700;text-decoration:none;">Select Replacement from Overflow</a>';
@@ -2497,9 +2506,17 @@ var Views = (function () {
         var locColor = (locArea === "DISPLAY" || locArea === "SHOWROOM") ? "var(--orange)" : "var(--text-3)";
         h += '<div style="font-size:12px;color:' + locColor + ';margin-top:2px;">' + esc(u.lot_location) + (u.lot_area ? ' (' + esc(u.lot_area) + ')' : '') + '</div>';
       }
-      // Show salesman for sale pending units
+      // Show salesman + deal status for sale pending units
       if ((section === "pending" || section === "pending-display") && u.hold_salesman) {
         h += '<div style="font-size:12px;color:var(--text-3);margin-top:2px;">Salesman: ' + esc(u.hold_salesman) + '</div>';
+      }
+      if ((section === "pending" || section === "pending-display") && u.deal_status) {
+        var dsColor = "var(--text-3)";
+        var ds = (u.deal_status || "").toUpperCase();
+        if (ds.indexOf("APPROVED") !== -1 || ds.indexOf("FUNDED") !== -1) dsColor = "var(--green)";
+        else if (ds.indexOf("PENDING") !== -1 || ds.indexOf("SUBMITTED") !== -1) dsColor = "var(--orange)";
+        else if (ds.indexOf("DECLINED") !== -1 || ds.indexOf("DENIED") !== -1) dsColor = "#ef4444";
+        h += '<div style="font-size:12px;color:' + dsColor + ';margin-top:2px;font-weight:600;">Deal: ' + esc(u.deal_status) + (u.deal_number ? ' (#' + esc(u.deal_number) + ')' : '') + '</div>';
       }
       h += '</div>';
       h += '<div style="text-align:right;">';
@@ -2588,6 +2605,7 @@ var Views = (function () {
       h += '<div style="font-size:18px;font-weight:700;margin-top:4px;">' + esc(spUnit.year || "") + ' ' + esc(spUnit.make || "") + ' ' + esc(spUnit.model || "") + '</div>';
       h += '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Stk# ' + esc(spUnit.stock_num) + ' · ' + esc(spUnit.lot_location || "") + ' (' + esc(spUnit.lot_area || "") + ')</div>';
       if (spUnit.hold_salesman) h += '<div style="font-size:12px;color:var(--text-3);margin-top:2px;">Salesman: ' + esc(spUnit.hold_salesman) + '</div>';
+      if (spUnit.deal_status) h += '<div style="font-size:12px;color:var(--orange);margin-top:2px;font-weight:600;">Deal: ' + esc(spUnit.deal_status) + (spUnit.deal_number ? ' (#' + esc(spUnit.deal_number) + ')' : '') + '</div>';
       h += '</div>';
 
       function renderCandidateGroup(label, list, accentColor) {
