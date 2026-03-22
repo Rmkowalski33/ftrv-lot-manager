@@ -673,7 +673,7 @@ var App = (function () {
       var cardDeal = card.getAttribute("data-unit-deal") || "";
       var showType = (activeType === "ALL" || cardType === activeType);
       var showDeal = (activeDeal === "ALL" || cardDeal === activeDeal);
-      card.style.display = (showType && showDeal) ? "" : "none";
+      card.style.display = (showType && showDeal) ? "flex" : "none";
     }
   }
 

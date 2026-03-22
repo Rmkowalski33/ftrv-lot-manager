@@ -489,7 +489,12 @@ body {
   color: var(--text-3); font-size: 18px; font-weight: 600; cursor: pointer;
   transition: all .15s; white-space: nowrap;
 }
-.chip.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+.chip.active, .chip.chip-active { background: var(--blue); color: #fff; border-color: var(--blue); }
+.chip-bar {
+  display: flex; gap: 8px; overflow-x: auto; flex-wrap: wrap;
+  -webkit-overflow-scrolling: touch; padding-bottom: 8px; margin-bottom: 4px;
+}
+.chip-bar::-webkit-scrollbar { display: none; }
 
 
 /* ── Misc ─────────────────────────────────────────────────────── */

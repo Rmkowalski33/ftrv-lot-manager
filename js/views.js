@@ -935,9 +935,9 @@ var Views = (function () {
         + '<div class="stat-pill"><div class="stat-val text-green">' + units.length + '</div><div class="stat-label">Units</div></div>'
         + '</div>';
 
-      // Manufacturer tiles with type filters
-      h += '<div class="section-header">Manufacturers</div>';
+      // Type filter then manufacturer tiles
       h += renderTypeFilters(units, '_typeCardFilter');
+      h += '<div class="section-header">Manufacturers</div>';
       var sorted = mfrKeys.sort();
       for (var mi = 0; mi < sorted.length; mi++) {
         var mfr = sorted[mi];
