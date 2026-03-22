@@ -2350,30 +2350,45 @@ var Views = (function () {
         }
       }
 
+      // All sale pending (any status_days)
+      var allSP = [];
+      for (var i = 0; i < units.length; i++) {
+        if ((units[i].status || "").toUpperCase() === "SALE PENDING") allSP.push(units[i]);
+      }
+
       var h = '<div class="section-title">INVENTORY ACTIVITY</div>';
       h += '<p style="color:var(--text-3);font-size:13px;margin:0 0 16px;">Data as of ' + esc(exportedAt) + '</p>';
 
       // ── KPI pills ──
       h += '<div class="stats-row">';
-      h += '<div class="stat-pill"><div class="stat-val" style="color:var(--orange);">' + spToday.length + '</div><div class="stat-label">PENDING</div></div>';
+      h += '<div class="stat-pill"><div class="stat-val" style="color:var(--orange);">' + allSP.length + '</div><div class="stat-label">SALE PEND</div></div>';
       h += '<div class="stat-pill"><div class="stat-val" style="color:var(--green);">' + soldToday.length + '</div><div class="stat-label">SOLD</div></div>';
       h += '<div class="stat-pill"><div class="stat-val" style="color:var(--blue);">' + incoming.length + '</div><div class="stat-label">INCOMING</div></div>';
       h += '</div>';
 
-      // ── Section tiles ──
-      h += '<div class="section-title" style="margin-top:16px;">OUTBOUND</div>';
+      // ── Sale Pending section ──
+      h += '<div class="section-title" style="margin-top:16px;">SALE PENDING</div>';
 
-      // Sale Pending tile
+      // New Today
       h += '<a class="card card-interactive" href="#sales-section/pending/ALL" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">'
-        + '<div><div style="font-size:18px;font-weight:600;">Sale Pending Today</div>'
-        + '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Units put into sale pending today</div></div>'
+        + '<div><div style="font-size:18px;font-weight:600;">New Today</div>'
+        + '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Units entering sale pending today</div></div>'
         + '<span class="stat-val" style="font-size:28px;color:var(--orange);">' + spToday.length + '</span></a>';
 
-      // Sale Pending in Display/Showroom — needs pulling
+      // All Sale Pending
+      h += '<a class="card card-interactive" href="#sales-section/all-pending/ALL" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">'
+        + '<div><div style="font-size:18px;font-weight:600;">All Sale Pending</div>'
+        + '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Every unit in sale pending status</div></div>'
+        + '<span class="stat-val" style="font-size:28px;color:var(--orange);">' + allSP.length + '</span></a>';
+
+      // Pending in Display/Showroom
       h += '<a class="card card-interactive" href="#sales-section/pending-display/ALL" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;border-left:3px solid var(--orange);">'
         + '<div><div style="font-size:18px;font-weight:600;">Pending in Display</div>'
         + '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Need to pull &amp; replace from overflow</div></div>'
         + '<span class="stat-val" style="font-size:28px;color:var(--orange);">' + spInDisplay.length + '</span></a>';
+
+      // ── Other Activity ──
+      h += '<div class="section-title" style="margin-top:20px;">OTHER ACTIVITY</div>';
 
       // Retail Ordered Today
       h += '<a class="card card-interactive" href="#sales-section/retail-ordered/ALL" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">'
@@ -2430,6 +2445,14 @@ var Views = (function () {
       return DB.getAllUnits().then(function (units) {
         return _getSalePendingToday(units);
       });
+    } else if (section === "all-pending") {
+      return DB.getAllUnits().then(function (units) {
+        var results = [];
+        for (var i = 0; i < units.length; i++) {
+          if ((units[i].status || "").toUpperCase() === "SALE PENDING") results.push(units[i]);
+        }
+        return results;
+      });
     } else if (section === "pending-display") {
       return DB.getAllUnits().then(function (units) {
         var results = [];
@@ -2472,7 +2495,7 @@ var Views = (function () {
           if ((list[i].veh_type || "").toUpperCase() === vehType.toUpperCase()) filtered.push(list[i]);
         }
       }
-      var labels = { "pending": "Sale Pending Today", "pending-display": "Pending in Display/Showroom", "retail-ordered": "Retail Ordered Today", "sold": "Retail Sold Today" };
+      var labels = { "pending": "New Today", "all-pending": "All Sale Pending", "pending-display": "Pending in Display/Showroom", "retail-ordered": "Retail Ordered Today", "sold": "Retail Sold Today" };
       var label = labels[section] || section;
       var suffix = vehType === "ALL" ? "" : " — " + vehType;
       return _renderSalesUnitList(filtered, label + suffix, section);
@@ -2557,8 +2580,8 @@ var Views = (function () {
       var detailTarget = (section === "sold")
         ? "sales-units/sold/" + encodeURIComponent(u.stock_num)
         : "detail/" + encodeURIComponent(u.stock_num);
-      var statusColors = { "pending": "var(--orange)", "pending-display": "var(--orange)", "retail-ordered": "#a855f7", "sold": "var(--green)" };
-      var statusLabels = { "pending": "PENDING", "pending-display": "PENDING", "retail-ordered": "RETAIL ORD", "sold": "SOLD" };
+      var statusColors = { "pending": "var(--orange)", "all-pending": "var(--orange)", "pending-display": "var(--orange)", "retail-ordered": "#a855f7", "sold": "var(--green)" };
+      var statusLabels = { "pending": "PENDING", "all-pending": "PENDING", "pending-display": "PENDING", "retail-ordered": "RETAIL ORD", "sold": "SOLD" };
       var statusColor = statusColors[section] || "var(--text-2)";
       var statusLabel = statusLabels[section] || (u.status || "");
 
@@ -2567,16 +2590,16 @@ var Views = (function () {
       h += '<div style="font-size:18px;font-weight:600;">' + esc(u.year || "") + ' ' + esc(u.make || "") + ' ' + esc(u.model || "") + '</div>';
       h += '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">' + esc(u.stock_num || "") + ' · ' + esc(u.veh_type || "") + (u.floor_layout ? ' · ' + esc(u.floor_layout) : '') + '</div>';
       // Show lot location for pending sections
-      if ((section === "pending" || section === "pending-display" || section === "retail-ordered") && u.lot_location) {
+      if ((section === "pending" || section === "all-pending" || section === "pending-display" || section === "retail-ordered") && u.lot_location) {
         var locArea = (u.lot_area || "").toUpperCase();
         var locColor = (locArea === "DISPLAY" || locArea === "SHOWROOM") ? "var(--orange)" : "var(--text-3)";
         h += '<div style="font-size:12px;color:' + locColor + ';margin-top:2px;">' + esc(u.lot_location) + (u.lot_area ? ' (' + esc(u.lot_area) + ')' : '') + '</div>';
       }
       // Show salesman + deal status for sale pending units
-      if ((section === "pending" || section === "pending-display") && u.hold_salesman) {
+      if ((section === "pending" || section === "all-pending" || section === "pending-display") && u.hold_salesman) {
         h += '<div style="font-size:12px;color:var(--text-3);margin-top:2px;">Salesman: ' + esc(u.hold_salesman) + '</div>';
       }
-      if ((section === "pending" || section === "pending-display") && u.deal_status) {
+      if ((section === "pending" || section === "all-pending" || section === "pending-display") && u.deal_status) {
         var dsColor = "var(--text-3)";
         var ds = (u.deal_status || "").toUpperCase();
         if (ds.indexOf("APPROVED") !== -1 || ds.indexOf("FUNDED") !== -1) dsColor = "var(--green)";
