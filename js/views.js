@@ -1211,19 +1211,26 @@ var Views = (function () {
       for (var mi = 0; mi < modelKeys.length; mi++) {
         var model = modelKeys[mi];
         var mu = byModel[model];
-        h += '<div class="card"><div class="card-title">' + esc(model) + ' (' + mu.length + ')</div>';
+        // Get a representative unit for the section header
+        var repUnit = mu[0];
+        var sectionTitle = esc((repUnit.year || "") + " " + make + " " + model);
+        h += '<div class="card"><div class="card-title" style="font-size:18px;">' + sectionTitle + ' <span style="font-weight:400;color:var(--text-3);">(' + mu.length + ')</span></div>';
         mu.sort(function (a, b) { return priceNum(a.retail_price) - priceNum(b.retail_price); });
         for (var j = 0; j < mu.length; j++) {
           var u = mu[j];
+          var ageVal = u.age != null ? u.age + 'd' : '';
+          var ageColor = parseInt(u.age) > 90 ? 'var(--red)' : parseInt(u.age) > 60 ? 'var(--orange)' : 'var(--text-2)';
           h += '<div class="result-card" style="margin-bottom:6px;padding:12px 16px;" data-action="detail" data-stock="' + esc(u.stock_num) + '">'
             + '<div style="display:flex;justify-content:space-between;align-items:center;">'
-            + '<span style="font-size:20px;font-weight:700;">' + esc(u.year) + ' ' + esc(u.floor_layout || "") + '</span>'
-            + (fmtPrice(u.retail_price) ? '<span style="font-size:18px;font-weight:700;color:var(--green);">' + fmtPrice(u.retail_price) + '</span>' : '')
+            + '<span style="font-size:16px;font-weight:700;">' + esc(u.veh_type || "") + ' · ' + esc(u.body_style || "") + ' · ' + esc(u.floor_layout || "") + '</span>'
+            + (ageVal ? '<span style="font-size:14px;font-weight:700;color:' + ageColor + ';">' + ageVal + '</span>' : '')
             + '</div>'
-            + '<div style="font-size:18px;color:var(--text-2);margin-top:2px;">'
-            + 'Stk# ' + esc(u.stock_num) + ' &middot; ' + esc(u.lot_location || "No Lot")
-            + ' &middot; <span class="status-badge ' + statusClass(u.status) + '">' + esc(u.status) + '</span>'
-            + '</div></div>';
+            + '<div style="font-size:14px;color:var(--text-2);margin-top:4px;display:flex;justify-content:space-between;align-items:center;">'
+            + '<span>Stk# ' + esc(u.stock_num) + ' · ' + esc(u.lot_location || "No Lot") + '</span>'
+            + (fmtPrice(u.retail_price) ? '<span style="font-weight:700;color:var(--green);">' + fmtPrice(u.retail_price) + '</span>' : '')
+            + '</div>'
+            + '<div style="margin-top:4px;"><span class="status-badge ' + statusClass(u.status) + '">' + esc(u.status) + '</span></div>'
+            + '</div>';
         }
         h += '</div>';
       }
