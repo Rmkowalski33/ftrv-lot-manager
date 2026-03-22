@@ -350,44 +350,61 @@ var Views = (function () {
     var h = '<div class="view">';
     h += backBtn("home", "Search");
 
-    // Header card
+    var stUp = (u.status || "").toUpperCase();
+    var isSP = stUp === "SALE PENDING";
+    var isRetailPending = isSP || stUp === "FLEET PENDING" || stUp === "RETAIL ORDERED";
+    var TRANSIT_CATS = ["SHIPPED","DISPATCHED","TRANSFER","STORE-TO-STORE TRANSFER","DRIVER NEEDED","IN TRANSIT","OPS TRANSFER"];
+    var isTransit = false;
+    for (var ti = 0; ti < TRANSIT_CATS.length; ti++) { if (stUp === TRANSIT_CATS[ti]) { isTransit = true; break; } }
+    var inDisplay = (u.lot_area || "").toUpperCase() === "DISPLAY" || (u.lot_area || "").toUpperCase() === "SHOWROOM";
+
+    // ── Header ──
     h += '<div class="unit-header">'
       + '<div class="unit-ymm">' + esc(u.year) + ' ' + esc(u.make) + ' ' + esc(u.model) + '</div>'
       + '<div class="unit-sub">' + esc(u.floor_layout || "") + (u.body_style ? ' &middot; ' + esc(u.body_style) : '') + '</div>'
       + '</div>';
 
-    // Quick stats
+    // ── Quick Stats ──
     h += '<div class="stats-row">'
       + '<div class="stat-pill"><div class="stat-val text-blue">' + esc(u.age || "\u2014") + '</div><div class="stat-label">Days Old</div></div>'
       + '<div class="stat-pill"><div class="stat-val text-orange">' + esc(u.status_days || "\u2014") + '</div><div class="stat-label">In Status</div></div>'
       + '<div class="stat-pill"><div class="stat-val" style="font-size:20px;"><span class="status-badge ' + statusClass(u.status) + '">' + esc(u.status) + '</span></div><div class="stat-label">Status</div></div>'
       + '</div>';
 
-    // Identity
-    h += '<div class="card"><div class="card-title">Identity</div>'
-      + fieldRow("Stock #", u.stock_num) + fieldRow("VIN", u.vin)
-      + fieldRow("Manufacturer", u.manufacturer) + fieldRow("Make", u.make)
-      + fieldRow("Model", u.model) + fieldRow("Year", u.year)
+    // ── Card 1: Unit Info (Identity + Product merged) ──
+    h += '<div class="card"><div class="card-title">Unit Info</div>'
+      + fieldRow("Stock #", u.stock_num)
+      + fieldRow("VIN", u.vin)
+      + fieldRow("Make", u.make)
+      + fieldRow("Model", u.model)
+      + fieldRow("Type", u.veh_type)
+      + fieldRow("Body Style", u.body_style)
+      + fieldRow("Floor Layout", u.floor_layout)
+      + fieldRow("Condition", u.condition)
       + '</div>';
 
-    // Location — with action buttons inside
+    // ── Card 2: Location (with action buttons + transfer notes) ──
     h += '<div class="card"><div class="card-title">Location</div>'
-      + fieldRow("PC", u.pc) + fieldRow("Current Loc", u.current_loc)
-      + fieldRow("Lot Location", u.lot_location) + fieldRow("Lot Area", u.lot_area)
-      + '<div style="margin-top:12px;display:flex;gap:8px;">'
-      + '<a class="btn btn-blue" style="flex:1;" data-action="verify-note" data-stock="' + esc(u.stock_num) + '">Verify Location</a>'
-      + '<a class="btn btn-ghost" style="flex:1;" data-action="reorg-note" data-stock="' + esc(u.stock_num) + '">Suggest Move</a>'
-      + '</div>';
+      + fieldRow("PC", u.pc)
+      + fieldRow("Lot Location", u.lot_location)
+      + fieldRow("Lot Area", u.lot_area);
 
-    // Deal info for sale pending / retail pending units
-    var isSP = (u.status || "").toUpperCase() === "SALE PENDING";
-    var isRetailPending = isSP || (u.status || "").toUpperCase() === "FLEET PENDING"
-      || (u.status || "").toUpperCase() === "RETAIL ORDERED";
+    // Transfer notes inline for transit units
+    if (isTransit && u.transfer_notes) {
+      h += '<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">'
+        + fieldRow("Transfer Notes", u.transfer_notes) + '</div>';
+    }
+
+    h += '<div style="margin-top:12px;display:flex;gap:8px;">'
+      + '<a class="btn btn-blue" style="flex:1;text-align:center;" data-action="verify-note" data-stock="' + esc(u.stock_num) + '">Verify</a>'
+      + '<a class="btn btn-ghost" style="flex:1;text-align:center;" data-action="reorg-note" data-stock="' + esc(u.stock_num) + '">Suggest Move</a>'
+      + '</div></div>';
+
+    // ── Card 3: Retail Deal (only for SP/pending units with deal data) ──
     if (isRetailPending && (u.deal_status || u.deal_number || u.hold_salesman
         || u.deal_type || u.deal_delivery_date || u.exp_delivery_date
         || u.funding_status || u.funded_date)) {
-      h += '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">'
-        + '<div style="font-size:13px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Retail Deal</div>';
+      h += '<div class="card"><div class="card-title">Retail Deal</div>';
       if (u.hold_salesman) h += fieldRow("Salesman", u.hold_salesman);
       if (u.deal_number) h += fieldRow("Deal #", u.deal_number);
       if (u.deal_status) h += fieldRow("Deal Status", u.deal_status);
@@ -399,44 +416,18 @@ var Views = (function () {
       h += '</div>';
     }
 
-    // Transfer Notes for transit units
-    var TRANSIT_CATS = ["SHIPPED","DISPATCHED","TRANSFER","STORE-TO-STORE TRANSFER","DRIVER NEEDED","IN TRANSIT","OPS TRANSFER"];
-    var stUp = (u.status || "").toUpperCase();
-    var isTransit = false;
-    for (var ti = 0; ti < TRANSIT_CATS.length; ti++) { if (stUp === TRANSIT_CATS[ti]) { isTransit = true; break; } }
-    if (isTransit && u.transfer_notes) {
-      h += '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">'
-        + '<div style="font-size:13px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Transfer Info</div>'
-        + fieldRow("Transfer Notes", u.transfer_notes)
-        + '</div>';
-    }
-
-    // "Select Replacement" button for sale pending units in display/showroom
-    var inDisplay = (u.lot_area || "").toUpperCase() === "DISPLAY" || (u.lot_area || "").toUpperCase() === "SHOWROOM";
-    if (isSP && inDisplay) {
-      h += '<a class="btn" href="#replace-picker/' + encodeURIComponent(u.stock_num) + '" style="display:block;margin-top:8px;background:var(--orange);color:#fff;text-align:center;font-weight:700;text-decoration:none;">Select Replacement from Overflow</a>';
-    }
-    h += '</div>';
-
-    // Product
-    h += '<div class="card"><div class="card-title">Product</div>'
-      + fieldRow("Type", u.veh_type) + fieldRow("Body Style", u.body_style)
-      + fieldRow("Floor Layout", u.floor_layout) + fieldRow("Condition", u.condition)
-      + '</div>';
-
-    // Pricing
+    // ── Card 4: Pricing (compact) ──
     if (fmtPrice(u.retail_price) || fmtPrice(u.msrp) || fmtPrice(u.special_price)) {
       h += '<div class="card"><div class="card-title">Pricing</div>'
-        + fieldRow("Retail Price", fmtPrice(u.retail_price))
+        + fieldRow("Retail", fmtPrice(u.retail_price))
         + fieldRow("MSRP", fmtPrice(u.msrp));
       if (u.special_price) {
-        h += fieldRow("Special Price", '<span style="color:var(--green);font-weight:700;">' + fmtPrice(u.special_price) + '</span>');
+        h += fieldRow("Special", '<span style="color:var(--green);font-weight:700;">' + fmtPrice(u.special_price) + '</span>');
       }
       h += '</div>';
     }
 
-    // ── Navigation buttons for Duplicates & Similar ──
-    // Count duplicates (same make + model)
+    // ── Action Buttons ──
     var dupeCount = 0;
     if (allUnits && u.make && u.model) {
       for (var di = 0; di < allUnits.length; di++) {
@@ -445,7 +436,6 @@ var Views = (function () {
             && (allUnits[di].model || "").toUpperCase() === (u.model || "").toUpperCase()) dupeCount++;
       }
     }
-    // Count similar (same type + body style)
     var similarCount = 0;
     if (allUnits && u.veh_type && u.body_style) {
       for (var si = 0; si < allUnits.length; si++) {
@@ -455,20 +445,29 @@ var Views = (function () {
       }
     }
 
-    h += '<div style="margin-top:16px;display:flex;flex-direction:column;gap:8px;">';
-    if (dupeCount > 0) {
-      h += '<a class="card card-interactive" href="#unit-dupes/' + encodeURIComponent(u.stock_num) + '" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">'
-        + '<div><div style="font-size:16px;font-weight:600;">Duplicate Make &amp; Models</div>'
-        + '<div style="font-size:13px;color:var(--text-3);">Same ' + esc(u.make) + ' ' + esc(u.model) + '</div></div>'
-        + '<span class="stat-val" style="font-size:24px;color:var(--orange);">' + dupeCount + '</span></a>';
+    // Replacement button for SP in display (most prominent)
+    if (isSP && inDisplay) {
+      h += '<a class="btn" href="#replace-picker/' + encodeURIComponent(u.stock_num) + '" style="display:block;margin-top:12px;background:var(--orange);color:#fff;text-align:center;font-weight:700;text-decoration:none;padding:14px;">Select Replacement from Overflow</a>';
     }
-    if (similarCount > 0) {
-      h += '<a class="card card-interactive" href="#unit-similar/' + encodeURIComponent(u.stock_num) + '" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">'
-        + '<div><div style="font-size:16px;font-weight:600;">Compare Similar Models</div>'
-        + '<div style="font-size:13px;color:var(--text-3);">Same ' + esc(u.veh_type) + ' / ' + esc(u.body_style) + '</div></div>'
-        + '<span class="stat-val" style="font-size:24px;color:var(--blue);">' + similarCount + '</span></a>';
+
+    // Dupe & similar navigation
+    if (dupeCount > 0 || similarCount > 0) {
+      h += '<div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">';
+      if (dupeCount > 0) {
+        h += '<a class="card card-interactive" href="#unit-dupes/' + encodeURIComponent(u.stock_num) + '" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">'
+          + '<div><div style="font-size:16px;font-weight:600;">Duplicate Make &amp; Models</div>'
+          + '<div style="font-size:13px;color:var(--text-3);">Same ' + esc(u.make) + ' ' + esc(u.model) + '</div></div>'
+          + '<span class="stat-val" style="font-size:24px;color:var(--orange);">' + dupeCount + '</span></a>';
+      }
+      if (similarCount > 0) {
+        h += '<a class="card card-interactive" href="#unit-similar/' + encodeURIComponent(u.stock_num) + '" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">'
+          + '<div><div style="font-size:16px;font-weight:600;">Compare Similar Models</div>'
+          + '<div style="font-size:13px;color:var(--text-3);">Same ' + esc(u.veh_type) + ' / ' + esc(u.body_style) + '</div></div>'
+          + '<span class="stat-val" style="font-size:24px;color:var(--blue);">' + similarCount + '</span></a>';
+      }
+      h += '</div>';
     }
-    h += '</div>';
+
     h += '</div>';
     return h;
   }
@@ -2236,22 +2235,41 @@ var Views = (function () {
   // ══════════════════════════════════════════════════════════════════
 
   function _getSalePendingToday(units) {
+    // Use status_days=0 to identify units that entered SP "today" relative to the data refresh
     var results = [];
     for (var i = 0; i < units.length; i++) {
       var u = units[i];
       var st = (u.status || "").toUpperCase();
-      if (st === "SALE PENDING" && (u.status_days === 0 || u.status_days === "0")) {
+      var sd = u.status_days;
+      if (st === "SALE PENDING" && (sd === 0 || sd === "0" || sd === 1 || sd === "1")) {
         results.push(u);
       }
     }
     return results;
   }
 
-  function _todayStr() {
+  function _dataDateStr() {
+    // Use the exported_at timestamp as "today" instead of device clock
+    // This avoids timezone mismatches between pipeline run time and phone time
+    return DB.getMeta("exported_at").then(function (exp) {
+      if (exp) {
+        // exported_at format: "03/22/2026 08:27 AM" — extract date part
+        var parts = exp.split(" ");
+        if (parts.length >= 1) return parts[0]; // "03/22/2026"
+      }
+      return _todayStrLocal();
+    });
+  }
+
+  function _todayStrLocal() {
     var d = new Date();
     var mm = String(d.getMonth() + 1).padStart(2, '0');
     var dd = String(d.getDate()).padStart(2, '0');
     return mm + '/' + dd + '/' + d.getFullYear();
+  }
+
+  function _todayStr() {
+    return _todayStrLocal();
   }
 
   function _normalizeDate(val) {
