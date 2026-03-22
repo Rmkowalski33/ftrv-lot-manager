@@ -255,7 +255,7 @@ var Views = (function () {
         h += '<div id="searchDashboard">';
 
         // ── Section A: Quick Insights (2x2 stat cards) ──
-        var aged90 = 0, salePending = 0, incomingCount = 0;
+        var my2025Count = 0, salePending = 0, incomingCount = 0;
         var deadOnDisplay = 0;
         var DEAD_DISPLAY_STATUSES = ["IN SERVICE", "AWAITING PARTS", "DAMAGED"];
         var INCOMING_STATUSES = ["SHIPPED","DISPATCHED","TRANSFER","ORDERED","PO ISSUED","RETAIL ORDERED"];
@@ -270,7 +270,7 @@ var Views = (function () {
             if (st === TERMINAL_STATUSES[t]) { isTerminal = true; break; }
           }
           var modelYear = parseInt(u.year) || 0;
-          if (!isTerminal && age > 90 && modelYear >= 2025) aged90++;
+          if (!isTerminal && modelYear === 2025 && st !== "SOLD") my2025Count++;
           // Sale pending
           if (st === "SALE PENDING") salePending++;
           // Incoming
@@ -307,7 +307,7 @@ var Views = (function () {
         var coveragePct = totalModels > 0 ? Math.round(floorModels / totalModels * 100) : 0;
 
         h += '<div class="qi-grid">'
-          + '<div class="qi-card qi-red"><div class="qi-val">' + aged90 + '</div><div class="qi-lbl">Aged 90+ (2025+)</div></div>'
+          + '<div class="qi-card qi-red"><div class="qi-val">' + my2025Count + '</div><div class="qi-lbl">2025 Models</div></div>'
           + '<div class="qi-card qi-blue"><div class="qi-val">' + coveragePct + '%</div><div class="qi-lbl">Display Coverage</div></div>'
           + '<div class="qi-card qi-orange"><div class="qi-val">' + salePending + '</div><div class="qi-lbl">Sale Pending</div></div>'
           + '<div class="qi-card qi-green"><div class="qi-val">' + incomingCount + '</div><div class="qi-lbl">Incoming</div></div>'
@@ -511,13 +511,13 @@ var Views = (function () {
     if (dupeCount > 0 || similarCount > 0) {
       h += '<div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">';
       if (dupeCount > 0) {
-        h += '<a class="card card-interactive" href="#unit-dupes/' + encodeURIComponent(u.stock_num) + '" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">'
+        h += '<a class="card card-interactive" href="#unit-dupes/' + encodeURIComponent(u.stock_num) + '" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:#1a1a2e;">'
           + '<div><div style="font-size:16px;font-weight:600;">Duplicate Make &amp; Models</div>'
           + '<div style="font-size:13px;color:var(--text-3);">Same ' + esc(u.make) + ' ' + esc(u.model) + '</div></div>'
           + '<span class="stat-val" style="font-size:24px;color:var(--orange);">' + dupeCount + '</span></a>';
       }
       if (similarCount > 0) {
-        h += '<a class="card card-interactive" href="#unit-similar/' + encodeURIComponent(u.stock_num) + '" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">'
+        h += '<a class="card card-interactive" href="#unit-similar/' + encodeURIComponent(u.stock_num) + '" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:#1a1a2e;">'
           + '<div><div style="font-size:16px;font-weight:600;">Compare Similar Models</div>'
           + '<div style="font-size:13px;color:var(--text-3);">Same ' + esc(u.veh_type) + ' / ' + esc(u.body_style) + '</div></div>'
           + '<span class="stat-val" style="font-size:24px;color:var(--blue);">' + similarCount + '</span></a>';
@@ -663,7 +663,7 @@ var Views = (function () {
       var h = '<div class="view">';
 
       // Lot Map quick-access
-      h += '<a href="#lot-map" style="display:flex;align-items:center;gap:10px;padding:12px 16px;margin-bottom:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);text-decoration:none;color:inherit;">'
+      h += '<a href="#lot-map" style="display:flex;align-items:center;gap:10px;padding:12px 16px;margin-bottom:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);text-decoration:none;color:#1a1a2e;">'
         + '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="var(--copper)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>'
         + '<div><div style="font-size:16px;font-weight:600;">CLE Lot Map</div>'
         + '<div style="font-size:12px;color:var(--text-3);">View full lot layout</div></div></a>';
@@ -2475,19 +2475,19 @@ var Views = (function () {
       h += '<div class="section-title" style="margin-top:16px;">SALE PENDING</div>';
 
       // New Today
-      h += '<a class="card card-interactive" href="#sales-section/pending/ALL" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">'
+      h += '<a class="card card-interactive" href="#sales-section/pending/ALL" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:#1a1a2e;">'
         + '<div><div style="font-size:18px;font-weight:600;">New Today</div>'
         + '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Units entering sale pending today</div></div>'
         + '<span class="stat-val" style="font-size:28px;color:var(--orange);">' + spToday.length + '</span></a>';
 
       // All Sale Pending
-      h += '<a class="card card-interactive" href="#sales-section/all-pending/ALL" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">'
+      h += '<a class="card card-interactive" href="#sales-section/all-pending/ALL" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:#1a1a2e;">'
         + '<div><div style="font-size:18px;font-weight:600;">All Sale Pending</div>'
         + '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Every unit in sale pending status</div></div>'
         + '<span class="stat-val" style="font-size:28px;color:var(--orange);">' + allSP.length + '</span></a>';
 
       // Pending in Display/Showroom
-      h += '<a class="card card-interactive" href="#sales-section/pending-display/ALL" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;border-left:3px solid var(--orange);">'
+      h += '<a class="card card-interactive" href="#sales-section/pending-display/ALL" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:#1a1a2e;border-left:3px solid var(--orange);">'
         + '<div><div style="font-size:18px;font-weight:600;">Pending in Display</div>'
         + '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Need to pull &amp; replace from overflow</div></div>'
         + '<span class="stat-val" style="font-size:28px;color:var(--orange);">' + spInDisplay.length + '</span></a>';
@@ -2496,13 +2496,13 @@ var Views = (function () {
       h += '<div class="section-title" style="margin-top:20px;">OTHER ACTIVITY</div>';
 
       // Retail Ordered Today
-      h += '<a class="card card-interactive" href="#sales-section/retail-ordered/ALL" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">'
+      h += '<a class="card card-interactive" href="#sales-section/retail-ordered/ALL" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:#1a1a2e;">'
         + '<div><div style="font-size:18px;font-weight:600;">Retail Ordered Today</div>'
         + '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Customer orders placed today</div></div>'
         + '<span class="stat-val" style="font-size:28px;color:#a855f7;">' + roToday.length + '</span></a>';
 
       // Retail Sold tile
-      h += '<a class="card card-interactive" href="#sales-section/sold/ALL" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">'
+      h += '<a class="card card-interactive" href="#sales-section/sold/ALL" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:#1a1a2e;">'
         + '<div><div style="font-size:18px;font-weight:600;">Retail Sold Today</div>'
         + '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Deals closed today</div></div>'
         + '<span class="stat-val" style="font-size:28px;color:var(--green);">' + soldToday.length + '</span></a>';
@@ -2511,7 +2511,7 @@ var Views = (function () {
       h += '<div class="section-title" style="margin-top:20px;">INBOUND</div>';
 
       // Incoming overview tile
-      h += '<a class="card card-interactive" href="#incoming" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">'
+      h += '<a class="card card-interactive" href="#incoming" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:#1a1a2e;">'
         + '<div><div style="font-size:18px;font-weight:600;">Incoming Pipeline</div>'
         + '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Ordered, shipped &amp; in transit</div></div>'
         + '<span class="stat-val" style="font-size:28px;color:var(--blue);">' + incoming.length + '</span></a>';
@@ -2726,7 +2726,7 @@ var Views = (function () {
 
       var spTypeAttr = isPending ? ' data-unit-type="' + esc((u.veh_type || "OTHER").toUpperCase()) + '"' : '';
       var spDealAttr = isPending ? ' data-unit-deal="' + esc(u.deal_status || "") + '"' : '';
-      h += '<a class="card card-interactive sp-unit-card" href="#' + detailTarget + '"' + spTypeAttr + spDealAttr + ' style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">';
+      h += '<a class="card card-interactive sp-unit-card" href="#' + detailTarget + '"' + spTypeAttr + spDealAttr + ' style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:#1a1a2e;">';
       h += '<div>';
       h += '<div style="font-size:18px;font-weight:600;">' + esc(u.year || "") + ' ' + esc(u.make || "") + ' ' + esc(u.model || "") + '</div>';
       h += '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">' + esc(u.stock_num || "") + ' · ' + esc(u.veh_type || "") + (u.floor_layout ? ' · ' + esc(u.floor_layout) : '') + '</div>';
@@ -3105,7 +3105,7 @@ var Views = (function () {
       var stageKeys = STAGE_ORDER.filter(function(s) { return byStatus[s]; });
       for (var s = 0; s < stageKeys.length; s++) {
         var stageColor = (stageKeys[s] === "SHIPPED" || stageKeys[s] === "DISPATCHED" || stageKeys[s] === "IN TRANSIT" || stageKeys[s] === "DRIVER NEEDED") ? "var(--green)" : "var(--blue)";
-        h += '<a class="card card-interactive" href="#incoming-status/' + encodeURIComponent(stageKeys[s]) + '" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">'
+        h += '<a class="card card-interactive" href="#incoming-status/' + encodeURIComponent(stageKeys[s]) + '" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:#1a1a2e;">'
           + '<span style="font-size:18px;font-weight:600;">' + esc(stageKeys[s]) + '</span>'
           + '<span class="stat-val" style="font-size:24px;color:' + stageColor + ';">' + byStatus[stageKeys[s]] + '</span></a>';
       }
@@ -3114,7 +3114,7 @@ var Views = (function () {
       h += '<div style="margin:16px 0 8px;color:var(--text-3);font-size:12px;text-transform:uppercase;letter-spacing:1px;">By Type</div>';
       var typeKeys = Object.keys(byType).sort();
       for (var t = 0; t < typeKeys.length; t++) {
-        h += '<a class="card card-interactive" href="#incoming-units/type/' + encodeURIComponent(typeKeys[t]) + '" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">'
+        h += '<a class="card card-interactive" href="#incoming-units/type/' + encodeURIComponent(typeKeys[t]) + '" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:#1a1a2e;">'
           + '<span style="font-size:18px;font-weight:600;">' + esc(typeKeys[t]) + '</span>'
           + '<span class="stat-val" style="font-size:24px;color:var(--blue);">' + byType[typeKeys[t]] + '</span></a>';
       }
@@ -3123,7 +3123,7 @@ var Views = (function () {
       h += '<div style="margin:16px 0 8px;color:var(--text-3);font-size:12px;text-transform:uppercase;letter-spacing:1px;">By Make</div>';
       var makeKeys = Object.keys(byMake).sort();
       for (var m = 0; m < makeKeys.length; m++) {
-        h += '<a class="card card-interactive" href="#incoming-make/' + encodeURIComponent(makeKeys[m]) + '" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">'
+        h += '<a class="card card-interactive" href="#incoming-make/' + encodeURIComponent(makeKeys[m]) + '" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:#1a1a2e;">'
           + '<span style="font-size:18px;font-weight:600;">' + esc(makeKeys[m]) + '</span>'
           + '<span class="stat-val" style="font-size:24px;color:var(--blue);">' + byMake[makeKeys[m]] + '</span></a>';
       }
@@ -3189,7 +3189,7 @@ var Views = (function () {
       var statusColor = (st === "SHIPPED" || st === "DISPATCHED" || st === "IN TRANSIT" || st === "DRIVER NEEDED") ? "var(--green)" : "var(--blue)";
       var statusDays = u.status_days != null ? u.status_days + "d" : "";
 
-      h += '<a class="card card-interactive" href="#detail/' + encodeURIComponent(u.stock_num) + '" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit;">';
+      h += '<a class="card card-interactive" href="#detail/' + encodeURIComponent(u.stock_num) + '" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:#1a1a2e;">';
       h += '<div>';
       h += '<div style="font-size:18px;font-weight:600;">' + esc(u.year || "") + ' ' + esc(u.make || "") + ' ' + esc(u.model || "") + '</div>';
       h += '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">' + esc(u.stock_num || "") + ' · ' + esc(u.veh_type || "") + (u.floor_layout ? ' · ' + esc(u.floor_layout) : '') + '</div>';
