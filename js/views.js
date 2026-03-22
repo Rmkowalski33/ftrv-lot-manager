@@ -379,14 +379,36 @@ var Views = (function () {
       + '<a class="btn btn-ghost" style="flex:1;" data-action="reorg-note" data-stock="' + esc(u.stock_num) + '">Suggest Move</a>'
       + '</div>';
 
-    // Deal info for sale pending units
+    // Deal info for sale pending / retail pending units
     var isSP = (u.status || "").toUpperCase() === "SALE PENDING";
-    if (isSP && (u.deal_status || u.deal_number || u.hold_salesman)) {
-      h += '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">';
+    var isRetailPending = isSP || (u.status || "").toUpperCase() === "FLEET PENDING"
+      || (u.status || "").toUpperCase() === "RETAIL ORDERED";
+    if (isRetailPending && (u.deal_status || u.deal_number || u.hold_salesman
+        || u.deal_type || u.deal_delivery_date || u.exp_delivery_date
+        || u.funding_status || u.funded_date)) {
+      h += '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">'
+        + '<div style="font-size:13px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Retail Deal</div>';
       if (u.hold_salesman) h += fieldRow("Salesman", u.hold_salesman);
       if (u.deal_number) h += fieldRow("Deal #", u.deal_number);
       if (u.deal_status) h += fieldRow("Deal Status", u.deal_status);
+      if (u.deal_type) h += fieldRow("Deal Type", u.deal_type);
+      if (u.deal_delivery_date) h += fieldRow("Deal Delivery", u.deal_delivery_date);
+      if (u.exp_delivery_date) h += fieldRow("Exp. Delivery", u.exp_delivery_date);
+      if (u.funding_status) h += fieldRow("Funding Status", u.funding_status);
+      if (u.funded_date) h += fieldRow("Funded Date", u.funded_date);
       h += '</div>';
+    }
+
+    // Transfer Notes for transit units
+    var TRANSIT_CATS = ["SHIPPED","DISPATCHED","TRANSFER","STORE-TO-STORE TRANSFER","DRIVER NEEDED","IN TRANSIT","OPS TRANSFER"];
+    var stUp = (u.status || "").toUpperCase();
+    var isTransit = false;
+    for (var ti = 0; ti < TRANSIT_CATS.length; ti++) { if (stUp === TRANSIT_CATS[ti]) { isTransit = true; break; } }
+    if (isTransit && u.transfer_notes) {
+      h += '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">'
+        + '<div style="font-size:13px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Transfer Info</div>'
+        + fieldRow("Transfer Notes", u.transfer_notes)
+        + '</div>';
     }
 
     // "Select Replacement" button for sale pending units in display/showroom
@@ -403,11 +425,14 @@ var Views = (function () {
       + '</div>';
 
     // Pricing
-    if (fmtPrice(u.retail_price) || fmtPrice(u.msrp)) {
+    if (fmtPrice(u.retail_price) || fmtPrice(u.msrp) || fmtPrice(u.special_price)) {
       h += '<div class="card"><div class="card-title">Pricing</div>'
         + fieldRow("Retail Price", fmtPrice(u.retail_price))
-        + fieldRow("MSRP", fmtPrice(u.msrp))
-        + '</div>';
+        + fieldRow("MSRP", fmtPrice(u.msrp));
+      if (u.special_price) {
+        h += fieldRow("Special Price", '<span style="color:var(--green);font-weight:700;">' + fmtPrice(u.special_price) + '</span>');
+      }
+      h += '</div>';
     }
 
     // ── Navigation buttons for Duplicates & Similar ──
