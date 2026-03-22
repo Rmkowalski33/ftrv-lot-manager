@@ -2488,20 +2488,34 @@ var Views = (function () {
         }
         if (!unit) return '<div class="empty-state">Unit not found</div>';
 
-        var h = '<div class="section-title">SOLD UNIT DETAIL</div>';
-        h += '<div class="detail-card">';
-        h += '<div class="detail-header">' + esc(unit.year || "") + ' ' + esc(unit.make || "") + ' ' + esc(unit.model || "") + '</div>';
-        h += '<div class="detail-grid">';
-        h += '<div class="detail-item"><span class="detail-label">Stock#</span><span class="detail-value">' + esc(unit.stock_num || "") + '</span></div>';
-        h += '<div class="detail-item"><span class="detail-label">VIN</span><span class="detail-value" style="font-size:11px;">' + esc(unit.vin || "") + '</span></div>';
-        h += '<div class="detail-item"><span class="detail-label">Type</span><span class="detail-value">' + esc(unit.veh_type || "") + '</span></div>';
-        h += '<div class="detail-item"><span class="detail-label">Condition</span><span class="detail-value">' + esc(unit.condition || "") + '</span></div>';
-        h += '<div class="detail-item"><span class="detail-label">Sold Date</span><span class="detail-value">' + esc(unit.sold_date || "") + '</span></div>';
-        h += '<div class="detail-item"><span class="detail-label">Floor Layout</span><span class="detail-value">' + esc(unit.floor_layout || "") + '</span></div>';
-        if (unit.retail_price) h += '<div class="detail-item"><span class="detail-label">Retail Price</span><span class="detail-value">' + _fmtPrice(unit.retail_price) + '</span></div>';
-        if (unit.deal_selling_price) h += '<div class="detail-item"><span class="detail-label">Selling Price</span><span class="detail-value">' + _fmtPrice(unit.deal_selling_price) + '</span></div>';
-        if (unit.age) h += '<div class="detail-item"><span class="detail-label">Age at Sale</span><span class="detail-value">' + unit.age + ' days</span></div>';
-        h += '</div></div>';
+        // Use same card-based layout as active units
+        var h = '<div class="view">';
+        h += backBtn("activity", "Activity");
+
+        h += '<div class="unit-header">'
+          + '<div class="unit-ymm">' + esc(unit.year || "") + ' ' + esc(unit.make || "") + ' ' + esc(unit.model || "") + '</div>'
+          + '<div class="unit-sub">' + esc(unit.floor_layout || "") + (unit.body_style ? ' &middot; ' + esc(unit.body_style) : '') + '</div>'
+          + '</div>';
+
+        h += '<div class="stats-row">'
+          + '<div class="stat-pill"><div class="stat-val text-green">SOLD</div><div class="stat-label">Status</div></div>'
+          + '<div class="stat-pill"><div class="stat-val text-blue">' + esc(unit.age || "\u2014") + '</div><div class="stat-label">Age at Sale</div></div>'
+          + '</div>';
+
+        h += '<div class="card"><div class="card-title">Identity</div>'
+          + fieldRow("Stock #", unit.stock_num) + fieldRow("VIN", unit.vin)
+          + fieldRow("Make", unit.make) + fieldRow("Model", unit.model)
+          + fieldRow("Year", unit.year) + fieldRow("Type", unit.veh_type)
+          + fieldRow("Condition", unit.condition)
+          + '</div>';
+
+        h += '<div class="card"><div class="card-title">Sale Details</div>'
+          + fieldRow("Sold Date", unit.sold_date);
+        if (unit.retail_price) h += fieldRow("Retail Price", fmtPrice(unit.retail_price));
+        if (unit.deal_selling_price) h += fieldRow("Selling Price", fmtPrice(unit.deal_selling_price));
+        h += '</div>';
+
+        h += '</div>';
         return h;
       });
     }
