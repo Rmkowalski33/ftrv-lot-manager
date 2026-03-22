@@ -495,8 +495,8 @@ var Views = (function () {
     // ── Card 4: Pricing (compact) ──
     if (fmtPrice(u.retail_price) || fmtPrice(u.msrp) || fmtPrice(u.special_price)) {
       h += '<div class="card"><div class="card-title">Pricing</div>'
-        + fieldRow("Retail", fmtPrice(u.retail_price))
-        + fieldRow("MSRP", fmtPrice(u.msrp));
+        + fieldRow("MSRP", fmtPrice(u.msrp))
+        + fieldRow("Retail", fmtPrice(u.retail_price));
       if (u.special_price) {
         h += '<div class="field-row"><span class="field-label">Special</span><span class="field-value" style="color:var(--green);font-weight:700;">' + esc(fmtPrice(u.special_price)) + '</span></div>';
       }
