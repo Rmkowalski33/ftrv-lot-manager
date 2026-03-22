@@ -194,8 +194,9 @@ body {
 }
 .card-interactive {
   cursor: pointer; transition: transform .12s, box-shadow .15s;
-  text-decoration: none; color: var(--text);
+  text-decoration: none; color: var(--text); display: block;
 }
+a.card { display: block; text-decoration: none; color: var(--text); }
 .card-interactive:active {
   transform: scale(.98);
   box-shadow: 0 0 0 2px var(--red);
