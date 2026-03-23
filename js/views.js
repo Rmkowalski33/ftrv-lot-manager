@@ -1943,14 +1943,36 @@ var Views = (function () {
     h += '<label class="form-label">Your Name</label>'
       + '<input class="form-input" type="text" name="user" placeholder="e.g. John" required>';
 
+    h += '<label class="form-label">Stock # to Move</label>'
+      + '<input class="form-input" type="text" name="stock" value="' + esc(stockNum || "") + '" placeholder="Enter stock number" required id="reorgStock" autocapitalize="characters">';
+
+    // Unit preview (populated by auto-lookup)
+    if (unit) {
+      var condBadge = '';
+      var cond = (unit.condition || "").toUpperCase();
+      if (cond === "USED") condBadge = '<span style="display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;background:#fde8e8;color:#C8102E;margin-left:6px;">USED</span>';
+      else if (cond === "DEMO" || cond === "D") condBadge = '<span style="display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;background:var(--blue-dim);color:var(--blue);margin-left:6px;">DEMO</span>';
+
+      h += '<div class="card" style="background:var(--surface-1);border-color:var(--border-lt);margin-bottom:12px;padding:12px;" id="reorgUnitPreview">'
+        + '<div style="font-size:18px;font-weight:700;">' + esc(unit.year || "") + ' ' + esc(unit.make || "") + ' ' + esc(unit.model || "") + condBadge + '</div>'
+        + '<div style="font-size:13px;color:var(--text-2);margin-top:4px;">VIN: ' + esc(unit.vin || "") + '</div>'
+        + '<div style="font-size:14px;margin-top:6px;">Current: <span style="font-weight:700;color:var(--blue);">' + esc(unit.lot_location || "NONE") + '</span>'
+        + (unit.lot_area ? ' (' + esc(unit.lot_area) + ')' : '') + '</div>'
+        + '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Status: ' + esc(unit.status || "") + ' | Type: ' + esc(unit.veh_type || "") + ' | ' + esc(unit.floor_layout || "") + '</div>'
+        + '</div>';
+    } else {
+      h += '<div id="reorgUnitPreview" style="margin-bottom:12px;"></div>';
+    }
+
+    // Rest of form (shown after unit lookup if no stock pre-filled, or immediately if pre-filled)
+    var formVis = unit ? '' : ' id="reorgFormBody" style="display:none;"';
+    h += '<div' + formVis + '>';
+
     h += '<label class="form-label">From Zone</label>'
       + renderZoneSelect("zone_from", false);
 
     h += '<label class="form-label">To Zone</label>'
       + renderZoneSelect("zone_to", false);
-
-    h += '<label class="form-label">Stock #(s) to Move</label>'
-      + '<input class="form-input" type="text" name="stock" value="' + esc(stockNum || "") + '" placeholder="e.g. 219464 or 219464, 220115">';
 
     h += '<label class="form-label">Reason for Move</label>'
       + '<select class="form-select" name="reason" required>'
@@ -1984,7 +2006,7 @@ var Views = (function () {
       + '<span style="font-weight:700;">Backfill the vacated spot?</span></label>';
     h += '<div id="reorgBackfillSection" style="display:none;">';
     h += '<label class="form-label">Backfill Stock #</label>'
-      + '<input class="form-input" type="text" name="backfill_stock" id="reorgBackfillStock" placeholder="Enter stock # to use as replacement">';
+      + '<input class="form-input" type="text" name="backfill_stock" id="reorgBackfillStock" placeholder="Enter stock # to use as replacement" autocapitalize="characters">';
     h += '<div id="reorgBackfillPreview" style="margin:8px 0;"></div>';
     h += '<div style="margin-top:8px;font-size:13px;color:var(--text-3);">This unit will be moved into the spot vacated by the unit above. Both moves will be logged together.</div>';
     h += '</div></div>';
@@ -1993,6 +2015,7 @@ var Views = (function () {
       + '<textarea class="form-textarea" name="notes" placeholder="Additional context..."></textarea>';
 
     h += '<button class="btn btn-blue mt-8" type="submit">Submit Suggestion</button>';
+    h += '</div>'; // close reorgFormBody
     h += '</form></div>';
     return h;
   }

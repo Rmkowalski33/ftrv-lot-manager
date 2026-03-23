@@ -538,6 +538,68 @@ var App = (function () {
       });
     }
 
+    // Reorg stock# auto-lookup — populates unit preview and auto-selects From Zone
+    var reorgStock = document.getElementById("reorgStock");
+    var reorgPreview = document.getElementById("reorgUnitPreview");
+    var reorgFormBody = document.getElementById("reorgFormBody");
+    if (reorgStock) {
+      reorgStock.addEventListener("blur", function () {
+        var val = reorgStock.value.trim().toUpperCase();
+        if (!val) return;
+        DB.getUnit(val).then(function (u) {
+          if (!u) return DB.searchUnits(val).then(function (m) { return m.length > 0 ? m[0] : null; });
+          return u;
+        }).then(function (u) {
+          if (!u) {
+            if (reorgPreview) reorgPreview.innerHTML = '<div style="color:#C8102E;font-size:13px;padding:8px 0;">Unit not found</div>';
+            return;
+          }
+          // Show unit preview
+          var condBadge = '';
+          var cond = (u.condition || "").toUpperCase();
+          if (cond === "USED") condBadge = '<span style="display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;background:#fde8e8;color:#C8102E;margin-left:6px;">USED</span>';
+          else if (cond === "DEMO" || cond === "D") condBadge = '<span style="display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;background:var(--blue-dim);color:var(--blue);margin-left:6px;">DEMO</span>';
+
+          if (reorgPreview) {
+            reorgPreview.innerHTML = '<div class="card" style="background:var(--surface-1);border-color:var(--border-lt);padding:12px;">'
+              + '<div style="font-size:18px;font-weight:700;">' + Views.esc(u.year || "") + ' ' + Views.esc(u.make || "") + ' ' + Views.esc(u.model || "") + condBadge + '</div>'
+              + '<div style="font-size:13px;color:var(--text-2);margin-top:4px;">VIN: ' + Views.esc(u.vin || "") + '</div>'
+              + '<div style="font-size:14px;margin-top:6px;">Current: <span style="font-weight:700;color:var(--blue);">' + Views.esc(u.lot_location || "NONE") + '</span>'
+              + (u.lot_area ? ' (' + Views.esc(u.lot_area) + ')' : '') + '</div>'
+              + '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Status: ' + Views.esc(u.status || "") + ' | Type: ' + Views.esc(u.veh_type || "") + ' | ' + Views.esc(u.floor_layout || "") + '</div>'
+              + '</div>';
+          }
+
+          // Auto-select From Zone based on lot_location
+          var fromSelect = form.querySelector('[name="zone_from"]');
+          if (fromSelect && u.lot_location) {
+            var lotCode = u.lot_location.replace("CLE-", "");
+            // Try exact match first, then prefix match
+            var matched = false;
+            for (var oi = 0; oi < fromSelect.options.length; oi++) {
+              if (fromSelect.options[oi].value === lotCode) {
+                fromSelect.value = lotCode;
+                matched = true;
+                break;
+              }
+            }
+            if (!matched) {
+              // Try prefix match (e.g., CLE-DISP01A → DISP01)
+              for (var oi = 0; oi < fromSelect.options.length; oi++) {
+                if (lotCode.indexOf(fromSelect.options[oi].value) === 0 && fromSelect.options[oi].value) {
+                  fromSelect.value = fromSelect.options[oi].value;
+                  break;
+                }
+              }
+            }
+          }
+
+          // Show the rest of the form
+          if (reorgFormBody) reorgFormBody.style.display = "";
+        });
+      });
+    }
+
     // Backfill stock# auto-lookup
     var bfInput = document.getElementById("reorgBackfillStock");
     var bfPreview = document.getElementById("reorgBackfillPreview");
