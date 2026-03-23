@@ -783,11 +783,11 @@ var App = (function () {
     var preview = document.createElement("div");
     preview.id = "unitPreview";
     preview.className = "card";
-    preview.style.cssText = "background:var(--surface-1);border-color:var(--border-lt);margin-bottom:16px;padding:14px;";
+    preview.style.cssText = "margin-bottom:16px;padding:14px;";
     preview.innerHTML = '<div style="font-size:22px;font-weight:700;">' + Views.esc(unit.year) + ' ' + Views.esc(unit.make) + ' ' + Views.esc(unit.model) + '</div>'
-      + '<div style="font-size:18px;color:var(--text-2);margin-top:4px;">VIN: ' + Views.esc(unit.vin) + '</div>'
+      + '<div style="font-size:18px;margin-top:4px;">VIN: ' + Views.esc(unit.vin) + '</div>'
       + '<div style="font-size:20px;margin-top:6px;">System Lot: <span class="text-blue fw-800">' + Views.esc(unit.lot_location || "NONE") + '</span></div>'
-      + '<div style="font-size:18px;color:var(--text-3);margin-top:4px;">Status: ' + Views.esc(unit.status) + '</div>';
+      + '<div style="font-size:18px;margin-top:4px;">Status: ' + Views.esc(unit.status) + '</div>';
     stockInput.parentNode.insertBefore(preview, stockInput.nextSibling);
   }
 

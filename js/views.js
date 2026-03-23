@@ -289,7 +289,7 @@ var Views = (function () {
     var cond = (u.condition || "").toUpperCase();
     if (cond === "USED") condBadge = '<span style="display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;background:#fde8e8;color:#C8102E;margin-left:6px;">USED</span>';
     else if (cond === "DEMO" || cond === "D") condBadge = '<span style="display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;background:var(--blue-dim);color:var(--blue);margin-left:6px;">DEMO</span>';
-    return '<div class="card" style="background:var(--surface-1);border-color:var(--border-lt);padding:12px;margin-bottom:12px;">'
+    return '<div class="card" style="padding:12px;margin-bottom:12px;">'
       + '<div style="font-size:18px;font-weight:700;">' + esc(u.year || "") + ' ' + esc(u.make || "") + ' ' + esc(u.model || "") + condBadge + '</div>'
       + '<div style="font-size:13px;color:var(--text-2);margin-top:4px;">VIN: ' + esc(u.vin || "") + '</div>'
       + '<div style="font-size:14px;margin-top:6px;">Location: <span style="font-weight:700;color:var(--blue);">' + esc(u.lot_location || "NONE") + '</span>'
