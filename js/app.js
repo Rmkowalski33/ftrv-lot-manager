@@ -538,6 +538,33 @@ var App = (function () {
       });
     }
 
+    // Backfill stock# auto-lookup
+    var bfInput = document.getElementById("reorgBackfillStock");
+    var bfPreview = document.getElementById("reorgBackfillPreview");
+    if (bfInput && bfPreview) {
+      bfInput.addEventListener("blur", function () {
+        var val = bfInput.value.trim().toUpperCase();
+        if (!val) { bfPreview.innerHTML = ""; return; }
+        DB.getUnit(val).then(function (u) {
+          if (!u) {
+            return DB.searchUnits(val).then(function (m) { return m.length > 0 ? m[0] : null; });
+          }
+          return u;
+        }).then(function (u) {
+          if (u) {
+            var condBadge = (u.condition || "").toUpperCase() === "USED"
+              ? '<span style="display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;background:#fde8e8;color:#C8102E;margin-left:6px;">USED</span>' : '';
+            bfPreview.innerHTML = '<div class="card" style="padding:10px;background:#f0fdf4;border-color:var(--green);">'
+              + '<div style="font-size:16px;font-weight:700;">' + Views.esc(u.year || "") + ' ' + Views.esc(u.make || "") + ' ' + Views.esc(u.model || "") + condBadge + '</div>'
+              + '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Stk# ' + Views.esc(u.stock_num) + ' | ' + Views.esc(u.lot_location || "No Lot") + ' | ' + Views.esc(u.status || "") + '</div>'
+              + '</div>';
+          } else {
+            bfPreview.innerHTML = '<div style="color:#C8102E;font-size:13px;">Unit not found</div>';
+          }
+        });
+      });
+    }
+
     form.addEventListener("submit", function (e) {
       e.preventDefault();
       var btn = form.querySelector(".btn");
@@ -569,7 +596,33 @@ var App = (function () {
         delete data.zone_to;
       }
 
+      // If reorg has a backfill stock, queue a second note
+      var backfillStock = "";
+      var backfillToggle = document.getElementById("reorgBackfillToggle");
+      var backfillInput = document.getElementById("reorgBackfillStock");
+      if (backfillToggle && backfillToggle.checked && backfillInput && backfillInput.value.trim()) {
+        backfillStock = backfillInput.value.trim().toUpperCase();
+        data.notes = (data.notes || "") + (data.notes ? " | " : "") + "Backfill with: " + backfillStock;
+      }
+
       DB.queueNote(data).then(function () {
+        // Queue backfill note if specified
+        if (backfillStock) {
+          var backfillNote = {
+            entry_type: "Reorg",
+            user: data.user,
+            stock: backfillStock,
+            zone_from: "",
+            zone_to: data.zone_from || "",
+            zone: "From: (current) → To: CLE-" + (data.zone_from || ""),
+            reason: "Backfill",
+            description: "Backfill for moving " + (data.stock || "") + " out of this zone",
+            suggested_action: "[Backfill]",
+            notes: "Paired with reorg of " + (data.stock || ""),
+          };
+          return DB.queueNote(backfillNote);
+        }
+      }).then(function () {
         // Show queued feedback immediately
         btn.textContent = "Sending...";
         btn.style.background = "var(--copper)";

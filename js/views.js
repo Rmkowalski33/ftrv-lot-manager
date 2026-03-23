@@ -1977,7 +1977,19 @@ var Views = (function () {
     h += '<label class="form-label">What needs to change?</label>'
       + '<textarea class="form-textarea" name="description" required placeholder="Describe the situation:\n- Which units are out of place\n- What should be moved where"></textarea>';
 
-    h += '<label class="form-label">Notes (optional)</label>'
+    // ── Backfill section ──
+    h += '<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">';
+    h += '<label class="form-label" style="margin-bottom:8px;">'
+      + '<input type="checkbox" id="reorgBackfillToggle" onchange="document.getElementById(\'reorgBackfillSection\').style.display=this.checked?\'block\':\'none\';" style="margin-right:8px;width:18px;height:18px;vertical-align:middle;">'
+      + '<span style="font-weight:700;">Backfill the vacated spot?</span></label>';
+    h += '<div id="reorgBackfillSection" style="display:none;">';
+    h += '<label class="form-label">Backfill Stock #</label>'
+      + '<input class="form-input" type="text" name="backfill_stock" id="reorgBackfillStock" placeholder="Enter stock # to use as replacement">';
+    h += '<div id="reorgBackfillPreview" style="margin:8px 0;"></div>';
+    h += '<div style="margin-top:8px;font-size:13px;color:var(--text-3);">This unit will be moved into the spot vacated by the unit above. Both moves will be logged together.</div>';
+    h += '</div></div>';
+
+    h += '<label class="form-label" style="margin-top:12px;">Notes (optional)</label>'
       + '<textarea class="form-textarea" name="notes" placeholder="Additional context..."></textarea>';
 
     h += '<button class="btn btn-blue mt-8" type="submit">Submit Suggestion</button>';
