@@ -245,11 +245,13 @@ var Views = (function () {
     }
   }
 
-  function renderZoneSelect(name, required) {
+  function renderZoneSelect(name, required, displayOnly) {
+    // displayOnly: if true, only show Showroom + Display zones (for hole reports)
     var h = '<select class="form-select" name="' + name + '"' + (required ? ' required' : '') + '>'
       + '<option value="">Select zone...</option>';
     for (var gi = 0; gi < ZONE_GROUPS.length; gi++) {
       var g = ZONE_GROUPS[gi];
+      if (displayOnly && g.type !== "SHR" && g.type !== "DISP") continue;
       h += '<optgroup label="' + esc(g.label) + '">';
       for (var zi = 0; zi < g.codes.length; zi++) {
         var code = g.codes[zi];
@@ -260,6 +262,40 @@ var Views = (function () {
     }
     h += '</select>';
     return h;
+  }
+
+  // ── User name persistence ──────────────────────────────────
+  var USER_KEY = "ftrv_note_user";
+  function _getSavedUser() { try { return localStorage.getItem(USER_KEY) || ""; } catch(e) { return ""; } }
+  function _saveUser(name) { try { localStorage.setItem(USER_KEY, name); } catch(e) {} }
+
+  // ── User name field (auto-fills from last submission) ──────
+  function renderUserField() {
+    var saved = _getSavedUser();
+    return '<label class="form-label">Your Name</label>'
+      + '<input class="form-input" type="text" name="user" value="' + esc(saved) + '" placeholder="e.g. John" required id="noteUserField">';
+  }
+
+  // ── Spot details field ─────────────────────────────────────
+  function renderSpotDetails() {
+    return '<label class="form-label">Spot Details <span style="font-weight:400;color:var(--text-3);">(optional)</span></label>'
+      + '<input class="form-input" type="text" name="spot_details" placeholder="e.g. Row 3, near fence, back corner by building">';
+  }
+
+  // ── Standard unit preview card ─────────────────────────────
+  function renderUnitPreviewCard(u) {
+    if (!u) return '';
+    var condBadge = '';
+    var cond = (u.condition || "").toUpperCase();
+    if (cond === "USED") condBadge = '<span style="display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;background:#fde8e8;color:#C8102E;margin-left:6px;">USED</span>';
+    else if (cond === "DEMO" || cond === "D") condBadge = '<span style="display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;background:var(--blue-dim);color:var(--blue);margin-left:6px;">DEMO</span>';
+    return '<div class="card" style="background:var(--surface-1);border-color:var(--border-lt);padding:12px;margin-bottom:12px;">'
+      + '<div style="font-size:18px;font-weight:700;">' + esc(u.year || "") + ' ' + esc(u.make || "") + ' ' + esc(u.model || "") + condBadge + '</div>'
+      + '<div style="font-size:13px;color:var(--text-2);margin-top:4px;">VIN: ' + esc(u.vin || "") + '</div>'
+      + '<div style="font-size:14px;margin-top:6px;">Location: <span style="font-weight:700;color:var(--blue);">' + esc(u.lot_location || "NONE") + '</span>'
+      + (u.lot_area ? ' (' + esc(u.lot_area) + ')' : '') + '</div>'
+      + '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Status: ' + esc(u.status || "") + ' | ' + esc(u.veh_type || "") + ' | ' + esc(u.floor_layout || "") + '</div>'
+      + '</div>';
   }
 
 
@@ -1860,13 +1896,17 @@ var Views = (function () {
   function noteFormView(type, stockNum) {
     var lookupPromise = stockNum ? DB.getUnit(stockNum) : Promise.resolve(null);
     return lookupPromise.then(function (unit) {
-      var h = '<div class="view">';
-      h += backBtn("notes", "Notes");
-      if (type === "verify") h += renderVerifyForm(unit, stockNum);
-      else if (type === "hole") h += renderHoleForm();
-      else h += renderReorgForm(unit, stockNum);
-      h += '</div>';
-      return h;
+      var prefix = '<div class="view">' + backBtn("notes", "Notes");
+      var suffix = '</div>';
+      if (type === "verify") {
+        return prefix + renderVerifyForm(unit, stockNum) + suffix;
+      } else if (type === "hole") {
+        return renderHoleForm().then(function (formHtml) {
+          return prefix + formHtml + suffix;
+        });
+      } else {
+        return prefix + renderReorgForm(unit, stockNum) + suffix;
+      }
     });
   }
 
@@ -1874,74 +1914,121 @@ var Views = (function () {
     var h = '<div class="card"><div class="card-title">Verify Unit Location</div>'
       + '<form id="noteForm" data-type="verify">';
 
-    h += '<label class="form-label">Your Name</label>'
-      + '<input class="form-input" type="text" name="user" placeholder="e.g. John" required>';
+    h += renderUserField();
 
     h += '<label class="form-label">Stock #</label>'
-      + '<input class="form-input" type="text" name="stock" value="' + esc(stockNum || "") + '" placeholder="Enter stock number" required id="noteStock">';
+      + '<input class="form-input" type="text" name="stock" value="' + esc(stockNum || "") + '" placeholder="Enter stock number" required id="noteStock" autocapitalize="characters">';
 
+    // Unit preview (auto-populated on lookup)
     if (unit) {
-      h += '<div class="card" style="background:var(--surface-1);border-color:var(--border-lt);margin-bottom:16px;padding:14px;" id="unitPreview">'
-        + '<div style="font-size:22px;font-weight:700;">' + esc(unit.year) + ' ' + esc(unit.make) + ' ' + esc(unit.model) + '</div>'
-        + '<div style="font-size:18px;color:var(--text-2);margin-top:4px;">VIN: ' + esc(unit.vin) + '</div>'
-        + '<div style="font-size:20px;margin-top:6px;">System Lot: <span class="text-blue fw-800">' + esc(unit.lot_location || "NONE") + '</span></div>'
-        + '<div style="font-size:18px;color:var(--text-3);margin-top:4px;">Status: ' + esc(unit.status) + '</div>'
-        + '</div>';
+      h += '<div id="unitPreview">' + renderUnitPreviewCard(unit) + '</div>';
+    } else {
+      h += '<div id="unitPreview"></div>';
     }
+
+    // Verification section (shown after unit lookup if no stock pre-filled)
+    var formVis = unit ? '' : ' id="verifyFormBody" style="display:none;"';
+    h += '<div' + formVis + '>';
 
     h += '<label class="form-label">Is the unit where the system says?</label>'
       + '<div class="form-radio-group">'
-      + '<label class="form-radio" onclick="App.selectRadio(this)"><input type="radio" name="verified" value="Yes" required>Yes</label>'
-      + '<label class="form-radio" onclick="App.selectRadio(this)"><input type="radio" name="verified" value="No">No</label>'
-      + '<label class="form-radio" onclick="App.selectRadio(this)"><input type="radio" name="verified" value="Not Found">Not Found</label>'
+      + '<label class="form-radio" onclick="App.selectRadio(this)"><input type="radio" name="verified" value="Yes" required><span style="font-weight:600;color:var(--green);">Yes — Correct</span></label>'
+      + '<label class="form-radio" onclick="App.selectRadio(this)"><input type="radio" name="verified" value="No"><span style="font-weight:600;color:var(--orange);">No — Wrong Spot</span></label>'
+      + '<label class="form-radio" onclick="App.selectRadio(this)"><input type="radio" name="verified" value="Not Found"><span style="font-weight:600;color:#C8102E;">Not Found on Lot</span></label>'
       + '</div>';
 
-    h += '<div id="actualLocWrap" style="display:none;">'
-      + '<label class="form-label">Actual Location</label>'
-      + renderZoneSelect("actual_lot", false)
-      + '</div>';
+    h += '<label class="form-label">Actual Location <span style="font-weight:400;color:var(--text-3);">(if different)</span></label>'
+      + renderZoneSelect("actual_lot", false);
+    h += renderSpotDetails();
 
-    h += '<label class="form-label">Notes (optional)</label>'
+    h += '<label class="form-label">Notes <span style="font-weight:400;color:var(--text-3);">(optional)</span></label>'
       + '<textarea class="form-textarea" name="notes" placeholder="Any additional details..."></textarea>';
 
     h += '<button class="btn btn-green mt-8" type="submit">Submit Verification</button>';
+    h += '</div>'; // close verifyFormBody
     h += '</form></div>';
     return h;
   }
 
   function renderHoleForm() {
-    var h = '<div class="card"><div class="card-title">Report Coverage Hole</div>'
-      + '<form id="noteForm" data-type="hole">';
+    return DB.getAllUnits().then(function (units) {
+      // Build type and make options from active inventory
+      var typeSet = {}, makesByType = {};
+      for (var i = 0; i < units.length; i++) {
+        var u = units[i];
+        var st = (u.status || "").toUpperCase();
+        var isT = false;
+        for (var t = 0; t < TERMINAL_STATUSES.length; t++) { if (st === TERMINAL_STATUSES[t]) { isT = true; break; } }
+        if (isT) continue;
+        var vt = u.veh_type || "OTHER";
+        var mk = u.make || "";
+        typeSet[vt] = true;
+        if (!makesByType[vt]) makesByType[vt] = {};
+        if (mk) makesByType[vt][mk] = true;
+      }
+      var typeKeys = Object.keys(typeSet).sort();
+      var allMakes = {};
+      for (var vt in makesByType) { for (var mk in makesByType[vt]) allMakes[mk] = true; }
+      var makeKeys = Object.keys(allMakes).sort();
 
-    h += '<label class="form-label">Your Name</label>'
-      + '<input class="form-input" type="text" name="user" placeholder="e.g. John" required>';
+      var h = '<div class="card"><div class="card-title">Report Coverage Hole</div>'
+        + '<form id="noteForm" data-type="hole">';
 
-    h += '<label class="form-label">Zone / Area</label>'
-      + renderZoneSelect("zone", true);
+      h += renderUserField();
 
-    h += '<label class="form-label">What type/brand is missing?</label>'
-      + '<input class="form-input" type="text" name="missing_type" placeholder="e.g. TT, Forest River Cherokee">';
+      // Zone (display/showroom only)
+      h += '<label class="form-label">Zone</label>'
+        + renderZoneSelect("zone", true, true);  // displayOnly = true
+      h += renderSpotDetails();
 
-    h += '<label class="form-label">Nearby Stock #s (helps locate the hole)</label>'
-      + '<input class="form-input" type="text" name="nearby_units" placeholder="e.g. 219464, 220115">';
+      // Type dropdown
+      h += '<label class="form-label">Vehicle Type Missing</label>'
+        + '<select class="form-select" name="missing_veh_type" id="holeTypeSelect" onchange="App.filterHoleMakes(this.value)">'
+        + '<option value="">Select type...</option>';
+      for (var ti = 0; ti < typeKeys.length; ti++) {
+        h += '<option value="' + esc(typeKeys[ti]) + '">' + esc(typeKeys[ti]) + '</option>';
+      }
+      h += '</select>';
 
-    h += '<label class="form-label">Where exactly is the hole?</label>'
-      + '<textarea class="form-textarea" name="description" required placeholder="Describe the location:\n- Row/spot number\n- Between which units\n- How many empty spots"></textarea>';
+      // Make dropdown (populated based on type selection)
+      h += '<label class="form-label">Make/Brand Missing</label>'
+        + '<select class="form-select" name="missing_make" id="holeMakeSelect">'
+        + '<option value="">Select make...</option>';
+      for (var mi = 0; mi < makeKeys.length; mi++) {
+        h += '<option value="' + esc(makeKeys[mi]) + '" data-vt="' + esc(_getMakeType(makeKeys[mi], units)) + '">' + esc(makeKeys[mi]) + '</option>';
+      }
+      h += '</select>';
 
-    h += '<label class="form-label">Notes (optional)</label>'
-      + '<textarea class="form-textarea" name="notes" placeholder="Additional context..."></textarea>';
+      // Nearby unit reference
+      h += '<label class="form-label">Nearby Stock # <span style="font-weight:400;color:var(--text-3);">(helps locate the hole)</span></label>'
+        + '<input class="form-input" type="text" name="nearby_units" id="holeNearbyStock" placeholder="e.g. 219464" autocapitalize="characters">';
+      h += '<div id="holeNearbyPreview"></div>';
 
-    h += '<button class="btn btn-orange mt-8" type="submit">Submit Hole Report</button>';
-    h += '</form></div>';
-    return h;
+      // Description
+      h += '<label class="form-label">Description</label>'
+        + '<textarea class="form-textarea" name="description" required placeholder="How many empty spots? Any other details about the location."></textarea>';
+
+      h += '<label class="form-label">Notes <span style="font-weight:400;color:var(--text-3);">(optional)</span></label>'
+        + '<textarea class="form-textarea" name="notes" placeholder="Additional context..."></textarea>';
+
+      h += '<button class="btn btn-orange mt-8" type="submit">Submit Hole Report</button>';
+      h += '</form></div>';
+      return h;
+    });
+  }
+
+  function _getMakeType(make, units) {
+    for (var i = 0; i < units.length; i++) {
+      if (units[i].make === make && units[i].veh_type) return units[i].veh_type;
+    }
+    return "";
   }
 
   function renderReorgForm(unit, stockNum) {
     var h = '<div class="card"><div class="card-title">Suggest Reorganization</div>'
       + '<form id="noteForm" data-type="reorg">';
 
-    h += '<label class="form-label">Your Name</label>'
-      + '<input class="form-input" type="text" name="user" placeholder="e.g. John" required>';
+    h += renderUserField();
 
     h += '<label class="form-label">Stock # to Move</label>'
       + '<input class="form-input" type="text" name="stock" value="' + esc(stockNum || "") + '" placeholder="Enter stock number" required id="reorgStock" autocapitalize="characters">';
@@ -1973,6 +2060,7 @@ var Views = (function () {
 
     h += '<label class="form-label">To Zone</label>'
       + renderZoneSelect("zone_to", false);
+    h += renderSpotDetails();
 
     h += '<label class="form-label">Reason for Move</label>'
       + '<select class="form-select" name="reason" required>'
@@ -3717,6 +3805,7 @@ var Views = (function () {
     incomingUnitsView: incomingUnitsView,
     renderUnitCard: renderUnitCard,
     renderAuditFlags: renderAuditFlags,
+    renderUnitPreviewCard: renderUnitPreviewCard,
     computeAuditFlags: computeAuditFlags,
     esc: esc,
   };

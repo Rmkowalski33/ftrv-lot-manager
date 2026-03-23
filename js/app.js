@@ -520,19 +520,48 @@ var App = (function () {
     var form = document.getElementById("noteForm");
     if (!form) return;
 
-    // Stock# auto-lookup
+    // Generic stock# auto-lookup helper
+    function _unitLookup(val) {
+      return DB.getUnit(val.toUpperCase()).then(function (u) {
+        if (!u) return DB.searchUnits(val).then(function (m) { return m.length > 0 ? m[0] : null; });
+        return u;
+      });
+    }
+
+    // Verify form: stock# auto-lookup with preview + show form body
     var stockInput = document.getElementById("noteStock");
-    if (stockInput && !stockInput.value) {
+    var verifyFormBody = document.getElementById("verifyFormBody");
+    if (stockInput) {
       stockInput.addEventListener("blur", function () {
         var val = stockInput.value.trim();
         if (!val) return;
-        DB.getUnit(val.toUpperCase()).then(function (unit) {
-          if (!unit) {
-            DB.searchUnits(val).then(function (matches) {
-              if (matches.length === 1) showUnitPreview(matches[0]);
-            });
+        _unitLookup(val).then(function (u) {
+          var preview = document.getElementById("unitPreview");
+          if (u && preview) {
+            preview.innerHTML = Views.renderUnitPreviewCard ? Views.renderUnitPreviewCard(u) : '<div>Found: ' + u.stock_num + '</div>';
+            if (verifyFormBody) verifyFormBody.style.display = "";
+          } else if (preview) {
+            preview.innerHTML = '<div style="color:#C8102E;font-size:13px;padding:8px 0;">Unit not found</div>';
+            if (verifyFormBody) verifyFormBody.style.display = "";
+          }
+        });
+      });
+    }
+
+    // Hole form: nearby stock# auto-lookup
+    var holeNearby = document.getElementById("holeNearbyStock");
+    var holeNearbyPreview = document.getElementById("holeNearbyPreview");
+    if (holeNearby && holeNearbyPreview) {
+      holeNearby.addEventListener("blur", function () {
+        var val = holeNearby.value.trim().toUpperCase();
+        if (!val) { holeNearbyPreview.innerHTML = ""; return; }
+        _unitLookup(val).then(function (u) {
+          if (u) {
+            holeNearbyPreview.innerHTML = '<div style="padding:6px 0;font-size:13px;color:var(--text-2);">'
+              + Views.esc(u.year || "") + ' ' + Views.esc(u.make || "") + ' ' + Views.esc(u.model || "")
+              + ' | ' + Views.esc(u.lot_location || "No Lot") + '</div>';
           } else {
-            showUnitPreview(unit);
+            holeNearbyPreview.innerHTML = '<div style="font-size:13px;color:#C8102E;">Unit not found</div>';
           }
         });
       });
@@ -648,6 +677,25 @@ var App = (function () {
       data.entry_type = form.getAttribute("data-type") === "verify" ? "Verify"
         : form.getAttribute("data-type") === "hole" ? "Hole" : "Reorg";
 
+      // Save user name for future forms
+      if (data.user) { try { localStorage.setItem("ftrv_note_user", data.user); } catch(e) {} }
+
+      // Append spot details to description if provided
+      if (data.spot_details) {
+        data.description = (data.description || "") + (data.description ? " | Spot: " : "Spot: ") + data.spot_details;
+        delete data.spot_details;
+      }
+
+      // For holes: combine type + make into missing_type field
+      if (data.missing_veh_type || data.missing_make) {
+        var parts = [];
+        if (data.missing_veh_type) parts.push(data.missing_veh_type);
+        if (data.missing_make) parts.push(data.missing_make);
+        data.missing_type = parts.join(" - ");
+        delete data.missing_veh_type;
+        delete data.missing_make;
+      }
+
       // For reorg: combine from/to zones into the zone field
       if (data.zone_from || data.zone_to) {
         var parts = [];
@@ -702,12 +750,21 @@ var App = (function () {
             btn.textContent = "Queued — will retry";
             btn.style.background = "var(--warning, #f59e0b)";
           } else {
-            btn.textContent = "Submitted!";
+            // Build summary
+            var summary = data.entry_type;
+            if (data.stock) summary += ": Stk# " + data.stock;
+            if (data.entry_type === "Verify" && data.verified) summary += " — " + data.verified;
+            if (data.entry_type === "Hole" && data.missing_type) summary += " — " + data.missing_type;
+            if (backfillStock) summary += " + Backfill: " + backfillStock;
+            btn.textContent = summary;
             btn.style.background = "var(--green)";
+            btn.style.fontSize = "13px";
+            btn.style.whiteSpace = "normal";
+            btn.style.lineHeight = "1.4";
           }
           setTimeout(function () {
             navigate("notes");
-          }, 1500);
+          }, 2000);
         });
       }).catch(function (err) {
         btn.textContent = "Error: " + err.message;
@@ -837,6 +894,20 @@ var App = (function () {
     }
   }
 
+  // ── Hole form: filter makes by selected type ──
+  function filterHoleMakes(vt) {
+    var makeSelect = document.getElementById("holeMakeSelect");
+    if (!makeSelect) return;
+    var options = makeSelect.querySelectorAll("option");
+    for (var i = 0; i < options.length; i++) {
+      var opt = options[i];
+      if (!opt.value) continue; // skip "Select make..."
+      var optVt = opt.getAttribute("data-vt") || "";
+      opt.style.display = (!vt || optVt === vt) ? "" : "none";
+    }
+    makeSelect.value = ""; // reset selection when type changes
+  }
+
   // ── All Inventory filter ──
   function filterAllInventory() {
     var getSelected = function(id) {
@@ -891,6 +962,7 @@ var App = (function () {
     filterLotCells: filterLotCells,
     filterMakeCards: filterMakeCards,
     filterByCondition: filterByCondition,
+    filterHoleMakes: filterHoleMakes,
     filterAllInventory: filterAllInventory,
   };
 })();
