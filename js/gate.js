@@ -8,10 +8,26 @@ var Gate = (function () {
 
   var STORAGE_KEY = "ftrv_access_code";
 
-  // Valid access codes — rotated by updating this list.
-  // When you want to rotate: change the code here, redeploy,
-  // and text the new code to the team.
-  var VALID_CODES = ["FTRV-0326"];
+  // Access codes are loaded from access_codes.json at startup.
+  // To rotate codes: edit access_codes.json and push to GitHub Pages.
+  // No app redeployment needed — users with old codes get re-gated immediately.
+  //
+  // Fallback codes (used if fetch fails, e.g., offline first visit):
+  var FALLBACK_CODES = ["FTRV-CLE-2026"];
+  var _validCodes = FALLBACK_CODES;
+
+  function _loadCodes() {
+    return fetch("access_codes.json?_=" + Date.now())
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.codes && data.codes.length > 0) {
+          _validCodes = data.codes.map(function (c) { return c.toUpperCase(); });
+        }
+      })
+      .catch(function () {
+        // Offline or file missing — use fallback
+      });
+  }
 
   function getSavedCode() {
     try { return localStorage.getItem(STORAGE_KEY); } catch (e) { return null; }
@@ -28,8 +44,8 @@ var Gate = (function () {
   function isValidCode(code) {
     if (!code) return false;
     var upper = code.trim().toUpperCase();
-    for (var i = 0; i < VALID_CODES.length; i++) {
-      if (VALID_CODES[i].toUpperCase() === upper) return true;
+    for (var i = 0; i < _validCodes.length; i++) {
+      if (_validCodes[i] === upper) return true;
     }
     return false;
   }
@@ -73,15 +89,19 @@ var Gate = (function () {
     });
   }
 
-  // Main entry: check code and either show app or gate
+  // Main entry: load codes from JSON, then check
   function check() {
-    if (isAuthenticated()) {
-      var gate = document.getElementById("gateScreen");
-      if (gate) gate.style.display = "none";
-      App.init();
-    } else {
-      showGate();
-    }
+    _loadCodes().then(function () {
+      if (isAuthenticated()) {
+        var gate = document.getElementById("gateScreen");
+        if (gate) gate.style.display = "none";
+        App.init();
+      } else {
+        // Old code no longer valid — clear it so they see the gate
+        clearCode();
+        showGate();
+      }
+    });
   }
 
   return {

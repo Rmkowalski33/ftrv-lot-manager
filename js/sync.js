@@ -9,7 +9,7 @@ var Sync = (function () {
   // ── Config ─────────────────────────────────────────────────────
   var JSON_URL = "";  // Set by Sync.configure()
   var SUBMIT_URL = "";
-  var API_KEY = "FTRV-LOT-2026";
+  var API_KEY = "FTRV-CLE-2026";
   var SYNC_INTERVAL = 5 * 60 * 1000;  // 5 minutes
   var _syncTimer = null;
   var _isSyncing = false;
