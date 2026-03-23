@@ -3389,7 +3389,7 @@ var Views = (function () {
     // ── 3. BROWSING ──
     h += secHeader('help-browse', '3', 'Browsing Inventory');
     h += '<div class="card">';
-    h += '<div style="font-size:13px;color:var(--text-2);line-height:1.6;margin-bottom:10px;">All browse views support filters. Look for dropdown filters at the top of each list for Type, Manufacturer, Location, or Status.</div>';
+    h += '<div style="font-size:13px;color:var(--text-2);line-height:1.6;margin-bottom:10px;">All browse views support filters. Look for the <strong>New/Used condition dropdown</strong> at the top of every drill-through page, plus Type, Manufacturer, Location, and Status filters where applicable.</div>';
     h += featureRow('Lots View', 'Showrooms, Display Zones, Overflow, and all other lot areas as tiles');
     h += featureRow('Status View', 'Grouped by category: Stock, Dead, Transit, Ordered');
     h += featureRow('Makes View', 'Manufacturer &#x2192; Make &#x2192; Model hierarchy with type dropdown');
@@ -3402,7 +3402,7 @@ var Views = (function () {
     h += secHeader('help-unit', '4', 'Unit Detail Pages');
     h += '<div class="card">';
     h += '<div style="font-size:13px;color:var(--text-2);line-height:1.6;margin-bottom:10px;">Tap any unit from search or browse to see its full detail. The page is organized into clean sections:</div>';
-    h += featureRow('Unit Info', 'Stock#, VIN, Year, Make, Model, Type, Body Style, Layout, Condition');
+    h += featureRow('Unit Info', 'Stock#, VIN, Year, Make, Model, Type, Body Style, Layout, Condition (New/Used/Demo)');
     h += featureRow('Location', 'PC, Lot Location, Area. Verify Location and Suggest Move buttons inside.');
     h += featureRow('Transfer Notes', 'Shown for transit units if transfer notes exist');
     h += featureRow('Retail Deal', 'Sale Pending only: Salesman, Deal#, Deal Status, Type, Delivery Dates, Funding');
@@ -3431,7 +3431,8 @@ var Views = (function () {
     h += featureRow('Status Days', '<span style="color:var(--green);">Green</span> 0-2d &bull; <span style="color:var(--orange);">Orange</span> 3-7d &bull; <span style="color:#C8102E;">Red</span> 8d+');
     h += featureRow('Deal Status', '<span style="color:var(--green);">Green</span> = Approved/Funded &bull; <span style="color:var(--orange);">Orange</span> = Pending &bull; <span style="color:#C8102E;">Red</span> = Declined');
     h += featureRow('Left Border', '<span style="color:var(--orange);">Orange</span> = Unit is in Display or Showroom (needs pulling)');
-    h += featureRow('Filters', 'Type chips + Manufacturer &amp; Deal Status dropdowns');
+    h += featureRow('Condition Badge', '<span style="color:#C8102E;">USED</span> (red) or <span style="color:var(--blue);">DEMO</span> (blue) badge on tiles');
+    h += featureRow('Filters', 'Type chips + Manufacturer, Condition &amp; Deal Status dropdowns');
     h += '</div>';
 
     h += '<div class="card">';
@@ -3465,12 +3466,14 @@ var Views = (function () {
     // ── 7. NOTES ──
     h += secHeader('help-notes', '7', 'Field Notes');
     h += '<div class="card">';
-    h += '<div style="font-size:13px;color:var(--text-2);line-height:1.6;margin-bottom:10px;">Log observations while walking the lot. All notes push to the CLE Lot Report Google Sheet, organized into horizontal sections by type.</div>';
+    h += '<div style="font-size:13px;color:var(--text-2);line-height:1.6;margin-bottom:10px;">Log observations while walking the lot. All notes push to the CLE Lot Report Google Sheet as structured rows.</div>';
     h += featureRow('Verify Location', 'Confirm or correct where a unit physically sits');
-    h += featureRow('Coverage Hole', 'Report an empty display spot that needs filling');
-    h += featureRow('Reorganization', 'Suggest moving units between zones (with reason dropdown)');
+    h += featureRow('Coverage Hole', 'Report an empty display spot &mdash; include zone, missing type/brand, and nearby stock numbers');
+    h += featureRow('Reorganization', 'Suggest moving units between zones with reason dropdown');
+    h += featureRow('Reorg Backfill', 'Optional: select a stock# to fill the spot vacated by the moved unit');
     h += '</div>';
 
+    h += tipCard('<strong>Reorg + Backfill:</strong> When submitting a reorganization, check "Backfill the vacated spot?" to enter a replacement stock number. Both the move and the backfill are logged as paired entries.', 'var(--blue)');
     h += tipCard('<strong>Best practice:</strong> When reporting a hole, always include nearby stock numbers. This helps the lot crew find the exact spot.', 'var(--green)');
 
     // ── 8. COVERAGE ──
