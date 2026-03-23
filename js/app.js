@@ -650,16 +650,18 @@ var App = (function () {
     }
 
     // Get active filters
-    var activeType = "ALL", activeDeal = "ALL", activeMfr = "ALL";
+    var activeType = "ALL", activeDeal = "ALL", activeMfr = "ALL", activeCond = "ALL";
     var typeBar = document.getElementById("spTypeFilters");
     var dealSelect = document.getElementById("spDealFilter");
     var mfrSelect = document.getElementById("spMfrFilter");
+    var condSelect = document.getElementById("spCondFilter");
     if (typeBar) {
       var tc = typeBar.querySelector(".chip-active");
       if (tc) activeType = tc.getAttribute("data-sp-type") || "ALL";
     }
     if (dealSelect) activeDeal = dealSelect.value || "ALL";
     if (mfrSelect) activeMfr = mfrSelect.value || "ALL";
+    if (condSelect) activeCond = condSelect.value || "ALL";
 
     // Filter cards
     var cards = document.querySelectorAll(".sp-unit-card");
@@ -669,10 +671,12 @@ var App = (function () {
       var cardType = card.getAttribute("data-unit-type") || "";
       var cardDeal = card.getAttribute("data-unit-deal") || "";
       var cardMfr = card.getAttribute("data-unit-mfr") || "";
+      var cardCond = card.getAttribute("data-unit-cond") || "";
       var showType = (activeType === "ALL" || cardType === activeType);
       var showDeal = (activeDeal === "ALL" || cardDeal === activeDeal);
       var showMfr = (activeMfr === "ALL" || cardMfr === activeMfr);
-      var vis = showType && showDeal && showMfr;
+      var showCond = (activeCond === "ALL" || cardCond === activeCond);
+      var vis = showType && showDeal && showMfr && showCond;
       card.style.display = vis ? "" : "none";
       if (vis) shown++;
     }
@@ -701,6 +705,19 @@ var App = (function () {
         card.style.display = "";
       } else {
         card.style.display = card.getAttribute("data-vt") === vt ? "" : "none";
+      }
+    }
+  }
+
+  // ── Generic condition filter (for drill-through pages) ──
+  function filterByCondition(val) {
+    var cards = document.querySelectorAll(".result-card[data-condition]");
+    for (var i = 0; i < cards.length; i++) {
+      var card = cards[i];
+      if (val === "ALL") {
+        card.style.display = "";
+      } else {
+        card.style.display = card.getAttribute("data-condition") === val ? "" : "none";
       }
     }
   }
@@ -758,6 +775,7 @@ var App = (function () {
     filterSPList: filterSPList,
     filterLotCells: filterLotCells,
     filterMakeCards: filterMakeCards,
+    filterByCondition: filterByCondition,
     filterAllInventory: filterAllInventory,
   };
 })();

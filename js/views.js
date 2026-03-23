@@ -98,7 +98,8 @@ var Views = (function () {
     var age = parseInt(u.age) || 0;
     var ageColor = age > 180 ? 'var(--red)' : age > 90 ? 'var(--orange)' : 'var(--text-3)';
     var yearColor = (parseInt(u.year) || 0) <= 2025 ? 'var(--orange)' : 'var(--text)';
-    var h = '<div class="result-card" data-action="detail" data-stock="' + esc(u.stock_num) + '">';
+    var condVal = (u.condition || "New").toUpperCase();
+    var h = '<div class="result-card" data-action="detail" data-stock="' + esc(u.stock_num) + '" data-condition="' + esc(condVal) + '">';
     h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;">';
     h += '<div><div class="result-ymm"><span style="color:' + yearColor + ';">' + esc(u.year) + '</span> ' + esc(u.make) + ' ' + esc(u.model) + '</div>';
     h += '<div class="result-meta"><span>Stk# ' + esc(u.stock_num) + '</span>';
@@ -191,6 +192,25 @@ var Views = (function () {
     return h;
   }
 
+
+  // ── Condition Filter (reusable) ──────────────────────────────
+  function renderConditionFilter(units) {
+    var condSet = {};
+    for (var i = 0; i < units.length; i++) {
+      var c = (units[i].condition || "New").toUpperCase();
+      condSet[c] = (condSet[c] || 0) + 1;
+    }
+    var keys = Object.keys(condSet).sort();
+    if (keys.length <= 1) return '';
+    var h = '<div style="margin-bottom:10px;">';
+    h += '<select class="form-select" id="conditionFilter" onchange="App.filterByCondition(this.value)" style="font-size:14px;">';
+    h += '<option value="ALL">All (New & Used)</option>';
+    for (var i = 0; i < keys.length; i++) {
+      h += '<option value="' + esc(keys[i]) + '">' + esc(keys[i]) + ' (' + condSet[keys[i]] + ')</option>';
+    }
+    h += '</select></div>';
+    return h;
+  }
 
   // ── Zone Data ────────────────────────────────────────────────
   var ZONE_INFO = {
@@ -827,7 +847,8 @@ var Views = (function () {
       h += '<div class="zone-banner"><div class="zone-banner-name">' + esc(displayName) + '</div>'
         + '<div class="zone-banner-count">' + areaUnits.length + ' units</div></div>';
 
-      // Cross-filters
+      // Condition filter + Cross-filters
+      h += renderConditionFilter(areaUnits);
       h += renderCrossFilters(areaUnits, "lots");
 
       // Group by lot code
@@ -870,7 +891,8 @@ var Views = (function () {
         + '<div class="zone-banner-count">' + zoneUnits.length + '</div>'
         + '</div>';
 
-      // Cross-filters
+      // Condition filter + Cross-filters
+      h += renderConditionFilter(zoneUnits);
       h += renderCrossFilters(zoneUnits, "lots");
 
       // Group units by status category
@@ -1014,7 +1036,8 @@ var Views = (function () {
       h += '<div class="zone-banner"><div class="zone-banner-name">' + esc(statusName) + '</div>'
         + '<div class="zone-banner-count">' + filtered.length + '</div></div>';
 
-      // Cross-filters
+      // Condition filter + Cross-filters
+      h += renderConditionFilter(filtered);
       h += renderCrossFilters(filtered, "status");
 
       // Units
@@ -1203,7 +1226,8 @@ var Views = (function () {
       h += '<div class="zone-banner"><div class="zone-banner-name">' + esc(make) + '</div>'
         + '<div class="zone-banner-count">' + makeUnits.length + ' units</div></div>';
 
-      // Cross-filters
+      // Condition filter + Cross-filters
+      h += renderConditionFilter(makeUnits);
       h += renderCrossFilters(makeUnits, "makes");
 
       // Group by model
@@ -1353,6 +1377,9 @@ var Views = (function () {
         + '<div class="zone-banner-name" style="color:var(--purple);">' + esc(floorLayout) + '</div>'
         + '<div class="zone-banner-desc">' + esc(vehType) + '</div>'
         + '<div class="zone-banner-count">' + filtered.length + '</div></div>';
+
+      // Condition filter
+      h += renderConditionFilter(filtered);
 
       // Group by sub_floorplan, then sort units by make → price within each group
       var bySub = {};
@@ -2768,7 +2795,7 @@ var Views = (function () {
     var isPending = (section === "pending" || section === "all-pending" || section === "pending-display");
     if (isPending && units.length > 3) {
       // Collect filter options
-      var typeSet = {}, dealSet = {}, mfrSet = {};
+      var typeSet = {}, dealSet = {}, mfrSet = {}, condSet = {};
       for (var fi = 0; fi < units.length; fi++) {
         var vt = (units[fi].veh_type || "OTHER").toUpperCase();
         typeSet[vt] = (typeSet[vt] || 0) + 1;
@@ -2776,6 +2803,8 @@ var Views = (function () {
         if (ds) dealSet[ds] = (dealSet[ds] || 0) + 1;
         var mfr = units[fi].manufacturer || "Unknown";
         mfrSet[mfr] = (mfrSet[mfr] || 0) + 1;
+        var cond = (units[fi].condition || "New").toUpperCase();
+        condSet[cond] = (condSet[cond] || 0) + 1;
       }
 
       h += '<div class="card" style="padding:12px;margin-bottom:8px;">';
@@ -2800,6 +2829,18 @@ var Views = (function () {
         h += '<option value="ALL">All Manufacturers</option>';
         for (var mi = 0; mi < mfrKeys.length; mi++) {
           h += '<option value="' + esc(mfrKeys[mi]) + '">' + esc(mfrKeys[mi]) + ' (' + mfrSet[mfrKeys[mi]] + ')</option>';
+        }
+        h += '</select>';
+      }
+
+      // Condition filter
+      var condKeys = Object.keys(condSet).sort();
+      if (condKeys.length > 1) {
+        h += '<div style="margin:8px 0 4px;color:var(--text-3);font-size:11px;text-transform:uppercase;letter-spacing:1px;">Condition</div>';
+        h += '<select class="form-select" id="spCondFilter" onchange="App.filterSPList(this,\'cond\')" style="margin-bottom:4px;">';
+        h += '<option value="ALL">All (New & Used)</option>';
+        for (var ci = 0; ci < condKeys.length; ci++) {
+          h += '<option value="' + esc(condKeys[ci]) + '">' + esc(condKeys[ci]) + ' (' + condSet[condKeys[ci]] + ')</option>';
         }
         h += '</select>';
       }
@@ -2837,6 +2878,7 @@ var Views = (function () {
       var spTypeAttr = isPending ? ' data-unit-type="' + esc((u.veh_type || "OTHER").toUpperCase()) + '"' : '';
       var spDealAttr = isPending ? ' data-unit-deal="' + esc(u.deal_status || "") + '"' : '';
       var spMfrAttr = isPending ? ' data-unit-mfr="' + esc(u.manufacturer || "Unknown") + '"' : '';
+      var spCondAttr = ' data-unit-cond="' + esc((u.condition || "New").toUpperCase()) + '"';
 
       // Status days conditional formatting for pending
       var sDays = parseInt(u.status_days) || 0;
@@ -2855,7 +2897,7 @@ var Views = (function () {
       var locInDisplay = (locArea === "DISPLAY" || locArea === "SHOWROOM");
       var locBorderColor = locInDisplay ? 'var(--orange)' : 'var(--border)';
 
-      h += '<a class="card card-interactive sp-unit-card" href="#' + detailTarget + '"' + spTypeAttr + spDealAttr + spMfrAttr + ' style="border-left:3px solid ' + locBorderColor + ';">';
+      h += '<a class="card card-interactive sp-unit-card" href="#' + detailTarget + '"' + spTypeAttr + spDealAttr + spMfrAttr + spCondAttr + ' style="border-left:3px solid ' + locBorderColor + ';">';
 
       // Top row: unit info + status days
       h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;">';
@@ -2895,6 +2937,14 @@ var Views = (function () {
       // Salesman
       if (isPending && u.hold_salesman) {
         h += '<span style="font-size:11px;color:var(--text-3);">' + esc(u.hold_salesman) + '</span>';
+      }
+
+      // Condition badge (Used/Demo)
+      var condUpper = (u.condition || "").toUpperCase();
+      if (condUpper === "USED") {
+        h += '<span style="display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;background:#fde8e8;color:#C8102E;">USED</span>';
+      } else if (condUpper === "DEMO" || condUpper === "D") {
+        h += '<span style="display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;background:var(--blue-dim);color:var(--blue);">DEMO</span>';
       }
 
       h += '</div></a>';
