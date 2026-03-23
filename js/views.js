@@ -2040,12 +2040,12 @@ var Views = (function () {
       if (cond === "USED") condBadge = '<span style="display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;background:#fde8e8;color:#C8102E;margin-left:6px;">USED</span>';
       else if (cond === "DEMO" || cond === "D") condBadge = '<span style="display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;background:var(--blue-dim);color:var(--blue);margin-left:6px;">DEMO</span>';
 
-      h += '<div class="card" style="background:var(--surface-1);border-color:var(--border-lt);margin-bottom:12px;padding:12px;" id="reorgUnitPreview">'
+      h += '<div class="card" style="margin-bottom:12px;padding:12px;" id="reorgUnitPreview">'
         + '<div style="font-size:18px;font-weight:700;">' + esc(unit.year || "") + ' ' + esc(unit.make || "") + ' ' + esc(unit.model || "") + condBadge + '</div>'
-        + '<div style="font-size:13px;color:var(--text-2);margin-top:4px;">VIN: ' + esc(unit.vin || "") + '</div>'
+        + '<div style="font-size:13px;margin-top:4px;">VIN: ' + esc(unit.vin || "") + '</div>'
         + '<div style="font-size:14px;margin-top:6px;">Current: <span style="font-weight:700;color:var(--blue);">' + esc(unit.lot_location || "NONE") + '</span>'
         + (unit.lot_area ? ' (' + esc(unit.lot_area) + ')' : '') + '</div>'
-        + '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Status: ' + esc(unit.status || "") + ' | Type: ' + esc(unit.veh_type || "") + ' | ' + esc(unit.floor_layout || "") + '</div>'
+        + '<div style="font-size:13px;margin-top:4px;">Status: ' + esc(unit.status || "") + ' | Type: ' + esc(unit.veh_type || "") + ' | ' + esc(unit.floor_layout || "") + '</div>'
         + '</div>';
     } else {
       h += '<div id="reorgUnitPreview" style="margin-bottom:12px;"></div>';
