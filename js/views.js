@@ -608,11 +608,11 @@ var Views = (function () {
       }
     }
     var similarCount = 0;
-    if (allUnits && u.veh_type && u.body_style) {
+    if (allUnits && u.veh_type && u.floor_layout) {
       for (var si = 0; si < allUnits.length; si++) {
         if (allUnits[si].stock_num !== u.stock_num
             && allUnits[si].veh_type === u.veh_type
-            && allUnits[si].body_style === u.body_style) similarCount++;
+            && allUnits[si].floor_layout === u.floor_layout) similarCount++;
       }
     }
 
@@ -633,7 +633,7 @@ var Views = (function () {
       if (similarCount > 0) {
         h += '<a class="card card-interactive" href="#unit-similar/' + encodeURIComponent(u.stock_num) + '" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:#1a1a2e;">'
           + '<div><div style="font-size:16px;font-weight:600;">Compare Similar Models</div>'
-          + '<div style="font-size:13px;color:var(--text-3);">Same ' + esc(u.veh_type) + ' / ' + esc(u.body_style) + '</div></div>'
+          + '<div style="font-size:13px;color:var(--text-3);">Same ' + esc(u.veh_type) + ' / ' + esc(u.floor_layout) + '</div></div>'
           + '<span class="stat-val" style="font-size:24px;color:var(--blue);">' + similarCount + '</span></a>';
       }
       h += '</div>';
@@ -715,17 +715,16 @@ var Views = (function () {
         var similar = allUnits.filter(function (o) {
           return o.stock_num !== u.stock_num
             && o.veh_type === u.veh_type
-            && o.body_style === u.body_style;
+            && o.floor_layout === u.floor_layout;
         });
         similar.sort(function (a, b) {
-          var cmp = (a.make || "").localeCompare(b.make || "");
-          return cmp !== 0 ? cmp : priceNum(a.retail_price) - priceNum(b.retail_price);
+          return priceNum(a.retail_price) - priceNum(b.retail_price);
         });
 
         var h = '<div class="view">';
         h += backBtn("detail/" + encodeURIComponent(u.stock_num), "Unit Detail");
         h += '<div class="section-title">COMPARE SIMILAR MODELS <span style="color:var(--blue);">(' + similar.length + ')</span></div>';
-        h += '<p style="color:#8899aa;font-size:13px;margin:0 0 12px;">Same ' + esc(u.veh_type) + ' / ' + esc(u.body_style) + '</p>';
+        h += '<p style="color:#8899aa;font-size:13px;margin:0 0 12px;">Same ' + esc(u.veh_type) + ' / ' + esc(u.floor_layout) + '</p>';
 
         // Group by price group
         var byPG = {};
@@ -3592,7 +3591,7 @@ var Views = (function () {
     h += '<div class="card">';
     h += '<div style="font-size:14px;font-weight:700;margin-bottom:8px;color:var(--text-1);">Bottom Buttons</div>';
     h += featureRow('Duplicate Make &amp; Models', 'Other units of the same make + model, grouped by status');
-    h += featureRow('Compare Similar Models', 'Units of the same type and body style for comparison');
+    h += featureRow('Compare Similar Models', 'Units of the same type and floor layout, sorted and grouped by price');
     h += featureRow('Select Replacement', 'Sale Pending in display only &mdash; pick an overflow backfill unit');
     h += '</div>';
 
