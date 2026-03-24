@@ -3529,6 +3529,14 @@ var Views = (function () {
     h += featureRow('VIN (last 8)', 'Enter the last 8 characters of the VIN');
     h += featureRow('Results', 'Tap any result to open the full unit detail page');
     h += tipCard('Search is instant &mdash; results appear as you type. No need to press Enter.');
+    h += tipCard('Single match auto-navigation: if your search narrows to exactly one unit (or you type 5+ characters), the app navigates directly to that unit\'s detail page. Works with both stock numbers and VINs.');
+    h += '</div>';
+
+    h += '<div class="card">';
+    h += '<div style="font-size:14px;font-weight:700;margin-bottom:8px;color:var(--text-1);">Live Stock# Search in Forms</div>';
+    h += '<div style="font-size:13px;color:var(--text-2);margin-bottom:10px;">The stock number field in the <strong>Verify Location</strong> and <strong>Reorganization</strong> note forms also has live search. As you type, matching unit tiles appear below the input.</div>';
+    h += featureRow('Tile results', 'Tap any tile to populate the stock# field and load the unit preview');
+    h += featureRow('Auto-select', 'If your prefix matches exactly one unit, it is selected automatically');
     h += '</div>';
 
     // ── 2. HOME TAB ──
@@ -3574,7 +3582,7 @@ var Views = (function () {
     h += secHeader('help-unit', '4', 'Unit Detail Pages');
     h += '<div class="card">';
     h += '<div style="font-size:13px;color:var(--text-2);line-height:1.6;margin-bottom:10px;">Tap any unit from search or browse to see its full detail. The page is organized into clean sections:</div>';
-    h += featureRow('Unit Info', 'Stock#, VIN, Year, Make, Model, Type, Body Style, Layout, Condition (New/Used/Demo)');
+    h += featureRow('Unit Info', 'Stock#, VIN, Year, Manufacturer, Make, Model, Type, Body Style, Layout, Condition (New/Used/Demo)');
     h += featureRow('Location', 'PC, Lot Location, Area. Verify Location and Suggest Move buttons inside.');
     h += featureRow('Transfer Notes', 'Shown for transit units if transfer notes exist');
     h += featureRow('Retail Deal', 'Sale Pending only: Salesman, Deal#, Deal Status, Type, Delivery Dates, Funding');
@@ -3601,7 +3609,12 @@ var Views = (function () {
     h += '<div style="font-size:14px;font-weight:700;margin-bottom:8px;color:var(--text-1);">Sale Pending Tile Colors</div>';
     h += '<div style="font-size:13px;color:var(--text-2);margin-bottom:8px;">Each tile is color-coded to help you prioritize:</div>';
     h += featureRow('Status Days', '<span style="color:var(--green);">Green</span> 0-2d &bull; <span style="color:var(--orange);">Orange</span> 3-7d &bull; <span style="color:#C8102E;">Red</span> 8d+');
-    h += featureRow('Deal Status', '<span style="color:var(--green);">Green</span> = Approved/Funded &bull; <span style="color:var(--orange);">Orange</span> = Pending &bull; <span style="color:#C8102E;">Red</span> = Declined');
+    h += featureRow('Deal Status', ''
+      + '<span style="color:#166534;">&#9646;</span> Dark Green = Funded/Complete/Delivered &bull; '
+      + '<span style="color:var(--green);">&#9646;</span> Green = Approved/Scheduled &bull; '
+      + '<span style="color:var(--orange);">&#9646;</span> Orange = Pending/In Progress &bull; '
+      + '<span style="color:var(--copper);">&#9646;</span> Amber = Conditional/Waiting &bull; '
+      + '<span style="color:#C8102E;">&#9646;</span> Red = Declined/Cancelled');
     h += featureRow('Left Border', '<span style="color:var(--orange);">Orange</span> = Unit is in Display or Showroom (needs pulling)');
     h += featureRow('Condition Badge', '<span style="color:#C8102E;">USED</span> (red) or <span style="color:var(--blue);">DEMO</span> (blue) badge on tiles');
     h += featureRow('Filters', 'Type chips + Manufacturer, Condition &amp; Deal Status dropdowns');
@@ -3646,6 +3659,16 @@ var Views = (function () {
     h += '</div>';
 
     h += tipCard('<strong>Reorg + Backfill:</strong> When submitting a reorganization, check "Backfill the vacated spot?" to enter a replacement stock number. Both the move and the backfill are logged as paired entries.', 'var(--blue)');
+
+    h += '<div class="card">';
+    h += '<div style="font-size:14px;font-weight:700;margin-bottom:8px;color:var(--text-1);">Coverage Hole &mdash; Fill Suggestion</div>';
+    h += '<div style="font-size:13px;color:var(--text-2);margin-bottom:10px;">When reporting a hole, you can optionally suggest a unit from inventory to fill it.</div>';
+    h += stepCard(1, 'Check the checkbox', '"Suggest a unit to fill this hole?" appears near the bottom of the form.');
+    h += stepCard(2, 'Browse candidates', 'Matching units (same type &amp; make) load as tappable tiles. Overflow units are sorted to the top and flagged <strong style="color:var(--orange);">&#9650; OVERFLOW &mdash; PRIORITY</strong>.');
+    h += stepCard(3, 'Tap a tile to select', 'A green confirmation row appears. Tap &times; to clear and pick again.');
+    h += stepCard(4, 'Submit as normal', 'The suggested stock# is included with the note when you hit Submit. Nothing is pushed early.');
+    h += '</div>';
+
     h += tipCard('<strong>Best practice:</strong> When reporting a hole, always include nearby stock numbers. This helps the lot crew find the exact spot.', 'var(--green)');
 
     // ── 8. COVERAGE ──
@@ -3689,7 +3712,7 @@ var Views = (function () {
     h += stepCard(5, 'Review Coverage', 'Use the Coverage Matrix to spot remaining gaps.');
     h += '</div>';
 
-    h += '<div style="text-align:center;padding:16px 0;font-size:12px;color:var(--text-3);">CLE Lot Manager v1.0 &bull; Powered by RAY.i</div>';
+    h += '<div style="text-align:center;padding:16px 0;font-size:12px;color:var(--text-3);">CLE Lot Manager v1.2 &bull; Powered by RAY.i</div>';
 
     return Promise.resolve(h);
   }
