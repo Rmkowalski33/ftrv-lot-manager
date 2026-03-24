@@ -7,6 +7,8 @@ var App = (function () {
 
   var _currentView = "home";
   var _searchDebounce = null;
+  var _noteStockDebounce = null;
+  var _reorgStockDebounce = null;
 
   // ── Data source URLs ────────────────────────────────────────────
   var JSON_URL_PROD = "data.json";
@@ -363,6 +365,39 @@ var App = (function () {
         if (confirm("Clear all recent notes from local history?\n\nThis only clears the display — submitted notes remain on the Google Sheet.")) {
           DB.clearNotesHistory().then(function() { navigate("notes"); }).catch(function(e) { alert("Error: " + e); navigate("notes"); });
         }
+      } else if (action === "pick-stock") {
+        // Live stock picker: populate the active stock input and trigger lookup
+        var stock = card.getAttribute("data-stock");
+        var inNoteResults = !!card.closest("#noteStockResults");
+        var activeInput = inNoteResults ? document.getElementById("noteStock") : document.getElementById("reorgStock");
+        var resultsEl = document.getElementById(inNoteResults ? "noteStockResults" : "reorgStockResults");
+        if (activeInput) {
+          activeInput.value = stock;
+          if (resultsEl) resultsEl.innerHTML = "";
+          activeInput.dispatchEvent(new Event("blur", { bubbles: true }));
+        }
+      } else if (action === "pick-fill") {
+        // Fill suggestion picker: store selection in hidden field and show confirmation
+        var fillStock = card.getAttribute("data-stock");
+        var hiddenInput = document.getElementById("suggestedFillStock");
+        if (hiddenInput) hiddenInput.value = fillStock;
+        var fillResults = document.getElementById("holeFillResults");
+        if (fillResults) fillResults.innerHTML = "";
+        DB.getUnit(fillStock).then(function (u) {
+          var selectedDiv = document.getElementById("holeFillSelected");
+          if (u && selectedDiv) {
+            selectedDiv.innerHTML = '<div style="padding:8px 12px;background:var(--green-dim);border:1px solid var(--green);border-radius:8px;font-size:14px;font-weight:600;color:var(--green);display:flex;justify-content:space-between;align-items:center;">'
+              + '<span>&#10003; ' + Views.esc(u.year||"") + ' ' + Views.esc(u.make||"") + ' ' + Views.esc(u.model||"") + ' &mdash; Stk# ' + Views.esc(u.stock_num) + ' | ' + Views.esc(u.lot_location||"No Lot") + '</span>'
+              + '<span data-action="clear-fill" style="cursor:pointer;font-weight:400;color:var(--text-3);margin-left:12px;">&#10005;</span></div>';
+            selectedDiv.style.display = "block";
+          }
+        });
+      } else if (action === "clear-fill") {
+        var hiddenInput2 = document.getElementById("suggestedFillStock");
+        if (hiddenInput2) hiddenInput2.value = "";
+        var selectedDiv2 = document.getElementById("holeFillSelected");
+        if (selectedDiv2) { selectedDiv2.innerHTML = ""; selectedDiv2.style.display = "none"; }
+        toggleHoleFillSuggestion(true); // reload candidates
       }
       return;
     }
@@ -445,12 +480,13 @@ var App = (function () {
         DB.searchUnits(q).then(function (matches) {
           dashboard.style.display = matches.length > 0 ? "none" : "";
 
-          if (matches.length === 1 && (
-            matches[0].stock_num.toUpperCase() === q.toUpperCase()
-            || (matches[0].vin && matches[0].vin.toUpperCase() === q.toUpperCase())
-          )) {
-            navigate("detail", matches[0].stock_num);
-            return;
+          if (matches.length === 1) {
+            var exactMatch = matches[0].stock_num.toUpperCase() === q.toUpperCase()
+              || (matches[0].vin && matches[0].vin.toUpperCase() === q.toUpperCase());
+            if (exactMatch || q.length >= 5) {
+              navigate("detail", matches[0].stock_num);
+              return;
+            }
           }
 
           results.innerHTML = Views.renderSearchResults(matches);
@@ -548,6 +584,34 @@ var App = (function () {
       });
     }
 
+    // Verify form: live stock# prefix search
+    if (stockInput) {
+      stockInput.addEventListener("input", function () {
+        clearTimeout(_noteStockDebounce);
+        var val = stockInput.value.trim().toUpperCase();
+        var resultsEl = document.getElementById("noteStockResults");
+        if (!resultsEl) return;
+        if (val.length < 2) { resultsEl.innerHTML = ""; return; }
+        _noteStockDebounce = setTimeout(function () {
+          DB.getAllUnits().then(function (units) {
+            var matches = units.filter(function (u) {
+              return u.stock_num && u.stock_num.toUpperCase().indexOf(val) === 0;
+            }).slice(0, 10);
+            if (matches.length === 0) { resultsEl.innerHTML = ""; return; }
+            if (matches.length === 1) {
+              stockInput.value = matches[0].stock_num;
+              resultsEl.innerHTML = "";
+              stockInput.dispatchEvent(new Event("blur", { bubbles: true }));
+              return;
+            }
+            var h = "";
+            for (var i = 0; i < matches.length; i++) h += Views.renderUnitPickTile(matches[i]);
+            resultsEl.innerHTML = h;
+          });
+        }, 200);
+      });
+    }
+
     // Hole form: nearby stock# auto-lookup
     var holeNearby = document.getElementById("holeNearbyStock");
     var holeNearbyPreview = document.getElementById("holeNearbyPreview");
@@ -592,10 +656,11 @@ var App = (function () {
           if (reorgPreview) {
             reorgPreview.innerHTML = '<div class="card" style="padding:12px;">'
               + '<div style="font-size:18px;font-weight:700;">' + Views.esc(u.year || "") + ' ' + Views.esc(u.make || "") + ' ' + Views.esc(u.model || "") + condBadge + '</div>'
-              + '<div style="font-size:13px;margin-top:4px;">VIN: ' + Views.esc(u.vin || "") + '</div>'
+              + (u.manufacturer ? '<div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-top:1px;">' + Views.esc(u.manufacturer) + '</div>' : '')
+              + '<div style="font-size:13px;color:var(--text-2);margin-top:4px;">VIN: ' + Views.esc(u.vin || "") + '</div>'
               + '<div style="font-size:14px;margin-top:6px;">Current: <span style="font-weight:700;color:var(--blue);">' + Views.esc(u.lot_location || "NONE") + '</span>'
               + (u.lot_area ? ' (' + Views.esc(u.lot_area) + ')' : '') + '</div>'
-              + '<div style="font-size:13px;margin-top:4px;">Status: ' + Views.esc(u.status || "") + ' | Type: ' + Views.esc(u.veh_type || "") + ' | ' + Views.esc(u.floor_layout || "") + '</div>'
+              + '<div style="font-size:13px;color:var(--text-2);margin-top:4px;">Status: ' + Views.esc(u.status || "") + ' | Type: ' + Views.esc(u.veh_type || "") + ' | ' + Views.esc(u.floor_layout || "") + '</div>'
               + '</div>';
           }
 
@@ -629,6 +694,34 @@ var App = (function () {
       });
     }
 
+    // Reorg form: live stock# prefix search
+    if (reorgStock) {
+      reorgStock.addEventListener("input", function () {
+        clearTimeout(_reorgStockDebounce);
+        var val = reorgStock.value.trim().toUpperCase();
+        var resultsEl = document.getElementById("reorgStockResults");
+        if (!resultsEl) return;
+        if (val.length < 2) { resultsEl.innerHTML = ""; return; }
+        _reorgStockDebounce = setTimeout(function () {
+          DB.getAllUnits().then(function (units) {
+            var matches = units.filter(function (u) {
+              return u.stock_num && u.stock_num.toUpperCase().indexOf(val) === 0;
+            }).slice(0, 10);
+            if (matches.length === 0) { resultsEl.innerHTML = ""; return; }
+            if (matches.length === 1) {
+              reorgStock.value = matches[0].stock_num;
+              resultsEl.innerHTML = "";
+              reorgStock.dispatchEvent(new Event("blur", { bubbles: true }));
+              return;
+            }
+            var h = "";
+            for (var i = 0; i < matches.length; i++) h += Views.renderUnitPickTile(matches[i]);
+            resultsEl.innerHTML = h;
+          });
+        }, 200);
+      });
+    }
+
     // Backfill stock# auto-lookup
     var bfInput = document.getElementById("reorgBackfillStock");
     var bfPreview = document.getElementById("reorgBackfillPreview");
@@ -653,6 +746,15 @@ var App = (function () {
             bfPreview.innerHTML = '<div style="color:#C8102E;font-size:13px;">Unit not found</div>';
           }
         });
+      });
+    }
+
+    // Hole form: refresh fill candidates when make changes (if toggle is checked)
+    var holeMakeSelect = document.getElementById("holeMakeSelect");
+    if (holeMakeSelect) {
+      holeMakeSelect.addEventListener("change", function () {
+        var toggle = document.getElementById("holeFillToggle");
+        if (toggle && toggle.checked) _loadHoleFillCandidates();
       });
     }
 
@@ -785,9 +887,10 @@ var App = (function () {
     preview.className = "card";
     preview.style.cssText = "margin-bottom:16px;padding:14px;";
     preview.innerHTML = '<div style="font-size:22px;font-weight:700;">' + Views.esc(unit.year) + ' ' + Views.esc(unit.make) + ' ' + Views.esc(unit.model) + '</div>'
-      + '<div style="font-size:18px;margin-top:4px;">VIN: ' + Views.esc(unit.vin) + '</div>'
+      + (unit.manufacturer ? '<div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-top:1px;">' + Views.esc(unit.manufacturer) + '</div>' : '')
+      + '<div style="font-size:18px;color:var(--text-2);margin-top:4px;">VIN: ' + Views.esc(unit.vin) + '</div>'
       + '<div style="font-size:20px;margin-top:6px;">System Lot: <span class="text-blue fw-800">' + Views.esc(unit.lot_location || "NONE") + '</span></div>'
-      + '<div style="font-size:18px;margin-top:4px;">Status: ' + Views.esc(unit.status) + '</div>';
+      + '<div style="font-size:18px;color:var(--text-2);margin-top:4px;">Status: ' + Views.esc(unit.status) + '</div>';
     stockInput.parentNode.insertBefore(preview, stockInput.nextSibling);
   }
 
@@ -906,6 +1009,75 @@ var App = (function () {
       opt.style.display = (!vt || optVt === vt) ? "" : "none";
     }
     makeSelect.value = ""; // reset selection when type changes
+    // Refresh fill candidates if suggestion toggle is checked
+    var toggle = document.getElementById("holeFillToggle");
+    if (toggle && toggle.checked) _loadHoleFillCandidates();
+  }
+
+  // ── Hole form: fulfillment suggestion ──────────────────────────
+  var TERMINAL_STATUSES_FILL = ["SOLD", "WHOLESALE", "DEMO SOLD", "DEMO PURCHASE", "FLEET SOLD", "TRADED", "PURCHASED"];
+
+  function toggleHoleFillSuggestion(checked) {
+    var section = document.getElementById("holeFillSection");
+    if (!section) return;
+    section.style.display = checked ? "block" : "none";
+    if (!checked) {
+      var hidden = document.getElementById("suggestedFillStock");
+      if (hidden) hidden.value = "";
+      var sel = document.getElementById("holeFillSelected");
+      if (sel) { sel.innerHTML = ""; sel.style.display = "none"; }
+      var res = document.getElementById("holeFillResults");
+      if (res) res.innerHTML = "";
+      return;
+    }
+    _loadHoleFillCandidates();
+  }
+
+  function _loadHoleFillCandidates() {
+    var fillResults = document.getElementById("holeFillResults");
+    if (!fillResults) return;
+    var typeSelect = document.getElementById("holeTypeSelect");
+    var makeSelect = document.getElementById("holeMakeSelect");
+    var selectedType = typeSelect ? typeSelect.value : "";
+    var selectedMake = makeSelect ? makeSelect.value : "";
+
+    if (!selectedType && !selectedMake) {
+      fillResults.innerHTML = '<div style="font-size:13px;color:var(--text-3);padding:8px 0;">Select a vehicle type and make above to see suggestions.</div>';
+      return;
+    }
+
+    fillResults.innerHTML = '<div style="font-size:13px;color:var(--text-3);padding:8px 0;">Loading...</div>';
+
+    DB.getAllUnits().then(function (units) {
+      var matches = units.filter(function (u) {
+        var st = (u.status || "").toUpperCase();
+        for (var t = 0; t < TERMINAL_STATUSES_FILL.length; t++) {
+          if (st === TERMINAL_STATUSES_FILL[t]) return false;
+        }
+        if (selectedType && (u.veh_type || "").toUpperCase() !== selectedType.toUpperCase()) return false;
+        if (selectedMake && (u.make || "").toUpperCase() !== selectedMake.toUpperCase()) return false;
+        return true;
+      });
+
+      // Sort: overflow first, then by age descending
+      matches.sort(function (a, b) {
+        var aOv = (a.lot_area || "").toUpperCase() === "OVERFLOW" ? 0 : 1;
+        var bOv = (b.lot_area || "").toUpperCase() === "OVERFLOW" ? 0 : 1;
+        if (aOv !== bOv) return aOv - bOv;
+        return (parseInt(b.age) || 0) - (parseInt(a.age) || 0);
+      });
+
+      if (matches.length === 0) {
+        fillResults.innerHTML = '<div style="font-size:13px;color:var(--text-3);padding:8px 0;">No matching units found in inventory.</div>';
+        return;
+      }
+
+      var h = "";
+      for (var i = 0; i < Math.min(matches.length, 15); i++) {
+        h += Views.renderUnitFillTile(matches[i]);
+      }
+      fillResults.innerHTML = h;
+    });
   }
 
   // ── All Inventory filter ──
@@ -964,6 +1136,7 @@ var App = (function () {
     filterByCondition: filterByCondition,
     filterHoleMakes: filterHoleMakes,
     filterAllInventory: filterAllInventory,
+    toggleHoleFillSuggestion: toggleHoleFillSuggestion,
   };
 })();
 

@@ -102,6 +102,7 @@ var Views = (function () {
     var h = '<div class="result-card" data-action="detail" data-stock="' + esc(u.stock_num) + '" data-condition="' + esc(condVal) + '">';
     h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;">';
     h += '<div><div class="result-ymm"><span style="color:' + yearColor + ';">' + esc(u.year) + '</span> ' + esc(u.make) + ' ' + esc(u.model) + '</div>';
+    if (u.manufacturer) h += '<div style="font-size:11px;color:var(--text-3);margin-top:1px;text-transform:uppercase;letter-spacing:0.5px;">' + esc(u.manufacturer) + '</div>';
     h += '<div class="result-meta"><span>Stk# ' + esc(u.stock_num) + '</span>';
     if (u.veh_type) h += '<span class="sep">&middot;</span><span>' + esc(u.veh_type) + '</span>';
     if (u.floor_layout) h += '<span class="sep">&middot;</span><span>' + esc(u.floor_layout) + '</span>';
@@ -121,6 +122,43 @@ var Views = (function () {
     }
     h += '</div></div></div>';
     return h;
+  }
+
+  // ── Selectable unit tile (pick-stock / pick-fill actions) ───────
+  function renderUnitSelectCard(u, action, overflowPriority) {
+    var age = parseInt(u.age) || 0;
+    var ageColor = age > 180 ? 'var(--red)' : age > 90 ? 'var(--orange)' : 'var(--text-3)';
+    var yearColor = (parseInt(u.year) || 0) <= 2025 ? 'var(--orange)' : 'var(--text)';
+    var condVal = (u.condition || "New").toUpperCase();
+    var h = '<div class="result-card" data-action="' + action + '" data-stock="' + esc(u.stock_num) + '" data-condition="' + esc(condVal) + '" style="cursor:pointer;">';
+    if (overflowPriority) h += '<div style="font-size:10px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">&#9650; OVERFLOW — PRIORITY</div>';
+    h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;">';
+    h += '<div><div class="result-ymm"><span style="color:' + yearColor + ';">' + esc(u.year) + '</span> ' + esc(u.make) + ' ' + esc(u.model) + '</div>';
+    if (u.manufacturer) h += '<div style="font-size:11px;color:var(--text-3);margin-top:1px;text-transform:uppercase;letter-spacing:0.5px;">' + esc(u.manufacturer) + '</div>';
+    h += '<div class="result-meta"><span>Stk# ' + esc(u.stock_num) + '</span>';
+    if (u.veh_type) h += '<span class="sep">&middot;</span><span>' + esc(u.veh_type) + '</span>';
+    if (u.floor_layout) h += '<span class="sep">&middot;</span><span>' + esc(u.floor_layout) + '</span>';
+    h += '</div>';
+    h += '<div style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap;">';
+    h += '<span class="status-badge ' + statusClass(u.status) + '">' + esc(u.status) + '</span>';
+    var cond = (u.condition || "").toUpperCase();
+    if (cond === "USED") h += '<span style="display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;background:#fde8e8;color:#C8102E;">USED</span>';
+    else if (cond === "DEMO" || cond === "D") h += '<span style="display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;background:var(--blue-dim);color:var(--blue);">DEMO</span>';
+    if (u.lot_location) h += '<span style="font-size:12px;color:var(--text-3);">' + esc(u.lot_location) + '</span>';
+    h += '</div></div>';
+    h += '<div style="text-align:right;min-width:50px;">';
+    h += '<div style="font-size:18px;font-weight:800;color:' + ageColor + ';">' + age + 'd</div>';
+    if (u.retail_price) { var p = parseFloat(u.retail_price) || 0; if (p > 0) h += '<div style="font-size:12px;color:var(--text-3);">$' + Math.round(p/1000) + 'K</div>'; }
+    h += '</div></div></div>';
+    return h;
+  }
+
+  function renderUnitPickTile(u) {
+    return renderUnitSelectCard(u, "pick-stock", false);
+  }
+
+  function renderUnitFillTile(u) {
+    return renderUnitSelectCard(u, "pick-fill", (u.lot_area || "").toUpperCase() === "OVERFLOW");
   }
 
   function renderAccordion(title, content) {
@@ -291,6 +329,7 @@ var Views = (function () {
     else if (cond === "DEMO" || cond === "D") condBadge = '<span style="display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;background:var(--blue-dim);color:var(--blue);margin-left:6px;">DEMO</span>';
     return '<div class="card" style="padding:12px;margin-bottom:12px;">'
       + '<div style="font-size:18px;font-weight:700;">' + esc(u.year || "") + ' ' + esc(u.make || "") + ' ' + esc(u.model || "") + condBadge + '</div>'
+      + (u.manufacturer ? '<div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-top:1px;">' + esc(u.manufacturer) + '</div>' : '')
       + '<div style="font-size:13px;color:var(--text-2);margin-top:4px;">VIN: ' + esc(u.vin || "") + '</div>'
       + '<div style="font-size:14px;margin-top:6px;">Location: <span style="font-weight:700;color:var(--blue);">' + esc(u.lot_location || "NONE") + '</span>'
       + (u.lot_area ? ' (' + esc(u.lot_area) + ')' : '') + '</div>'
@@ -1918,6 +1957,7 @@ var Views = (function () {
 
     h += '<label class="form-label">Stock #</label>'
       + '<input class="form-input" type="text" name="stock" value="' + esc(stockNum || "") + '" placeholder="Enter stock number" required id="noteStock" autocapitalize="characters">';
+    h += '<div id="noteStockResults"></div>';
 
     // Unit preview (auto-populated on lookup)
     if (unit) {
@@ -2011,6 +2051,18 @@ var Views = (function () {
       h += '<label class="form-label">Notes <span style="font-weight:400;color:var(--text-3);">(optional)</span></label>'
         + '<textarea class="form-textarea" name="notes" placeholder="Additional context..."></textarea>';
 
+      // Fulfillment suggestion
+      h += '<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">';
+      h += '<label class="form-label" style="margin-bottom:8px;display:flex;align-items:center;gap:10px;">'
+        + '<input type="checkbox" id="holeFillToggle" onchange="App.toggleHoleFillSuggestion(this.checked)" style="width:18px;height:18px;flex-shrink:0;">'
+        + '<span style="font-weight:700;">Suggest a unit to fill this hole?</span></label>';
+      h += '<div id="holeFillSection" style="display:none;">';
+      h += '<div style="font-size:13px;color:var(--text-3);margin-bottom:8px;">Overflow units shown first. Tap a tile to select it as your suggested fill.</div>';
+      h += '<div id="holeFillResults"></div>';
+      h += '<div id="holeFillSelected" style="display:none;margin-top:8px;"></div>';
+      h += '<input type="hidden" name="suggested_fill_stock" id="suggestedFillStock" value="">';
+      h += '</div></div>';
+
       h += '<button class="btn btn-orange mt-8" type="submit">Submit Hole Report</button>';
       h += '</form></div>';
       return h;
@@ -2032,6 +2084,7 @@ var Views = (function () {
 
     h += '<label class="form-label">Stock # to Move</label>'
       + '<input class="form-input" type="text" name="stock" value="' + esc(stockNum || "") + '" placeholder="Enter stock number" required id="reorgStock" autocapitalize="characters">';
+    h += '<div id="reorgStockResults"></div>';
 
     // Unit preview (populated by auto-lookup)
     if (unit) {
@@ -2042,10 +2095,11 @@ var Views = (function () {
 
       h += '<div class="card" style="margin-bottom:12px;padding:12px;" id="reorgUnitPreview">'
         + '<div style="font-size:18px;font-weight:700;">' + esc(unit.year || "") + ' ' + esc(unit.make || "") + ' ' + esc(unit.model || "") + condBadge + '</div>'
-        + '<div style="font-size:13px;margin-top:4px;">VIN: ' + esc(unit.vin || "") + '</div>'
+        + (unit.manufacturer ? '<div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-top:1px;">' + esc(unit.manufacturer) + '</div>' : '')
+        + '<div style="font-size:13px;color:var(--text-2);margin-top:4px;">VIN: ' + esc(unit.vin || "") + '</div>'
         + '<div style="font-size:14px;margin-top:6px;">Current: <span style="font-weight:700;color:var(--blue);">' + esc(unit.lot_location || "NONE") + '</span>'
         + (unit.lot_area ? ' (' + esc(unit.lot_area) + ')' : '') + '</div>'
-        + '<div style="font-size:13px;margin-top:4px;">Status: ' + esc(unit.status || "") + ' | Type: ' + esc(unit.veh_type || "") + ' | ' + esc(unit.floor_layout || "") + '</div>'
+        + '<div style="font-size:13px;color:var(--text-2);margin-top:4px;">Status: ' + esc(unit.status || "") + ' | Type: ' + esc(unit.veh_type || "") + ' | ' + esc(unit.floor_layout || "") + '</div>'
         + '</div>';
     } else {
       h += '<div id="reorgUnitPreview" style="margin-bottom:12px;"></div>';
@@ -3011,8 +3065,15 @@ var Views = (function () {
       var dsText = u.deal_status || "";
       var dsUpper = dsText.toUpperCase();
       var dsBg = '#e9ecef'; var dsFg = 'var(--text-2)';
-      if (dsUpper.indexOf("APPROVED") !== -1 || dsUpper.indexOf("FUNDED") !== -1 || dsUpper.indexOf("COMPLETE") !== -1) { dsBg = 'var(--green-dim)'; dsFg = 'var(--green)'; }
-      else if (dsUpper.indexOf("PENDING") !== -1 || dsUpper.indexOf("SUBMITTED") !== -1 || dsUpper.indexOf("IN PROGRESS") !== -1) { dsBg = 'var(--orange-dim)'; dsFg = 'var(--orange)'; }
+      // Dark green: funded / complete / delivered (deal closed)
+      if (dsUpper.indexOf("FUNDED") !== -1 || dsUpper.indexOf("COMPLETE") !== -1 || dsUpper.indexOf("DELIVERED") !== -1) { dsBg = '#c7f0da'; dsFg = '#166534'; }
+      // Green: approved / scheduled (moving toward delivery — includes "Delivery Scheduled" and "Approved to be Scheduled")
+      else if (dsUpper.indexOf("APPROVED") !== -1 || dsUpper.indexOf("SCHEDULED") !== -1) { dsBg = 'var(--green-dim)'; dsFg = 'var(--green)'; }
+      // Orange: active mid-stage
+      else if (dsUpper.indexOf("PENDING") !== -1 || dsUpper.indexOf("SUBMITTED") !== -1 || dsUpper.indexOf("IN PROGRESS") !== -1 || dsUpper.indexOf("REVIEWING") !== -1) { dsBg = 'var(--orange-dim)'; dsFg = 'var(--orange)'; }
+      // Amber: uncertain / conditional
+      else if (dsUpper.indexOf("CONDITIONAL") !== -1 || dsUpper.indexOf("COUNTER") !== -1 || dsUpper.indexOf("WAITING") !== -1 || dsUpper.indexOf("NEEDS") !== -1) { dsBg = 'var(--yellow-dim)'; dsFg = 'var(--copper)'; }
+      // Red: declined / cancelled
       else if (dsUpper.indexOf("DECLINED") !== -1 || dsUpper.indexOf("DENIED") !== -1 || dsUpper.indexOf("CANCEL") !== -1) { dsBg = '#fde8e8'; dsFg = '#C8102E'; }
 
       // Location highlighting
@@ -3804,6 +3865,8 @@ var Views = (function () {
     incomingMakeView: incomingMakeView,
     incomingUnitsView: incomingUnitsView,
     renderUnitCard: renderUnitCard,
+    renderUnitPickTile: renderUnitPickTile,
+    renderUnitFillTile: renderUnitFillTile,
     renderAuditFlags: renderAuditFlags,
     renderUnitPreviewCard: renderUnitPreviewCard,
     computeAuditFlags: computeAuditFlags,
