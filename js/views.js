@@ -405,12 +405,65 @@ var Views = (function () {
   }
 
   // ── Zone Data ────────────────────────────────────────────────
-  var ZONE_INFO = {
-    "DISP01": "Zone 1 — Main Display", "DISP02": "Zone 2 — Main Display", "DISP03": "Zone 3 — Main Display",
-    "DISP04": "Zone 4 — FW Display", "DISP05": "Zone 5 — FW Display", "DISP06": "Zone 6 — FW Display",
-    "DISP07": "Zone 7 — Extended", "DISP08": "Zone 8 — Extended",
-    "SHR01": "Showroom 1 (TTs)", "SHR02": "Showroom 2 (Mid-size)", "SHR03": "Showroom 3 (FW/Large)",
+  // Static fallback labels (used before inventory is loaded)
+  var ZONE_INFO_STATIC = {
+    "DISP01": "Zone 1", "DISP02": "Zone 2", "DISP03": "Zone 3",
+    "DISP04": "Zone 4", "DISP05": "Zone 5", "DISP06": "Zone 6",
+    "DISP07": "Zone 7", "DISP08": "Zone 8",
+    "SHR01": "Showroom 1", "SHR02": "Showroom 2", "SHR03": "Showroom 3",
   };
+  var _zoneInfoCache = null;
+
+  // Build dynamic zone descriptions from actual inventory
+  function buildZoneInfo(units) {
+    if (_zoneInfoCache) return _zoneInfoCache;
+    var zoneCounts = {}; // zoneCode → { vehType → count }
+    for (var i = 0; i < units.length; i++) {
+      var u = units[i];
+      var lot = (u.lot_location || "").toUpperCase().replace("CLE-", "");
+      var vt = u.veh_type || "Other";
+      // Match zone prefix (e.g., "DISP01A" → "DISP01")
+      var zc = "";
+      if (lot.match(/^(DISP\d+|SHR\d+)/)) zc = lot.match(/^(DISP\d+|SHR\d+)/)[1];
+      if (!zc) continue;
+      if (!zoneCounts[zc]) zoneCounts[zc] = {};
+      zoneCounts[zc][vt] = (zoneCounts[zc][vt] || 0) + 1;
+    }
+    var info = {};
+    var zoneNums = { "DISP": "Zone", "SHR": "Showroom" };
+    var keys = Object.keys(ZONE_INFO_STATIC);
+    for (var k = 0; k < keys.length; k++) {
+      var zc = keys[k];
+      var prefix = zc.replace(/\d+/g, "");
+      var num = zc.replace(/\D/g, "");
+      var baseName = (zoneNums[prefix] || prefix) + " " + parseInt(num);
+      var counts = zoneCounts[zc];
+      if (!counts) { info[zc] = baseName; continue; }
+      // Find dominant type
+      var types = Object.keys(counts).sort(function(a, b) { return counts[b] - counts[a]; });
+      var total = 0;
+      for (var t = 0; t < types.length; t++) total += counts[types[t]];
+      var topType = types[0];
+      var topPct = Math.round(counts[topType] / total * 100);
+      // Label with dominant type; if mixed (top < 60%), show top two
+      if (topPct >= 60) {
+        info[zc] = baseName + " — " + topType + "s";
+      } else if (types.length >= 2) {
+        info[zc] = baseName + " — " + topType + " / " + types[1];
+      } else {
+        info[zc] = baseName + " — " + topType + "s";
+      }
+    }
+    _zoneInfoCache = info;
+    return info;
+  }
+
+  // Accessor — returns dynamic labels if units loaded, static fallback otherwise
+  var ZONE_INFO = ZONE_INFO_STATIC;
+  function getZoneInfo(units) {
+    if (units) ZONE_INFO = buildZoneInfo(units);
+    return ZONE_INFO;
+  }
 
   var ZONE_GROUPS = [
     { type: "SHR",  label: "Showroom", codes: ["SHR01","SHR02","SHR03","SHR04","SHR05"] },
@@ -966,6 +1019,9 @@ var Views = (function () {
 
   function lotsView() {
     return DB.getAllUnits().then(function (units) {
+      // Build dynamic zone labels from actual inventory
+      getZoneInfo(units);
+
       var areas = {};
       for (var i = 0; i < units.length; i++) {
         var a = units[i].lot_area || "UNASSIGNED";
@@ -1137,6 +1193,7 @@ var Views = (function () {
 
   function zoneDetailView(zoneCode) {
     return DB.getAllUnits().then(function (units) {
+      getZoneInfo(units);
       var zoneUnits = units.filter(function (u) {
         var lot = (u.lot_location || "").toUpperCase().replace("CLE-", "");
         return lot.indexOf(zoneCode) === 0;
