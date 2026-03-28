@@ -1125,6 +1125,46 @@ var App = (function () {
     });
   }
 
+  // ── Generalized drill-view filter ────────────────────────────
+  function filterDrillView(viewId) {
+    var config = window._drillViewConfigs && window._drillViewConfigs[viewId];
+    if (!config) return;
+
+    var getSelected = function(id) {
+      var sel = document.getElementById(id);
+      if (!sel) return [];
+      var vals = [];
+      for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].selected) vals.push(sel.options[i].value);
+      }
+      return vals;
+    };
+
+    var locFilter = getSelected(viewId + "FilterLocation");
+    var typeFilter = getSelected(viewId + "FilterType");
+    var statusFilter = getSelected(viewId + "FilterStatus");
+    var mfrFilter = getSelected(viewId + "FilterMfr");
+    var condFilter = getSelected(viewId + "FilterCondition");
+
+    DB.getAllUnits().then(function(units) {
+      var preFiltered = config.preFilter(units);
+      var filtered = preFiltered.filter(function(u) {
+        if (locFilter.length > 0 && locFilter.indexOf(u.lot_area || "Unassigned") === -1) return false;
+        if (typeFilter.length > 0 && typeFilter.indexOf(u.veh_type || "Other") === -1) return false;
+        if (statusFilter.length > 0 && statusFilter.indexOf(u.status || "Unknown") === -1) return false;
+        if (mfrFilter.length > 0 && mfrFilter.indexOf(u.manufacturer || "Unknown") === -1) return false;
+        if (condFilter.length > 0) {
+          var c = (u.condition || "New").toUpperCase();
+          if (condFilter.indexOf(c) === -1) return false;
+        }
+        return true;
+      });
+      var container = document.getElementById(viewId + "Results");
+      if (!container) return;
+      container.innerHTML = config.groupAndRender(filtered);
+    });
+  }
+
   // ── Public API ─────────────────────────────────────────────────
   return {
     init: init,
@@ -1136,6 +1176,7 @@ var App = (function () {
     filterByCondition: filterByCondition,
     filterHoleMakes: filterHoleMakes,
     filterAllInventory: filterAllInventory,
+    filterDrillView: filterDrillView,
     toggleHoleFillSuggestion: toggleHoleFillSuggestion,
   };
 })();

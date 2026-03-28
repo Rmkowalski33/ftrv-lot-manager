@@ -218,68 +218,189 @@ var Views = (function () {
     return h;
   }
 
-  // Cross-filter sections: show breakdowns by the other two dimensions
+  // ── Shared multi-select dropdown ─────────────────────────────
+  function renderMultiSelect(id, label, optionMap, onchangeFn, preSelections) {
+    var keys = Object.keys(optionMap).sort();
+    var out = '<div style="margin-bottom:8px;">'
+      + '<label style="font-size:12px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:1px;">' + label + '</label>'
+      + '<select class="form-select" id="' + id + '" multiple onchange="' + onchangeFn + '" style="margin-top:4px;min-height:36px;">';
+    for (var k = 0; k < keys.length; k++) {
+      var selected = (preSelections && preSelections[keys[k]]) ? ' selected' : '';
+      out += '<option value="' + esc(keys[k]) + '"' + selected + '>' + esc(keys[k]) + ' (' + optionMap[keys[k]] + ')</option>';
+    }
+    out += '</select></div>';
+    return out;
+  }
+
+  // ── Cross-filter accordions (read-only breakdowns for navigation views) ──
   function renderCrossFilters(units, exclude) {
     var h = '';
     if (exclude !== "status") {
       var byCat = {};
-      for (var i = 0; i < units.length; i++) {
-        var cat = statusCat(units[i].status);
-        byCat[cat] = (byCat[cat] || 0) + 1;
-      }
+      for (var i = 0; i < units.length; i++) { var cat = statusCat(units[i].status); byCat[cat] = (byCat[cat] || 0) + 1; }
       var items = [];
-      for (var ci = 0; ci < STATUS_CATS.length; ci++) {
-        var c = STATUS_CATS[ci];
-        if (byCat[c.name]) items.push({ label: c.name, count: byCat[c.name], pct: Math.round(byCat[c.name] / units.length * 100), color: c.color });
-      }
+      for (var ci = 0; ci < STATUS_CATS.length; ci++) { var c = STATUS_CATS[ci]; if (byCat[c.name]) items.push({ label: c.name, count: byCat[c.name], pct: Math.round(byCat[c.name] / units.length * 100), color: c.color }); }
       if (Object.keys(byCat).length > 0) h += renderAccordion("By Status (" + units.length + ")", renderBreakdown(items));
     }
     if (exclude !== "makes") {
       var byMfr = {};
-      for (var i = 0; i < units.length; i++) {
-        var m = units[i].manufacturer || units[i].make || "Unknown";
-        byMfr[m] = (byMfr[m] || 0) + 1;
-      }
+      for (var i = 0; i < units.length; i++) { var m = units[i].manufacturer || units[i].make || "Unknown"; byMfr[m] = (byMfr[m] || 0) + 1; }
       var sorted = Object.keys(byMfr).sort(function (a, b) { return byMfr[b] - byMfr[a]; });
       var items = [];
-      for (var i = 0; i < Math.min(sorted.length, 10); i++) {
-        items.push({ label: sorted[i], count: byMfr[sorted[i]], pct: Math.round(byMfr[sorted[i]] / units.length * 100), color: "blue" });
-      }
+      for (var i = 0; i < Math.min(sorted.length, 10); i++) { items.push({ label: sorted[i], count: byMfr[sorted[i]], pct: Math.round(byMfr[sorted[i]] / units.length * 100), color: "blue" }); }
       if (sorted.length > 0) h += renderAccordion("By Manufacturer (" + sorted.length + ")", renderBreakdown(items));
     }
     if (exclude !== "lots") {
       var byArea = {};
-      for (var i = 0; i < units.length; i++) {
-        var a = units[i].lot_area || "UNASSIGNED";
-        byArea[a] = (byArea[a] || 0) + 1;
-      }
+      for (var i = 0; i < units.length; i++) { var a = units[i].lot_area || "UNASSIGNED"; byArea[a] = (byArea[a] || 0) + 1; }
       var sorted = Object.keys(byArea).sort(function (a, b) { return byArea[b] - byArea[a]; });
       var items = [];
-      for (var i = 0; i < sorted.length; i++) {
-        items.push({ label: sorted[i], count: byArea[sorted[i]], pct: Math.round(byArea[sorted[i]] / units.length * 100), color: "blue" });
-      }
+      for (var i = 0; i < sorted.length; i++) { items.push({ label: sorted[i], count: byArea[sorted[i]], pct: Math.round(byArea[sorted[i]] / units.length * 100), color: "blue" }); }
       if (sorted.length > 0) h += renderAccordion("By Location (" + sorted.length + ")", renderBreakdown(items));
     }
     return h;
   }
 
-
-  // ── Condition Filter (reusable) ──────────────────────────────
-  function renderConditionFilter(units) {
-    var condSet = {};
+  // ── Drill-through filter panel (replaces renderCrossFilters + renderConditionFilter on unit views) ──
+  function renderDrillFilters(units, viewId, exclude) {
+    var locSet = {}, typeSet = {}, statusSet = {}, mfrSet = {}, condSet = {};
     for (var i = 0; i < units.length; i++) {
-      var c = (units[i].condition || "New").toUpperCase();
+      var u = units[i];
+      locSet[u.lot_area || "Unassigned"] = (locSet[u.lot_area || "Unassigned"] || 0) + 1;
+      typeSet[u.veh_type || "Other"] = (typeSet[u.veh_type || "Other"] || 0) + 1;
+      statusSet[u.status || "Unknown"] = (statusSet[u.status || "Unknown"] || 0) + 1;
+      mfrSet[u.manufacturer || "Unknown"] = (mfrSet[u.manufacturer || "Unknown"] || 0) + 1;
+      var c = (u.condition || "New").toUpperCase();
       condSet[c] = (condSet[c] || 0) + 1;
     }
-    var keys = Object.keys(condSet).sort();
-    if (keys.length <= 1) return '';
-    var h = '<div style="margin-bottom:10px;">';
-    h += '<select class="form-select" id="conditionFilter" onchange="App.filterByCondition(this.value)" style="font-size:14px;">';
-    h += '<option value="ALL">All (New & Used)</option>';
-    for (var i = 0; i < keys.length; i++) {
-      h += '<option value="' + esc(keys[i]) + '">' + esc(keys[i]) + ' (' + condSet[keys[i]] + ')</option>';
+    var fn = "App.filterDrillView('" + viewId + "')";
+    var h = '<div class="card" style="margin-bottom:8px;">';
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
+    if (exclude.indexOf("location") === -1) h += renderMultiSelect(viewId + "FilterLocation", "Location", locSet, fn);
+    if (exclude.indexOf("type") === -1) h += renderMultiSelect(viewId + "FilterType", "Type", typeSet, fn);
+    if (exclude.indexOf("status") === -1) h += renderMultiSelect(viewId + "FilterStatus", "Status", statusSet, fn);
+    if (exclude.indexOf("manufacturer") === -1) h += renderMultiSelect(viewId + "FilterMfr", "Manufacturer", mfrSet, fn);
+    if (exclude.indexOf("condition") === -1 && Object.keys(condSet).length > 1) h += renderMultiSelect(viewId + "FilterCondition", "Condition", condSet, fn);
+    h += '</div></div>';
+    return h;
+  }
+
+  // ── Grouping render helpers (used by initial render + filter callback) ──
+
+  function renderFlatCards(units) {
+    if (units.length === 0) return '<div class="empty-state"><div class="empty-icon">&#128230;</div><div class="empty-title">No Units</div></div>';
+    var h = '<div style="margin-bottom:8px;font-size:13px;color:var(--text-3);">' + units.length + ' units shown</div>';
+    for (var i = 0; i < units.length; i++) h += renderUnitCard(units[i]);
+    return h;
+  }
+
+  function renderGroupedByStatusCat(units) {
+    if (units.length === 0) return '<div class="empty-state"><div class="empty-icon">&#128230;</div><div class="empty-title">No Units</div></div>';
+    var h = '<div style="margin-bottom:8px;font-size:13px;color:var(--text-3);">' + units.length + ' units shown</div>';
+    for (var ci = 0; ci < STATUS_CATS.length; ci++) {
+      var cat = STATUS_CATS[ci];
+      var catUnits = units.filter(function (u) { return statusCat(u.status) === cat.name; });
+      if (catUnits.length === 0) continue;
+      h += '<div class="card" style="border-left:3px solid var(--' + cat.color + ');">'
+        + '<div class="card-title" style="color:var(--' + cat.color + ');">' + esc(cat.name) + ' — ' + esc(cat.label) + ' (' + catUnits.length + ')</div>';
+      catUnits.sort(function (a, b) {
+        var cmp = (a.make || "").localeCompare(b.make || "");
+        return cmp !== 0 ? cmp : (a.model || "").localeCompare(b.model || "");
+      });
+      for (var j = 0; j < catUnits.length; j++) h += renderUnitCard(catUnits[j]);
+      h += '</div>';
     }
-    h += '</select></div>';
+    return h;
+  }
+
+  function renderGroupedByLotCode(units) {
+    if (units.length === 0) return '<div class="empty-state"><div class="empty-icon">&#128230;</div><div class="empty-title">No Units</div></div>';
+    var h = '<div style="margin-bottom:8px;font-size:13px;color:var(--text-3);">' + units.length + ' units shown</div>';
+    var byLot = {};
+    for (var i = 0; i < units.length; i++) {
+      var lot = units[i].lot_location || "(No Lot)";
+      if (!byLot[lot]) byLot[lot] = [];
+      byLot[lot].push(units[i]);
+    }
+    var lots = Object.keys(byLot).sort();
+    for (var li = 0; li < lots.length; li++) {
+      var lot = lots[li];
+      var lu = byLot[lot];
+      h += '<div class="card"><div class="card-title">' + esc(lot) + ' (' + lu.length + ')</div>';
+      for (var j = 0; j < lu.length; j++) h += renderUnitCard(lu[j]);
+      h += '</div>';
+    }
+    return h;
+  }
+
+  function renderGroupedByModel(units, makeName) {
+    if (units.length === 0) return '<div class="empty-state"><div class="empty-icon">&#128230;</div><div class="empty-title">No Units</div></div>';
+    var h = '<div style="margin-bottom:8px;font-size:13px;color:var(--text-3);">' + units.length + ' units shown</div>';
+    var byModel = {};
+    for (var i = 0; i < units.length; i++) {
+      var model = units[i].model || "Unknown";
+      if (!byModel[model]) byModel[model] = [];
+      byModel[model].push(units[i]);
+    }
+    var modelKeys = Object.keys(byModel).sort();
+    for (var mi = 0; mi < modelKeys.length; mi++) {
+      var model = modelKeys[mi];
+      var mu = byModel[model];
+      var repUnit = mu[0];
+      var sectionTitle = esc((repUnit.year || "") + " " + (makeName || repUnit.make || "") + " " + model);
+      h += '<div class="card"><div class="card-title" style="font-size:18px;">' + sectionTitle + ' <span style="font-weight:400;color:var(--text-3);">(' + mu.length + ')</span></div>';
+      mu.sort(function (a, b) { return priceNum(a.retail_price) - priceNum(b.retail_price); });
+      for (var j = 0; j < mu.length; j++) h += renderUnitCard(mu[j]);
+      h += '</div>';
+    }
+    return h;
+  }
+
+  function renderGroupedBySubFloorplan(units) {
+    if (units.length === 0) return '<div class="empty-state"><div class="empty-icon">&#128722;</div><div class="empty-title">None Available</div><div class="empty-desc">No active units with this layout</div></div>';
+    var h = '<div style="margin-bottom:8px;font-size:13px;color:var(--text-3);">' + units.length + ' units shown</div>';
+    var bySub = {};
+    for (var i = 0; i < units.length; i++) {
+      var sf = units[i].sub_floorplan || "(No Sub Layout)";
+      if (!bySub[sf]) bySub[sf] = [];
+      bySub[sf].push(units[i]);
+    }
+    var subKeys = Object.keys(bySub).sort(function (a, b) {
+      if (a === "(No Sub Layout)") return 1;
+      if (b === "(No Sub Layout)") return -1;
+      return a < b ? -1 : a > b ? 1 : 0;
+    });
+    for (var si = 0; si < subKeys.length; si++) {
+      var sub = subKeys[si];
+      var su = bySub[sub];
+      su.sort(function (a, b) {
+        var cmp = (a.make || "").localeCompare(b.make || "");
+        return cmp !== 0 ? cmp : priceNum(a.retail_price) - priceNum(b.retail_price);
+      });
+      h += '<div class="card"><div class="card-title">' + esc(sub) + ' (' + su.length + ')</div>';
+      for (var j = 0; j < su.length; j++) h += renderUnitCard(su[j]);
+      h += '</div>';
+    }
+    return h;
+  }
+
+  function renderGroupedByMake(units) {
+    if (units.length === 0) return '<div class="empty-state"><div class="empty-icon">&#128230;</div><div class="empty-title">No Units</div></div>';
+    var h = '<div style="margin-bottom:8px;font-size:13px;color:var(--text-3);">' + units.length + ' units shown</div>';
+    var byMake = {};
+    for (var i = 0; i < units.length; i++) {
+      var m = units[i].make || "UNKNOWN";
+      if (!byMake[m]) byMake[m] = [];
+      byMake[m].push(units[i]);
+    }
+    var makeKeys = Object.keys(byMake).sort();
+    for (var mi = 0; mi < makeKeys.length; mi++) {
+      var make = makeKeys[mi];
+      var mu = byMake[make];
+      h += '<div class="card"><div class="card-title">' + esc(make) + ' (' + mu.length + ')</div>';
+      for (var j = 0; j < mu.length; j++) h += renderUnitCard(mu[j]);
+      h += '</div>';
+    }
     return h;
   }
 
@@ -995,35 +1116,20 @@ var Views = (function () {
       });
       var displayName = areaName === "ALL" ? "All Inventory" : areaName;
 
+      if (!window._drillViewConfigs) window._drillViewConfigs = {};
+      window._drillViewConfigs.areaDetail = {
+        preFilter: function(all) { return areaName === "ALL" ? all : all.filter(function(u) { return (u.lot_area || "UNASSIGNED") === areaName; }); },
+        groupAndRender: renderGroupedByLotCode
+      };
+
       var h = '<div class="view">';
       h += backBtn("lots", "Lots");
       h += '<div class="zone-banner"><div class="zone-banner-name">' + esc(displayName) + '</div>'
         + '<div class="zone-banner-count">' + areaUnits.length + ' units</div></div>';
 
-      // Condition filter + Cross-filters
-      h += renderConditionFilter(areaUnits);
-      h += renderCrossFilters(areaUnits, "lots");
+      h += renderDrillFilters(areaUnits, "areaDetail", ["location"]);
+      h += '<div id="areaDetailResults">' + renderGroupedByLotCode(areaUnits) + '</div>';
 
-      // Group by lot code
-      var byLot = {};
-      for (var i = 0; i < areaUnits.length; i++) {
-        var lot = areaUnits[i].lot_location || "(No Lot)";
-        if (!byLot[lot]) byLot[lot] = [];
-        byLot[lot].push(areaUnits[i]);
-      }
-      var lots = Object.keys(byLot).sort();
-      for (var li = 0; li < lots.length; li++) {
-        var lot = lots[li];
-        var lu = byLot[lot];
-        h += '<div class="card"><div class="card-title">' + esc(lot) + ' (' + lu.length + ')</div>';
-        for (var j = 0; j < lu.length; j++) h += renderUnitCard(lu[j]);
-        h += '</div>';
-      }
-
-      if (areaUnits.length === 0) {
-        h += '<div class="empty-state"><div class="empty-icon">&#128230;</div>'
-          + '<div class="empty-title">No Units</div></div>';
-      }
       h += '</div>';
       return h;
     });
@@ -1036,6 +1142,12 @@ var Views = (function () {
         return lot.indexOf(zoneCode) === 0;
       });
 
+      if (!window._drillViewConfigs) window._drillViewConfigs = {};
+      window._drillViewConfigs.zoneDetail = {
+        preFilter: function(all) { return all.filter(function(u) { var lot = (u.lot_location || "").toUpperCase().replace("CLE-", ""); return lot.indexOf(zoneCode) === 0; }); },
+        groupAndRender: renderGroupedByStatusCat
+      };
+
       var h = '<div class="view">';
       h += backBtn("lots", "Lots");
       h += '<div class="zone-banner">'
@@ -1044,35 +1156,9 @@ var Views = (function () {
         + '<div class="zone-banner-count">' + zoneUnits.length + '</div>'
         + '</div>';
 
-      // Condition filter + Cross-filters
-      h += renderConditionFilter(zoneUnits);
-      h += renderCrossFilters(zoneUnits, "lots");
+      h += renderDrillFilters(zoneUnits, "zoneDetail", ["location"]);
+      h += '<div id="zoneDetailResults">' + renderGroupedByStatusCat(zoneUnits) + '</div>';
 
-      // Group units by status category
-      for (var ci = 0; ci < STATUS_CATS.length; ci++) {
-        var cat = STATUS_CATS[ci];
-        var catUnits = zoneUnits.filter(function (u) { return statusCat(u.status) === cat.name; });
-        if (catUnits.length === 0) continue;
-
-        h += '<div class="card" style="border-left:3px solid var(--' + cat.color + ');">'
-          + '<div class="card-title" style="color:var(--' + cat.color + ');">' + esc(cat.name) + ' — ' + esc(cat.label) + ' (' + catUnits.length + ')</div>';
-
-        // Sort by make → model within each category
-        catUnits.sort(function (a, b) {
-          var cmp = (a.make || "").localeCompare(b.make || "");
-          return cmp !== 0 ? cmp : (a.model || "").localeCompare(b.model || "");
-        });
-
-        for (var j = 0; j < catUnits.length; j++) {
-          h += renderUnitCard(catUnits[j]);
-        }
-        h += '</div>';
-      }
-
-      if (zoneUnits.length === 0) {
-        h += '<div class="empty-state"><div class="empty-icon">&#128230;</div>'
-          + '<div class="empty-title">Empty Zone</div></div>';
-      }
       h += '</div>';
       return h;
     });
@@ -1177,24 +1263,22 @@ var Views = (function () {
     return DB.getAllUnits().then(function (units) {
       var filtered = units.filter(function (u) { return u.status === statusName; });
 
+      // Register drill config
+      if (!window._drillViewConfigs) window._drillViewConfigs = {};
+      window._drillViewConfigs.statusUnits = {
+        preFilter: function(all) { return all.filter(function(u) { return u.status === statusName; }); },
+        groupAndRender: renderFlatCards
+      };
+
       var h = '<div class="view">';
       var cat = statusCat(statusName);
       h += backBtn("status-cat/" + encodeURIComponent(cat), cat);
       h += '<div class="zone-banner"><div class="zone-banner-name">' + esc(statusName) + '</div>'
         + '<div class="zone-banner-count">' + filtered.length + '</div></div>';
 
-      // Condition filter + Cross-filters
-      h += renderConditionFilter(filtered);
-      h += renderCrossFilters(filtered, "status");
+      h += renderDrillFilters(filtered, "statusUnits", ["status"]);
+      h += '<div id="statusUnitsResults">' + renderFlatCards(filtered) + '</div>';
 
-      // Units
-      h += '<div class="section-header">Units</div>';
-      for (var i = 0; i < filtered.length; i++) h += renderUnitCard(filtered[i]);
-
-      if (filtered.length === 0) {
-        h += '<div class="empty-state"><div class="empty-icon">&#128230;</div>'
-          + '<div class="empty-title">No Units</div></div>';
-      }
       h += '</div>';
       return h;
     });
@@ -1368,36 +1452,19 @@ var Views = (function () {
     return DB.getAllUnits().then(function (units) {
       var makeUnits = units.filter(function (u) { return u.make === make; });
 
+      if (!window._drillViewConfigs) window._drillViewConfigs = {};
+      window._drillViewConfigs.modelUnits = {
+        preFilter: function(all) { return all.filter(function(u) { return u.make === make; }); },
+        groupAndRender: function(filtered) { return renderGroupedByModel(filtered, make); }
+      };
+
       var h = '<div class="view">';
       h += backBtn("make-detail/" + encodeURIComponent(manufacturer || make), manufacturer || make);
       h += '<div class="zone-banner"><div class="zone-banner-name">' + esc(make) + '</div>'
         + '<div class="zone-banner-count">' + makeUnits.length + ' units</div></div>';
 
-      // Condition filter + Cross-filters
-      h += renderConditionFilter(makeUnits);
-      h += renderCrossFilters(makeUnits, "makes");
-
-      // Group by model
-      var byModel = {};
-      for (var i = 0; i < makeUnits.length; i++) {
-        var model = makeUnits[i].model || "Unknown";
-        if (!byModel[model]) byModel[model] = [];
-        byModel[model].push(makeUnits[i]);
-      }
-      var modelKeys = Object.keys(byModel).sort();
-      for (var mi = 0; mi < modelKeys.length; mi++) {
-        var model = modelKeys[mi];
-        var mu = byModel[model];
-        // Get a representative unit for the section header
-        var repUnit = mu[0];
-        var sectionTitle = esc((repUnit.year || "") + " " + make + " " + model);
-        h += '<div class="card"><div class="card-title" style="font-size:18px;">' + sectionTitle + ' <span style="font-weight:400;color:var(--text-3);">(' + mu.length + ')</span></div>';
-        mu.sort(function (a, b) { return priceNum(a.retail_price) - priceNum(b.retail_price); });
-        for (var j = 0; j < mu.length; j++) {
-          h += renderUnitCard(mu[j]);
-        }
-        h += '</div>';
-      }
+      h += renderDrillFilters(makeUnits, "modelUnits", ["manufacturer"]);
+      h += '<div id="modelUnitsResults">' + renderGroupedByModel(makeUnits, make) + '</div>';
 
       h += '</div>';
       return h;
@@ -1505,6 +1572,19 @@ var Views = (function () {
         return true;
       });
 
+      if (!window._drillViewConfigs) window._drillViewConfigs = {};
+      window._drillViewConfigs.shopLayout = {
+        preFilter: function(all) {
+          return all.filter(function(u) {
+            if (u.veh_type !== vehType || (u.floor_layout || "Unknown") !== floorLayout) return false;
+            var st = (u.status || "").toUpperCase();
+            for (var t = 0; t < TERMINAL_STATUSES.length; t++) { if (st === TERMINAL_STATUSES[t]) return false; }
+            return true;
+          });
+        },
+        groupAndRender: renderGroupedBySubFloorplan
+      };
+
       var h = '<div class="view">';
       h += backBtn("shop-body/" + encodeURIComponent(vehType), vehType);
       h += '<div class="zone-banner" style="background:linear-gradient(135deg, var(--purple-dim), var(--surface-2));">'
@@ -1512,43 +1592,9 @@ var Views = (function () {
         + '<div class="zone-banner-desc">' + esc(vehType) + '</div>'
         + '<div class="zone-banner-count">' + filtered.length + '</div></div>';
 
-      // Condition filter
-      h += renderConditionFilter(filtered);
+      h += renderDrillFilters(filtered, "shopLayout", ["type"]);
+      h += '<div id="shopLayoutResults">' + renderGroupedBySubFloorplan(filtered) + '</div>';
 
-      // Group by sub_floorplan, then sort units by make → price within each group
-      var bySub = {};
-      for (var i = 0; i < filtered.length; i++) {
-        var sf = filtered[i].sub_floorplan || "(No Sub Layout)";
-        if (!bySub[sf]) bySub[sf] = [];
-        bySub[sf].push(filtered[i]);
-      }
-      // Sort groups: named groups alphabetically, "(No Sub Layout)" last
-      var subKeys = Object.keys(bySub).sort(function (a, b) {
-        if (a === "(No Sub Layout)") return 1;
-        if (b === "(No Sub Layout)") return -1;
-        return a < b ? -1 : a > b ? 1 : 0;
-      });
-
-      for (var si = 0; si < subKeys.length; si++) {
-        var sub = subKeys[si];
-        var su = bySub[sub];
-        su.sort(function (a, b) {
-          var cmp = (a.make || "").localeCompare(b.make || "");
-          return cmp !== 0 ? cmp : priceNum(a.retail_price) - priceNum(b.retail_price);
-        });
-
-        h += '<div class="card"><div class="card-title">' + esc(sub) + ' (' + su.length + ')</div>';
-        for (var j = 0; j < su.length; j++) {
-          h += renderUnitCard(su[j]);
-        }
-        h += '</div>';
-      }
-
-      if (filtered.length === 0) {
-        h += '<div class="empty-state"><div class="empty-icon">&#128722;</div>'
-          + '<div class="empty-title">None Available</div>'
-          + '<div class="empty-desc">No active units with this layout</div></div>';
-      }
       h += '</div>';
       return h;
     });
@@ -2387,42 +2433,47 @@ var Views = (function () {
   // ══════════════════════════════════════════════════════════════
   // OVERFLOW ONLY VIEW — Units in overflow with no SHR/DSP presence
   // ══════════════════════════════════════════════════════════════
+  function _overflowPreFilter(units) {
+    var active = [];
+    for (var i = 0; i < units.length; i++) {
+      var st = (units[i].status || "").toUpperCase();
+      var isT = false;
+      for (var t = 0; t < TERMINAL_STATUSES.length; t++) { if (st === TERMINAL_STATUSES[t]) { isT = true; break; } }
+      if (!isT) active.push(units[i]);
+    }
+    var mmInShr = {}, mmInDsp = {}, ovrUnits = [];
+    for (var i = 0; i < active.length; i++) {
+      var u = active[i];
+      var mk = (u.make || "") + "|" + (u.model || "");
+      var b = lotBucket(u.lot_location || "");
+      if (b === "SHOWROOM") mmInShr[mk] = true;
+      else if (b !== "OVERFLOW" && b !== "OTHER") mmInDsp[mk] = true;
+      else if (b === "OVERFLOW") ovrUnits.push(u);
+    }
+    var filtered = [];
+    for (var i = 0; i < ovrUnits.length; i++) {
+      var mk = (ovrUnits[i].make || "") + "|" + (ovrUnits[i].model || "");
+      if (!mmInShr[mk] && !mmInDsp[mk]) filtered.push(ovrUnits[i]);
+    }
+    filtered.sort(function (a, b) {
+      var cmp = (a.make || "").localeCompare(b.make || "");
+      if (cmp !== 0) return cmp;
+      cmp = (a.model || "").localeCompare(b.model || "");
+      if (cmp !== 0) return cmp;
+      return (parseInt(b.age) || 0) - (parseInt(a.age) || 0);
+    });
+    return filtered;
+  }
+
   function overflowOnlyView() {
     return DB.getAllUnits().then(function (units) {
-      var active = [];
-      for (var i = 0; i < units.length; i++) {
-        var st = (units[i].status || "").toUpperCase();
-        var isT = false;
-        for (var t = 0; t < TERMINAL_STATUSES.length; t++) { if (st === TERMINAL_STATUSES[t]) { isT = true; break; } }
-        if (!isT) active.push(units[i]);
-      }
+      var filtered = _overflowPreFilter(units);
 
-      // Build sets of make|model that have showroom/display presence
-      var mmInShr = {}, mmInDsp = {}, ovrUnits = [];
-      for (var i = 0; i < active.length; i++) {
-        var u = active[i];
-        var mk = (u.make || "") + "|" + (u.model || "");
-        var b = lotBucket(u.lot_location || "");
-        if (b === "SHOWROOM") mmInShr[mk] = true;
-        else if (b !== "OVERFLOW" && b !== "OTHER") mmInDsp[mk] = true;
-        else if (b === "OVERFLOW") ovrUnits.push(u);
-      }
-
-      // Filter to only overflow units whose model has NO showroom/display
-      var filtered = [];
-      for (var i = 0; i < ovrUnits.length; i++) {
-        var mk = (ovrUnits[i].make || "") + "|" + (ovrUnits[i].model || "");
-        if (!mmInShr[mk] && !mmInDsp[mk]) filtered.push(ovrUnits[i]);
-      }
-
-      // Sort by make → model → age desc
-      filtered.sort(function (a, b) {
-        var cmp = (a.make || "").localeCompare(b.make || "");
-        if (cmp !== 0) return cmp;
-        cmp = (a.model || "").localeCompare(b.model || "");
-        if (cmp !== 0) return cmp;
-        return (parseInt(b.age) || 0) - (parseInt(a.age) || 0);
-      });
+      if (!window._drillViewConfigs) window._drillViewConfigs = {};
+      window._drillViewConfigs.overflowOnly = {
+        preFilter: _overflowPreFilter,
+        groupAndRender: renderGroupedByMake
+      };
 
       var h = '<div class="view">';
       h += backBtn("coverage", "Coverage");
@@ -2433,30 +2484,9 @@ var Views = (function () {
         + '<div class="stat-pill"><div class="stat-val text-orange">' + filtered.length + '</div><div class="stat-label">Units</div></div>'
         + '</div>';
 
-      // Group by make
-      var byMake = {};
-      for (var i = 0; i < filtered.length; i++) {
-        var m = filtered[i].make || "UNKNOWN";
-        if (!byMake[m]) byMake[m] = [];
-        byMake[m].push(filtered[i]);
-      }
-      var makeKeys = Object.keys(byMake).sort();
+      h += renderDrillFilters(filtered, "overflowOnly", []);
+      h += '<div id="overflowOnlyResults">' + renderGroupedByMake(filtered) + '</div>';
 
-      for (var mi = 0; mi < makeKeys.length; mi++) {
-        var make = makeKeys[mi];
-        var mu = byMake[make];
-        h += '<div class="card"><div class="card-title">' + esc(make) + ' (' + mu.length + ')</div>';
-        for (var j = 0; j < mu.length; j++) {
-          h += renderUnitCard(mu[j]);
-        }
-        h += '</div>';
-      }
-
-      if (filtered.length === 0) {
-        h += '<div class="empty-state"><div class="empty-icon">&#9989;</div>'
-          + '<div class="empty-title">All Clear</div>'
-          + '<div class="empty-desc">Every model in overflow has showroom or display representation</div></div>';
-      }
       h += '</div>';
       return h;
     });
@@ -2611,9 +2641,7 @@ var Views = (function () {
       var data = buildHierarchyData(units);
       var label = decodeURIComponent(issueLabel || "");
       var unitList = data.missingByType[label] || data.consistByType[label] || [];
-      var isMissing = !!data.missingByType[label];
 
-      // Sort by make → model → stock
       unitList.sort(function (a, b) {
         var cmp = (a.make || "").localeCompare(b.make || "");
         if (cmp !== 0) return cmp;
@@ -2622,32 +2650,23 @@ var Views = (function () {
         return (a.stock_num || "").localeCompare(b.stock_num || "");
       });
 
+      if (!window._drillViewConfigs) window._drillViewConfigs = {};
+      window._drillViewConfigs.hierarchyDetail = {
+        preFilter: function(all) {
+          var d = buildHierarchyData(all);
+          return d.missingByType[label] || d.consistByType[label] || [];
+        },
+        groupAndRender: renderGroupedByMake
+      };
+
       var h = '<div class="view">';
       h += backBtn("hierarchy", "Hierarchy");
       h += '<div class="section-header" style="margin-top:0;">' + esc(label) + '</div>'
         + '<div style="font-size:18px;color:#8899aa;margin-bottom:12px;">'
         + unitList.length + ' unit' + (unitList.length !== 1 ? 's' : '') + ' affected</div>';
 
-      var badgeClass = isMissing ? "flag-warning" : "flag-critical";
-
-      // Group by make
-      var byMake = {};
-      for (var i = 0; i < unitList.length; i++) {
-        var m = unitList[i].make || "UNKNOWN";
-        if (!byMake[m]) byMake[m] = [];
-        byMake[m].push(unitList[i]);
-      }
-      var makeKeys = Object.keys(byMake).sort();
-
-      for (var mi = 0; mi < makeKeys.length; mi++) {
-        var make = makeKeys[mi];
-        var mu = byMake[make];
-        h += '<div class="card"><div class="card-title">' + esc(make) + ' (' + mu.length + ')</div>';
-        for (var j = 0; j < mu.length; j++) {
-          h += renderUnitCard(mu[j]);
-        }
-        h += '</div>';
-      }
+      h += renderDrillFilters(unitList, "hierarchyDetail", []);
+      h += '<div id="hierarchyDetailResults">' + renderGroupedByMake(unitList) + '</div>';
 
       h += '</div>';
       return h;
@@ -3319,29 +3338,17 @@ var Views = (function () {
       h += '<div class="zone-banner"><div class="zone-banner-name">' + esc(bannerTitle) + '</div>'
         + '<div class="zone-banner-count">' + units.length + ' units</div></div>';
 
-      // Multi-select filters
-      function renderMultiSelect(id, label, optionMap) {
-        var keys = Object.keys(optionMap).sort();
-        var out = '<div style="margin-bottom:8px;">'
-          + '<label style="font-size:12px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:1px;">' + label + '</label>'
-          + '<select class="form-select" id="' + id + '" multiple onchange="App.filterAllInventory()" style="margin-top:4px;min-height:36px;">';
-        for (var k = 0; k < keys.length; k++) {
-          var selected = '';
-          // Pre-select based on URL params
-          if (id === 'aiFilterType' && preFilter.type && keys[k].toUpperCase() === preFilter.type.toUpperCase()) selected = ' selected';
-          if (id === 'aiFilterStatus' && preFilter.status && keys[k].toUpperCase() === preFilter.status.toUpperCase()) selected = ' selected';
-          out += '<option value="' + esc(keys[k]) + '"' + selected + '>' + esc(keys[k]) + ' (' + optionMap[keys[k]] + ')</option>';
-        }
-        out += '</select></div>';
-        return out;
-      }
+      // Multi-select filters (using shared renderMultiSelect)
+      var aiFn = "App.filterAllInventory()";
+      var typePre = {}; if (preFilter.type) typePre[preFilter.type] = true;
+      var statusPre = {}; if (preFilter.status) statusPre[preFilter.status] = true;
 
       h += '<div class="card" style="margin-bottom:8px;">';
       h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
-      h += renderMultiSelect("aiFilterLocation", "Location", locationSet);
-      h += renderMultiSelect("aiFilterType", "Type", typeSet);
-      h += renderMultiSelect("aiFilterStatus", "Status", statusSet);
-      h += renderMultiSelect("aiFilterMfr", "Manufacturer", mfrSet);
+      h += renderMultiSelect("aiFilterLocation", "Location", locationSet, aiFn);
+      h += renderMultiSelect("aiFilterType", "Type", typeSet, aiFn, typePre);
+      h += renderMultiSelect("aiFilterStatus", "Status", statusSet, aiFn, statusPre);
+      h += renderMultiSelect("aiFilterMfr", "Manufacturer", mfrSet, aiFn);
       h += '</div></div>';
 
       // Pre-filtered unit list
