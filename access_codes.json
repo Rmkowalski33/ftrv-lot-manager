@@ -1,5 +1,8 @@
 {
-  "codes": ["FTRV-CLE-2026"],
-  "updated": "2026-03-22",
-  "note": "Edit this file and push to GitHub Pages to rotate access codes. No app redeployment needed."
+  "FTRV-CLE-2026": {
+    "location": "CLE",
+    "name": "Cleburne",
+    "data_file": "data-CLE.json",
+    "type": "internal"
+  }
 }

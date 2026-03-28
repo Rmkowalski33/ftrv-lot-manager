@@ -42,7 +42,14 @@ var App = (function () {
   // ── Initialize ─────────────────────────────────────────────────
   function init() {
     DB.open().then(function () {
-      var jsonUrl = isLocal() ? "demo_data.json" : JSON_URL_PROD;
+      // Resolve location-specific data file from access code
+      var loc = Gate.getLocation();
+      var jsonUrl = isLocal() ? "demo_data.json" : (loc.data_file || JSON_URL_PROD);
+
+      // Update location badge in header
+      var badge = document.getElementById("headerBadge");
+      if (badge && loc.location) badge.textContent = loc.location;
+
       Sync.configure({
         jsonUrl: jsonUrl,
         submitUrl: APPS_SCRIPT_URL,
