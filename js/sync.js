@@ -7,7 +7,8 @@
 var Sync = (function () {
 
   // ── Config ─────────────────────────────────────────────────────
-  var JSON_URL = "";  // Set by Sync.configure()
+  var JSON_URL = "";          // Set by Sync.configure() — location-specific file
+  var JSON_FALLBACK_URL = "data.json";  // Legacy fallback if location file missing
   var SUBMIT_URL = "";
   var API_KEY = "FTRV-CLE-2026";
   var SYNC_INTERVAL = 5 * 60 * 1000;  // 5 minutes
@@ -15,9 +16,10 @@ var Sync = (function () {
   var _isSyncing = false;
 
   function configure(opts) {
-    if (opts.jsonUrl) JSON_URL = opts.jsonUrl;
-    if (opts.submitUrl) SUBMIT_URL = opts.submitUrl;
-    if (opts.apiKey) API_KEY = opts.apiKey;
+    if (opts.jsonUrl)      JSON_URL          = opts.jsonUrl;
+    if (opts.fallbackUrl)  JSON_FALLBACK_URL = opts.fallbackUrl;
+    if (opts.submitUrl)    SUBMIT_URL        = opts.submitUrl;
+    if (opts.apiKey)       API_KEY           = opts.apiKey;
   }
 
   // ── UI Helpers ─────────────────────────────────────────────────
@@ -54,10 +56,25 @@ var Sync = (function () {
 
     if (!silent) showSyncBar("Syncing inventory...");
 
-    return fetch(JSON_URL)
-      .then(function (res) {
+    // Try location-specific file first; fall back to legacy data.json on 404
+    var primaryUrl  = JSON_URL;
+    var fallbackUrl = (JSON_FALLBACK_URL && JSON_FALLBACK_URL !== JSON_URL)
+                      ? JSON_FALLBACK_URL : null;
+
+    function _fetchJson(url) {
+      return fetch(url).then(function (res) {
         if (!res.ok) throw new Error("HTTP " + res.status);
         return res.json();
+      });
+    }
+
+    return _fetchJson(primaryUrl)
+      .catch(function (err) {
+        if (fallbackUrl && (err.message.indexOf("404") !== -1 || err.message.indexOf("HTTP 4") !== -1)) {
+          console.warn("Sync: " + primaryUrl + " not found, falling back to " + fallbackUrl);
+          return _fetchJson(fallbackUrl);
+        }
+        throw err;
       })
       .then(function (data) {
         // data.units is { stock_or_vin: {unit}, ... }

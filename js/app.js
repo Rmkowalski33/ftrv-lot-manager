@@ -51,8 +51,9 @@ var App = (function () {
       if (badge && loc.location) badge.textContent = loc.location;
 
       Sync.configure({
-        jsonUrl: jsonUrl,
-        submitUrl: APPS_SCRIPT_URL,
+        jsonUrl:     jsonUrl,
+        fallbackUrl: isLocal() ? "demo_data.json" : "data.json",
+        submitUrl:   APPS_SCRIPT_URL,
       });
       Sync.init();
 
@@ -327,6 +328,7 @@ var App = (function () {
             key: localStorage.getItem("ftrv_access_code") || "",
             action: "submit_field_note",
             entry_type: "replacement",
+            location: Gate.getLocation().location || "CLE",
             stock: repl.stock_num,
             vin: repl.vin || "",
             year: repl.year || "",
@@ -786,6 +788,9 @@ var App = (function () {
       data.entry_type = form.getAttribute("data-type") === "verify" ? "Verify"
         : form.getAttribute("data-type") === "hole" ? "Hole" : "Reorg";
 
+      // Tag with current location so the sheet knows which store submitted
+      data.location = Gate.getLocation().location || "CLE";
+
       // Save user name for future forms
       if (data.user) { try { localStorage.setItem("ftrv_note_user", data.user); } catch(e) {} }
 
@@ -805,13 +810,15 @@ var App = (function () {
       DB.queueNote(data).then(function () {
         // Queue backfill note if specified
         if (backfillStock) {
+          var _loc = Gate.getLocation().location || "CLE";
           var backfillNote = {
             entry_type: "Reorg",
+            location: _loc,
             user: data.user,
             stock: backfillStock,
             zone_from: "",
             zone_to: data.zone_from || "",
-            zone: "From: (current) → To: CLE-" + (data.zone_from || ""),
+            zone: "From: (current) → To: " + _loc + "-" + (data.zone_from || ""),
             reason: "Backfill",
             description: "Backfill for moving " + (data.stock || "") + " out of this zone",
             suggested_action: "[Backfill]",
