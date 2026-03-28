@@ -7,8 +7,7 @@
 var Sync = (function () {
 
   // ── Config ─────────────────────────────────────────────────────
-  var JSON_URL = "";          // Set by Sync.configure() — location-specific file
-  var JSON_FALLBACK_URL = "data.json";  // Legacy fallback if location file missing
+  var JSON_URL = "";      // Set by Sync.configure() — always the master data.json
   var SUBMIT_URL = "";
   var API_KEY = "FTRV-CLE-2026";
   var SYNC_INTERVAL = 5 * 60 * 1000;  // 5 minutes
@@ -16,10 +15,22 @@ var Sync = (function () {
   var _isSyncing = false;
 
   function configure(opts) {
-    if (opts.jsonUrl)      JSON_URL          = opts.jsonUrl;
-    if (opts.fallbackUrl)  JSON_FALLBACK_URL = opts.fallbackUrl;
-    if (opts.submitUrl)    SUBMIT_URL        = opts.submitUrl;
-    if (opts.apiKey)       API_KEY           = opts.apiKey;
+    if (opts.jsonUrl)   JSON_URL   = opts.jsonUrl;
+    if (opts.submitUrl) SUBMIT_URL = opts.submitUrl;
+    if (opts.apiKey)    API_KEY    = opts.apiKey;
+  }
+
+  // ── Filter helper ───────────────────────────────────────────────
+  // Applies the access-code filter rule to a single unit.
+  // filter = { field: "pc", values: ["CLE", "BCLE"] }
+  // Returns true if the unit passes (should be stored locally).
+  function _matchesFilter(unit, filter) {
+    if (!filter || !filter.field || !filter.values || !filter.values.length) return true;
+    var unitVal = (unit[filter.field] || "").trim().toUpperCase();
+    for (var i = 0; i < filter.values.length; i++) {
+      if (filter.values[i].trim().toUpperCase() === unitVal) return true;
+    }
+    return false;
   }
 
   // ── UI Helpers ─────────────────────────────────────────────────
@@ -56,34 +67,21 @@ var Sync = (function () {
 
     if (!silent) showSyncBar("Syncing inventory...");
 
-    // Try location-specific file first; fall back to legacy data.json on 404
-    var primaryUrl  = JSON_URL;
-    var fallbackUrl = (JSON_FALLBACK_URL && JSON_FALLBACK_URL !== JSON_URL)
-                      ? JSON_FALLBACK_URL : null;
-
-    function _fetchJson(url) {
-      return fetch(url).then(function (res) {
+    return fetch(JSON_URL)
+      .then(function (res) {
         if (!res.ok) throw new Error("HTTP " + res.status);
         return res.json();
-      });
-    }
-
-    return _fetchJson(primaryUrl)
-      .catch(function (err) {
-        if (fallbackUrl && (err.message.indexOf("404") !== -1 || err.message.indexOf("HTTP 4") !== -1)) {
-          console.warn("Sync: " + primaryUrl + " not found, falling back to " + fallbackUrl);
-          return _fetchJson(fallbackUrl);
-        }
-        throw err;
       })
       .then(function (data) {
-        // data.units is { stock_or_vin: {unit}, ... }
+        // Apply the access-code filter so only the user's units are stored
+        var filter = Gate.getFilter();
         var unitList = [];
         var keys = Object.keys(data.units || {});
         var seen = {};
         for (var i = 0; i < keys.length; i++) {
           var u = data.units[keys[i]];
           if (!u.stock_num || seen[u.stock_num]) continue;
+          if (!_matchesFilter(u, filter)) continue;
           seen[u.stock_num] = true;
           unitList.push(u);
         }

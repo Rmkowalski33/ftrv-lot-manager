@@ -1,8 +1,8 @@
 {
   "FTRV-CLE-2026": {
-    "location": "CLE",
+    "type": "internal",
     "name": "Cleburne",
-    "data_file": "data-CLE.json",
-    "type": "internal"
+    "location": "CLE",
+    "filter": { "field": "pc", "values": ["CLE", "BCLE"] }
   }
 }

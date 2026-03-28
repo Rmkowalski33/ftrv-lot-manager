@@ -4,7 +4,7 @@
    by IndexedDB (see db.js), not the SW cache.
    ================================================================ */
 
-var CACHE_NAME = "ftrv-lot-v79";
+var CACHE_NAME = "ftrv-lot-v80";
 var APP_SHELL = [
   "./",
   "./index.html",
@@ -55,8 +55,8 @@ self.addEventListener("fetch", function (e) {
     return;  // Let the browser handle it normally
   }
 
-  // data files (data.json, data-CLE.json, data-AUS.json, etc.) → network-first
-  if (url.indexOf("data.json") !== -1 || /data-[A-Z]+\.json/i.test(url)) {
+  // Master data file → network-first so users always get fresh inventory
+  if (url.indexOf("data.json") !== -1) {
     e.respondWith(
       fetch(e.request).then(function (response) {
         if (response.ok) {

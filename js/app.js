@@ -42,18 +42,17 @@ var App = (function () {
   // ── Initialize ─────────────────────────────────────────────────
   function init() {
     DB.open().then(function () {
-      // Resolve location-specific data file from access code
-      var loc = Gate.getLocation();
-      var jsonUrl = isLocal() ? "demo_data.json" : (loc.data_file || JSON_URL_PROD);
+      // Single master data file — Gate.getFilter() scopes units at sync time
+      var jsonUrl = isLocal() ? "demo_data.json" : JSON_URL_PROD;
 
       // Update location badge in header
+      var loc = Gate.getLocation();
       var badge = document.getElementById("headerBadge");
       if (badge && loc.location) badge.textContent = loc.location;
 
       Sync.configure({
-        jsonUrl:     jsonUrl,
-        fallbackUrl: isLocal() ? "demo_data.json" : "data.json",
-        submitUrl:   APPS_SCRIPT_URL,
+        jsonUrl:   jsonUrl,
+        submitUrl: APPS_SCRIPT_URL,
       });
       Sync.init();
 
