@@ -96,61 +96,94 @@ var Views = (function () {
 
   function renderUnitCard(u) {
     var age = parseInt(u.age) || 0;
-    var ageColor = age > 180 ? 'var(--red)' : age > 90 ? 'var(--orange)' : 'var(--text-3)';
+    var ageColor = age > 180 ? 'var(--red)' : age > 120 ? 'var(--orange)' : age > 60 ? 'var(--copper)' : 'var(--text-3)';
     var yearColor = (parseInt(u.year) || 0) <= 2025 ? 'var(--orange)' : 'var(--text)';
     var condVal = (u.condition || "New").toUpperCase();
+    var isSP = (u.status || "").toUpperCase() === "SALE PENDING";
+
     var h = '<div class="result-card" data-action="detail" data-stock="' + esc(u.stock_num) + '" data-condition="' + esc(condVal) + '">';
     h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;">';
-    h += '<div><div class="result-ymm"><span style="color:' + yearColor + ';">' + esc(u.year) + '</span> ' + esc(u.make) + ' ' + esc(u.model) + '</div>';
+
+    // Left side
+    h += '<div style="flex:1;min-width:0;">';
+
+    // Line 1: Year Make Model-StockNumber
+    h += '<div class="result-ymm"><span style="color:' + yearColor + ';">' + esc(u.year) + '</span> '
+      + esc(u.make) + ' ' + esc(u.model) + '<span style="color:var(--text-3);font-weight:400;">-' + esc(u.stock_num) + '</span></div>';
+
+    // Line 2: Manufacturer
     if (u.manufacturer) h += '<div style="font-size:11px;color:var(--text-3);margin-top:1px;text-transform:uppercase;letter-spacing:0.5px;">' + esc(u.manufacturer) + '</div>';
-    h += '<div class="result-meta"><span>Stk# ' + esc(u.stock_num) + '</span>';
-    if (u.veh_type) h += '<span class="sep">&middot;</span><span>' + esc(u.veh_type) + '</span>';
-    if (u.floor_layout) h += '<span class="sep">&middot;</span><span>' + esc(u.floor_layout) + '</span>';
-    h += '</div>';
+
+    // Line 3: VehType · FloorLayout · SubFloorPlan
+    var line3Parts = [];
+    if (u.veh_type) line3Parts.push(esc(u.veh_type));
+    if (u.floor_layout) line3Parts.push(esc(u.floor_layout));
+    if (u.sub_floorplan) line3Parts.push(esc(u.sub_floorplan));
+    if (line3Parts.length > 0) h += '<div class="result-meta">' + line3Parts.join('<span class="sep">&middot;</span>') + '</div>';
+
+    // Line 4: LotLocation · Status badge · StatusDays + Condition badge
     h += '<div style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap;">';
-    h += '<span class="status-badge ' + statusClass(u.status) + '">' + esc(u.status) + '</span>';
-    var cond = (u.condition || "").toUpperCase();
-    if (cond === "USED") h += '<span style="display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;background:#fde8e8;color:#C8102E;">USED</span>';
-    else if (cond === "DEMO" || cond === "D") h += '<span style="display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;background:var(--blue-dim);color:var(--blue);">DEMO</span>';
     if (u.lot_location) h += '<span style="font-size:12px;color:var(--text-3);">' + esc(u.lot_location) + '</span>';
-    h += '</div></div>';
-    h += '<div style="text-align:right;min-width:50px;">';
-    h += '<div style="font-size:18px;font-weight:800;color:' + ageColor + ';">' + age + 'd</div>';
-    if (u.retail_price) {
-      var p = parseFloat(u.retail_price) || 0;
-      if (p > 0) h += '<div style="font-size:12px;color:var(--text-3);">$' + Math.round(p/1000) + 'K</div>';
+    h += '<span class="status-badge ' + statusClass(u.status) + '">' + esc(u.status) + '</span>';
+    if (u.status_days != null && u.status_days !== "") {
+      var sd = parseInt(u.status_days) || 0;
+      var sdColor = sd > 7 ? 'var(--red)' : sd > 3 ? 'var(--orange)' : 'var(--text-3)';
+      h += '<span style="font-size:11px;font-weight:700;color:' + sdColor + ';">' + sd + 'd in status</span>';
     }
+    if (condVal === "USED") h += '<span style="display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;background:#fde8e8;color:#C8102E;">USED</span>';
+    else if (condVal === "DEMO" || condVal === "D") h += '<span style="display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;background:var(--blue-dim);color:var(--blue);">DEMO</span>';
+    h += '</div>';
+
+    // Line 5 (Sale Pending only): DealNumber · DealStatus · HoldSalesman
+    if (isSP && (u.deal_number || u.deal_status || u.hold_salesman)) {
+      h += '<div style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap;">';
+      if (u.deal_number) h += '<span style="font-size:11px;font-weight:700;color:var(--text-2);">Deal #' + esc(u.deal_number) + '</span>';
+      if (u.deal_status) {
+        var dsU = (u.deal_status || "").toUpperCase();
+        var dsBg = '#e9ecef', dsFg = 'var(--text-2)';
+        if (dsU.indexOf("FUNDED") !== -1 || dsU.indexOf("APPROVED") !== -1 || dsU.indexOf("SCHEDULED") !== -1) { dsBg = 'var(--green-dim)'; dsFg = 'var(--green)'; }
+        else if (dsU.indexOf("PENDING") !== -1 || dsU.indexOf("SUBMITTED") !== -1 || dsU.indexOf("IN PROGRESS") !== -1) { dsBg = 'var(--orange-dim)'; dsFg = 'var(--orange)'; }
+        else if (dsU.indexOf("DECLINED") !== -1 || dsU.indexOf("DENIED") !== -1 || dsU.indexOf("CANCEL") !== -1) { dsBg = '#fde8e8'; dsFg = '#C8102E'; }
+        h += '<span style="display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;background:' + dsBg + ';color:' + dsFg + ';">' + esc(u.deal_status) + '</span>';
+      }
+      if (u.hold_salesman) h += '<span style="font-size:11px;color:var(--text-3);">' + esc(u.hold_salesman) + '</span>';
+      h += '</div>';
+    }
+
+    h += '</div>';
+
+    // Right side: Age + Prices stacked
+    h += '<div style="text-align:right;min-width:55px;">';
+    h += '<div style="font-size:18px;font-weight:800;color:' + ageColor + ';">' + age + 'd</div>';
+    if (fmtPrice(u.msrp)) h += '<div style="font-size:11px;color:var(--text-3);text-decoration:line-through;">' + fmtPrice(u.msrp) + '</div>';
+    if (fmtPrice(u.retail_price)) {
+      var rpColor = fmtPrice(u.special_price) ? 'var(--text-3)' : 'var(--green)';
+      h += '<div style="font-size:12px;font-weight:700;color:' + rpColor + ';">' + fmtPrice(u.retail_price) + '</div>';
+    }
+    if (fmtPrice(u.special_price)) h += '<div style="font-size:12px;font-weight:700;color:var(--green);">' + fmtPrice(u.special_price) + '</div>';
     h += '</div></div></div>';
     return h;
   }
 
   // ── Selectable unit tile (pick-stock / pick-fill actions) ───────
   function renderUnitSelectCard(u, action, overflowPriority) {
-    var age = parseInt(u.age) || 0;
-    var ageColor = age > 180 ? 'var(--red)' : age > 90 ? 'var(--orange)' : 'var(--text-3)';
-    var yearColor = (parseInt(u.year) || 0) <= 2025 ? 'var(--orange)' : 'var(--text)';
-    var condVal = (u.condition || "New").toUpperCase();
-    var h = '<div class="result-card" data-action="' + action + '" data-stock="' + esc(u.stock_num) + '" data-condition="' + esc(condVal) + '" style="cursor:pointer;">';
-    if (overflowPriority) h += '<div style="font-size:10px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">&#9650; OVERFLOW — PRIORITY</div>';
-    h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;">';
-    h += '<div><div class="result-ymm"><span style="color:' + yearColor + ';">' + esc(u.year) + '</span> ' + esc(u.make) + ' ' + esc(u.model) + '</div>';
-    if (u.manufacturer) h += '<div style="font-size:11px;color:var(--text-3);margin-top:1px;text-transform:uppercase;letter-spacing:0.5px;">' + esc(u.manufacturer) + '</div>';
-    h += '<div class="result-meta"><span>Stk# ' + esc(u.stock_num) + '</span>';
-    if (u.veh_type) h += '<span class="sep">&middot;</span><span>' + esc(u.veh_type) + '</span>';
-    if (u.floor_layout) h += '<span class="sep">&middot;</span><span>' + esc(u.floor_layout) + '</span>';
-    h += '</div>';
-    h += '<div style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap;">';
-    h += '<span class="status-badge ' + statusClass(u.status) + '">' + esc(u.status) + '</span>';
-    var cond = (u.condition || "").toUpperCase();
-    if (cond === "USED") h += '<span style="display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;background:#fde8e8;color:#C8102E;">USED</span>';
-    else if (cond === "DEMO" || cond === "D") h += '<span style="display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;background:var(--blue-dim);color:var(--blue);">DEMO</span>';
-    if (u.lot_location) h += '<span style="font-size:12px;color:var(--text-3);">' + esc(u.lot_location) + '</span>';
-    h += '</div></div>';
-    h += '<div style="text-align:right;min-width:50px;">';
-    h += '<div style="font-size:18px;font-weight:800;color:' + ageColor + ';">' + age + 'd</div>';
-    if (u.retail_price) { var p = parseFloat(u.retail_price) || 0; if (p > 0) h += '<div style="font-size:12px;color:var(--text-3);">$' + Math.round(p/1000) + 'K</div>'; }
-    h += '</div></div></div>';
-    return h;
+    // Reuse the standard tile but swap the data-action and add cursor + priority banner
+    var card = renderUnitCard(u);
+    // Replace data-action="detail" with the selection action
+    card = card.replace('data-action="detail"', 'data-action="' + action + '" style="cursor:pointer;"');
+    if (overflowPriority) {
+      card = card.replace('<div class="result-card"',
+        '<div class="result-card"').replace(
+        'data-action="' + action + '"',
+        'data-action="' + action + '"'
+      );
+      // Insert overflow priority banner after opening tag
+      var insertAt = card.indexOf('>') + 1;
+      card = card.substring(0, insertAt)
+        + '<div style="font-size:10px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">&#9650; OVERFLOW — PRIORITY</div>'
+        + card.substring(insertAt);
+    }
+    return card;
   }
 
   function renderUnitPickTile(u) {
@@ -362,6 +395,9 @@ var Views = (function () {
           + '</div>';
         h += '<div id="searchResults"></div>';
 
+        // View All Inventory — top-level action right under search
+        h += '<a href="#all-inventory" style="display:block;text-align:center;padding:12px;margin-bottom:8px;font-size:14px;font-weight:600;color:var(--blue);text-decoration:none;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface-2);">View All Inventory (' + units.length + ' units)</a>';
+
         // Dashboard
         h += '<div id="searchDashboard">';
 
@@ -432,9 +468,6 @@ var Views = (function () {
         h += '<a class="quick-nav-tile" href="#makes"><div class="quick-nav-label">Makes</div><div class="quick-nav-sub">By manufacturer</div></a>';
         h += '<a class="quick-nav-tile" href="#shop"><div class="quick-nav-label">Type</div><div class="quick-nav-sub">By vehicle type</div></a>';
         h += '</div>';
-
-        // View All Inventory link
-        h += '<a href="#all-inventory" style="display:block;text-align:center;padding:12px;margin-bottom:8px;font-size:14px;font-weight:600;color:var(--blue);text-decoration:none;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface-2);">View All Inventory (' + units.length + ' units)</a>';
 
         // ── Section C: Attention Needed ──
         // Compute overflow-only (display holes) count
@@ -527,22 +560,43 @@ var Views = (function () {
     var TRANSIT_CATS = ["SHIPPED","DISPATCHED","TRANSFER","STORE-TO-STORE TRANSFER","DRIVER NEEDED","IN TRANSIT","OPS TRANSFER"];
     var isTransit = false;
     for (var ti = 0; ti < TRANSIT_CATS.length; ti++) { if (stUp === TRANSIT_CATS[ti]) { isTransit = true; break; } }
+    var ORDERED_CATS = ["ORDERED","PO ISSUED","PURCHASED"];
+    var isOrdered = false;
+    for (var oi = 0; oi < ORDERED_CATS.length; oi++) { if (stUp === ORDERED_CATS[oi]) { isOrdered = true; break; } }
     var inDisplay = (u.lot_area || "").toUpperCase() === "DISPLAY" || (u.lot_area || "").toUpperCase() === "SHOWROOM";
+    var yearColor = (parseInt(u.year) || 0) <= 2025 ? 'var(--orange)' : '';
 
-    // ── Header ──
+    // ── Header (matches tile: Year Make Model-Stock + Manufacturer) ──
     h += '<div class="unit-header">'
-      + '<div class="unit-ymm">' + esc(u.year) + ' ' + esc(u.make) + ' ' + esc(u.model) + '</div>'
-      + '<div class="unit-sub">' + esc(u.floor_layout || "") + (u.body_style ? ' &middot; ' + esc(u.body_style) : '') + '</div>'
+      + '<div class="unit-ymm">' + (yearColor ? '<span style="color:' + yearColor + ';">' + esc(u.year) + '</span>' : esc(u.year))
+      + ' ' + esc(u.make) + ' ' + esc(u.model)
+      + '<span style="opacity:0.5;font-weight:400;">-' + esc(u.stock_num) + '</span></div>';
+    if (u.manufacturer) h += '<div style="font-size:12px;color:var(--text-3);text-transform:uppercase;letter-spacing:1px;margin-top:2px;">' + esc(u.manufacturer) + '</div>';
+    h += '<div class="unit-sub">' + esc(u.floor_layout || "") + (u.body_style ? ' &middot; ' + esc(u.body_style) : '') + '</div>'
       + '</div>';
 
-    // ── Quick Stats ──
+    // ── Quick Stats (color-coded to match tiles) ──
+    var age = parseInt(u.age) || 0;
+    var ageColor = age > 180 ? 'var(--red)' : age > 120 ? 'var(--orange)' : age > 60 ? 'var(--copper)' : 'var(--blue)';
+    var sd = parseInt(u.status_days) || 0;
+    var sdColor = sd > 7 ? 'var(--red)' : sd > 3 ? 'var(--orange)' : 'var(--blue)';
+
     h += '<div class="stats-row">'
-      + '<div class="stat-pill"><div class="stat-val text-blue">' + esc(u.age || "\u2014") + '</div><div class="stat-label">Days Old</div></div>'
-      + '<div class="stat-pill"><div class="stat-val text-orange">' + esc(u.status_days || "\u2014") + '</div><div class="stat-label">In Status</div></div>'
+      + '<div class="stat-pill"><div class="stat-val" style="color:' + ageColor + ';">' + esc(u.age || "\u2014") + '</div><div class="stat-label">Days Old</div></div>'
+      + '<div class="stat-pill"><div class="stat-val" style="color:' + sdColor + ';">' + esc(u.status_days || "\u2014") + '</div><div class="stat-label">In Status</div></div>'
       + '<div class="stat-pill"><div class="stat-val" style="font-size:20px;"><span class="status-badge ' + statusClass(u.status) + '">' + esc(u.status) + '</span></div><div class="stat-label">Status</div></div>'
       + '</div>';
 
-    // ── Card 1: Unit Info (Identity + Product merged) ──
+    // Condition badge row (Used / Demo)
+    var condUp = (u.condition || "").toUpperCase();
+    if (condUp === "USED" || condUp === "DEMO" || condUp === "D") {
+      var condBg = condUp === "USED" ? '#fde8e8' : 'var(--blue-dim)';
+      var condFg = condUp === "USED" ? '#C8102E' : 'var(--blue)';
+      var condLabel = condUp === "USED" ? 'USED' : 'DEMO';
+      h += '<div style="text-align:center;margin-bottom:12px;"><span style="display:inline-block;padding:4px 12px;border-radius:4px;font-size:12px;font-weight:700;background:' + condBg + ';color:' + condFg + ';">' + condLabel + '</span></div>';
+    }
+
+    // ── Card 1: Unit Info ──
     h += '<div class="card"><div class="card-title">Unit Info</div>'
       + fieldRow("Stock #", u.stock_num)
       + fieldRow("VIN", u.vin)
@@ -550,17 +604,18 @@ var Views = (function () {
       + fieldRow("Model", u.model)
       + fieldRow("Type", u.veh_type)
       + fieldRow("Body Style", u.body_style)
-      + fieldRow("Floor Layout", u.floor_layout)
-      + fieldRow("Condition", u.condition)
+      + fieldRow("Floor Layout", u.floor_layout);
+    if (u.sub_floorplan) h += fieldRow("Sub Layout", u.sub_floorplan);
+    h += fieldRow("Condition", u.condition)
       + '</div>';
 
-    // ── Card 2: Location (with action buttons + transfer notes) ──
+    // ── Card 2: Location ──
     h += '<div class="card"><div class="card-title">Location</div>'
-      + fieldRow("PC", u.pc)
-      + fieldRow("Lot Location", u.lot_location)
+      + fieldRow("PC", u.pc);
+    if (u.current_loc && u.current_loc !== u.lot_location) h += fieldRow("Current Loc", u.current_loc);
+    h += fieldRow("Lot Location", u.lot_location)
       + fieldRow("Lot Area", u.lot_area);
 
-    // Transfer notes inline for transit units
     if (isTransit && u.transfer_notes) {
       h += '<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">'
         + fieldRow("Transfer Notes", u.transfer_notes) + '</div>';
@@ -571,30 +626,72 @@ var Views = (function () {
       + '<a class="btn btn-ghost" style="flex:1;text-align:center;" data-action="reorg-note" data-stock="' + esc(u.stock_num) + '">Suggest Move</a>'
       + '</div></div>';
 
-    // ── Card 3: Retail Deal (only for SP/pending units with deal data) ──
+    // ── Card 3: Retail Deal (SP/pending/retail ordered) ──
     if (isRetailPending && (u.deal_status || u.deal_number || u.hold_salesman
         || u.deal_type || u.deal_delivery_date || u.exp_delivery_date
         || u.funding_status || u.funded_date)) {
       h += '<div class="card"><div class="card-title">Retail Deal</div>';
       if (u.hold_salesman) h += fieldRow("Salesman", u.hold_salesman);
       if (u.deal_number) h += fieldRow("Deal #", u.deal_number);
-      if (u.deal_status) h += fieldRow("Deal Status", u.deal_status);
+      if (u.deal_status) {
+        var dsU = (u.deal_status || "").toUpperCase();
+        var dsFg = 'var(--text)';
+        if (dsU.indexOf("FUNDED") !== -1 || dsU.indexOf("APPROVED") !== -1 || dsU.indexOf("SCHEDULED") !== -1) dsFg = 'var(--green)';
+        else if (dsU.indexOf("PENDING") !== -1 || dsU.indexOf("SUBMITTED") !== -1 || dsU.indexOf("IN PROGRESS") !== -1) dsFg = 'var(--orange)';
+        else if (dsU.indexOf("DECLINED") !== -1 || dsU.indexOf("DENIED") !== -1 || dsU.indexOf("CANCEL") !== -1) dsFg = 'var(--red)';
+        h += '<div class="field-row"><span class="field-label">Deal Status</span><span class="field-value" style="color:' + dsFg + ';font-weight:700;">' + esc(u.deal_status) + '</span></div>';
+      }
       if (u.deal_type) h += fieldRow("Deal Type", u.deal_type);
       if (u.deal_delivery_date) h += fieldRow("Deal Delivery", u.deal_delivery_date);
       if (u.exp_delivery_date) h += fieldRow("Exp. Delivery", u.exp_delivery_date);
-      if (u.funding_status) h += fieldRow("Funding Status", u.funding_status);
+      if (u.funding_status) {
+        var fsU = (u.funding_status || "").toUpperCase();
+        var fsFg = (fsU.indexOf("FUNDED") !== -1 || fsU.indexOf("APPROVED") !== -1) ? 'var(--green)' : (fsU.indexOf("DECLINED") !== -1 || fsU.indexOf("DENIED") !== -1) ? 'var(--red)' : 'var(--text)';
+        h += '<div class="field-row"><span class="field-label">Funding Status</span><span class="field-value" style="color:' + fsFg + ';font-weight:700;">' + esc(u.funding_status) + '</span></div>';
+      }
       if (u.funded_date) h += fieldRow("Funded Date", u.funded_date);
       h += '</div>';
     }
 
-    // ── Card 4: Pricing (compact) ──
+    // ── Card 3b: Pipeline Info (for incoming units — ordered/shipped/transfer) ──
+    if ((isOrdered || isTransit) && !isRetailPending) {
+      var hasAnyPipelineField = u.order_date || u.exp_delivery_date || u.purch_date || (isTransit && u.current_loc);
+      if (hasAnyPipelineField) {
+        h += '<div class="card"><div class="card-title">Pipeline</div>';
+        if (u.order_date) h += fieldRow("Order Date", u.order_date);
+        if (u.purch_date) h += fieldRow("Purchase Date", u.purch_date);
+        if (u.exp_delivery_date) h += '<div class="field-row"><span class="field-label">Expected Delivery</span><span class="field-value" style="color:var(--green);font-weight:700;">' + esc(u.exp_delivery_date) + '</span></div>';
+        if (isTransit && u.current_loc) h += fieldRow("Shipping From", u.current_loc);
+        h += '</div>';
+      }
+    }
+
+    // ── Card 4: Pricing (conditionally formatted) ──
     if (fmtPrice(u.retail_price) || fmtPrice(u.msrp) || fmtPrice(u.special_price)) {
-      h += '<div class="card"><div class="card-title">Pricing</div>'
-        + fieldRow("MSRP", fmtPrice(u.msrp))
-        + fieldRow("Retail", fmtPrice(u.retail_price));
-      if (u.special_price) {
+      h += '<div class="card"><div class="card-title">Pricing</div>';
+      if (fmtPrice(u.msrp)) {
+        var msrpStyle = fmtPrice(u.retail_price) ? 'text-decoration:line-through;color:var(--text-3);' : '';
+        h += '<div class="field-row"><span class="field-label">MSRP</span><span class="field-value" style="' + msrpStyle + '">' + esc(fmtPrice(u.msrp)) + '</span></div>';
+      }
+      if (fmtPrice(u.retail_price)) {
+        var rpColor = fmtPrice(u.special_price) ? 'var(--text-3)' : 'var(--green)';
+        var rpStrike = fmtPrice(u.special_price) ? 'text-decoration:line-through;' : '';
+        h += '<div class="field-row"><span class="field-label">Retail</span><span class="field-value" style="color:' + rpColor + ';font-weight:700;' + rpStrike + '">' + esc(fmtPrice(u.retail_price)) + '</span></div>';
+      }
+      if (fmtPrice(u.special_price)) {
         h += '<div class="field-row"><span class="field-label">Special</span><span class="field-value" style="color:var(--green);font-weight:700;">' + esc(fmtPrice(u.special_price)) + '</span></div>';
       }
+      h += '</div>';
+    }
+
+    // ── Card 5: Dates ──
+    var hasDates = u.purch_date || u.order_date || u.offline_date || u.hold_date;
+    if (hasDates && !isOrdered && !isTransit) {
+      h += '<div class="card"><div class="card-title">Dates</div>';
+      if (u.purch_date) h += fieldRow("Purchase Date", u.purch_date);
+      if (u.order_date) h += fieldRow("Order Date", u.order_date);
+      if (u.offline_date) h += fieldRow("Offline Date", u.offline_date);
+      if (u.hold_date) h += fieldRow("Hold Date", u.hold_date);
       h += '</div>';
     }
 
@@ -685,17 +782,7 @@ var Views = (function () {
           var catColor = dupeCatColors[catName] || "var(--muted)";
           h += '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:' + catColor + ';margin:12px 0 6px;">' + esc(catName) + ' (' + catUnits.length + ')</div>';
           for (var i = 0; i < catUnits.length; i++) {
-            var d = catUnits[i];
-            var sDays = d.status_days != null ? d.status_days + 'd in status' : '';
-            h += '<div class="result-card" style="margin-bottom:6px;padding:12px 16px;" data-action="detail" data-stock="' + esc(d.stock_num) + '">'
-              + '<div style="display:flex;justify-content:space-between;align-items:center;">'
-              + '<span style="font-size:18px;font-weight:700;">' + esc(d.year) + ' ' + esc(d.make) + ' ' + esc(d.model) + '</span>'
-              + '<span class="status-badge ' + statusClass(d.status) + '">' + esc(d.status || '') + '</span>'
-              + '</div>'
-              + '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">'
-              + '<span style="font-size:14px;color:var(--text-2);">Stk# ' + esc(d.stock_num) + ' &middot; ' + esc(d.lot_location || 'No Lot') + '</span>'
-              + '<span style="font-size:13px;color:var(--text-3);">' + sDays + '</span>'
-              + '</div></div>';
+            h += renderUnitCard(catUnits[i]);
           }
         }
         if (dupes.length === 0) h += '<div style="color:#8899aa;padding:12px;">No duplicates found</div>';
@@ -739,15 +826,7 @@ var Views = (function () {
           if (!pgUnits) continue;
           h += '<div class="section-header" style="margin-top:12px;">' + pgOrder[pi] + ' (' + pgUnits.length + ')</div>';
           for (var j = 0; j < pgUnits.length; j++) {
-            var s = pgUnits[j];
-            h += '<div class="result-card" style="margin-bottom:6px;padding:12px 16px;" data-action="detail" data-stock="' + esc(s.stock_num) + '">'
-              + '<div style="display:flex;justify-content:space-between;align-items:center;">'
-              + '<span style="font-size:18px;font-weight:700;">' + esc(s.year) + ' ' + esc(s.make) + ' ' + esc(s.model) + '</span>'
-              + (fmtPrice(s.retail_price) ? '<span style="font-size:16px;font-weight:700;color:var(--green);">' + fmtPrice(s.retail_price) + '</span>' : '')
-              + '</div>'
-              + '<div style="font-size:13px;color:var(--text-2);margin-top:4px;">'
-              + esc(s.floor_layout || "") + ' &middot; Stk# ' + esc(s.stock_num) + ' &middot; ' + esc(s.lot_location || "No Lot")
-              + '</div></div>';
+            h += renderUnitCard(pgUnits[j]);
           }
         }
         if (similar.length === 0) h += '<div style="color:#8899aa;padding:12px;">No similar models found</div>';
@@ -985,13 +1064,7 @@ var Views = (function () {
         });
 
         for (var j = 0; j < catUnits.length; j++) {
-          var u = catUnits[j];
-          h += '<div class="result-card" style="margin-bottom:8px;" data-action="detail" data-stock="' + esc(u.stock_num) + '">'
-            + '<div class="result-ymm" style="font-size:20px;">' + esc(u.make) + ' ' + esc(u.model) + ' ' + esc(u.floor_layout || "") + '</div>'
-            + '<div class="result-meta" style="font-size:18px;">'
-            + '<span>Stk# ' + esc(u.stock_num) + '</span><span class="sep">&middot;</span>'
-            + '<span class="status-badge status-' + cat.color + '" style="font-size:12px;">' + esc(u.status) + '</span>'
-            + '</div></div>';
+          h += renderUnitCard(catUnits[j]);
         }
         h += '</div>';
       }
@@ -1321,20 +1394,7 @@ var Views = (function () {
         h += '<div class="card"><div class="card-title" style="font-size:18px;">' + sectionTitle + ' <span style="font-weight:400;color:var(--text-3);">(' + mu.length + ')</span></div>';
         mu.sort(function (a, b) { return priceNum(a.retail_price) - priceNum(b.retail_price); });
         for (var j = 0; j < mu.length; j++) {
-          var u = mu[j];
-          var ageVal = u.age != null ? u.age + 'd' : '';
-          var ageColor = parseInt(u.age) > 90 ? 'var(--red)' : parseInt(u.age) > 60 ? 'var(--orange)' : 'var(--text-2)';
-          h += '<div class="result-card" style="margin-bottom:6px;padding:12px 16px;" data-action="detail" data-stock="' + esc(u.stock_num) + '">'
-            + '<div style="display:flex;justify-content:space-between;align-items:center;">'
-            + '<span style="font-size:16px;font-weight:700;">' + esc(u.veh_type || "") + ' · ' + esc(u.body_style || "") + ' · ' + esc(u.floor_layout || "") + '</span>'
-            + (ageVal ? '<span style="font-size:14px;font-weight:700;color:' + ageColor + ';">' + ageVal + '</span>' : '')
-            + '</div>'
-            + '<div style="font-size:14px;color:var(--text-2);margin-top:4px;display:flex;justify-content:space-between;align-items:center;">'
-            + '<span>Stk# ' + esc(u.stock_num) + ' · ' + esc(u.lot_location || "No Lot") + '</span>'
-            + (fmtPrice(u.retail_price) ? '<span style="font-weight:700;color:var(--green);">' + fmtPrice(u.retail_price) + '</span>' : '')
-            + '</div>'
-            + '<div style="margin-top:4px;"><span class="status-badge ' + statusClass(u.status) + '">' + esc(u.status) + '</span></div>'
-            + '</div>';
+          h += renderUnitCard(mu[j]);
         }
         h += '</div>';
       }
@@ -1479,20 +1539,7 @@ var Views = (function () {
 
         h += '<div class="card"><div class="card-title">' + esc(sub) + ' (' + su.length + ')</div>';
         for (var j = 0; j < su.length; j++) {
-          var u = su[j];
-          var cat = statusCat(u.status);
-          var catColor = statusCatColor(cat);
-          h += '<div class="result-card" style="margin-bottom:8px;padding:14px 16px;" data-action="detail" data-stock="' + esc(u.stock_num) + '">'
-            + '<div style="display:flex;justify-content:space-between;align-items:center;">'
-            + '<span style="font-size:20px;font-weight:700;">' + esc(u.year) + ' ' + esc(u.make) + ' ' + esc(u.model) + '</span>'
-            + (fmtPrice(u.retail_price) ? '<span style="font-size:18px;font-weight:700;color:var(--green);">' + fmtPrice(u.retail_price) + '</span>' : '')
-            + '</div>'
-            + '<div style="font-size:18px;color:var(--text-2);margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
-            + '<span>Stk# ' + esc(u.stock_num) + '</span><span class="sep">&middot;</span>'
-            + '<span class="status-badge status-' + catColor + '" style="font-size:12px;">' + esc(u.status) + '</span>'
-            + '<span class="sep">&middot;</span>'
-            + '<span>' + esc(u.lot_location || "No Lot") + '</span>'
-            + '</div></div>';
+          h += renderUnitCard(su[j]);
         }
         h += '</div>';
       }
@@ -2400,15 +2447,7 @@ var Views = (function () {
         var mu = byMake[make];
         h += '<div class="card"><div class="card-title">' + esc(make) + ' (' + mu.length + ')</div>';
         for (var j = 0; j < mu.length; j++) {
-          var u = mu[j];
-          h += '<div class="result-card" style="margin-bottom:8px;padding:12px 16px;border-left:3px solid var(--orange);" data-action="detail" data-stock="' + esc(u.stock_num) + '">'
-            + '<div style="display:flex;justify-content:space-between;align-items:center;">'
-            + '<span style="font-size:20px;font-weight:700;">' + esc(u.model) + ' ' + esc(u.floor_layout || "") + '</span>'
-            + (fmtPrice(u.retail_price) ? '<span style="font-size:18px;font-weight:700;color:var(--green);">' + fmtPrice(u.retail_price) + '</span>' : '')
-            + '</div>'
-            + '<div style="font-size:18px;color:var(--text-2);margin-top:4px;">'
-            + 'Stk# ' + esc(u.stock_num) + ' &middot; ' + esc(u.lot_location || "") + ' &middot; ' + esc(u.age || "?") + ' days'
-            + '</div></div>';
+          h += renderUnitCard(mu[j]);
         }
         h += '</div>';
       }
@@ -2605,15 +2644,7 @@ var Views = (function () {
         var mu = byMake[make];
         h += '<div class="card"><div class="card-title">' + esc(make) + ' (' + mu.length + ')</div>';
         for (var j = 0; j < mu.length; j++) {
-          var u = mu[j];
-          h += '<div class="result-card" style="margin-bottom:8px;padding:12px 16px;border-left:3px solid var(--' + (isMissing ? 'orange' : 'red') + ');" data-action="detail" data-stock="' + esc(u.stock_num) + '">'
-            + '<div style="display:flex;justify-content:space-between;align-items:center;">'
-            + '<span style="font-size:20px;font-weight:700;">' + esc(u.model || "?") + ' ' + esc(u.floor_layout || "") + '</span>'
-            + '<span style="font-size:18px;color:var(--text-2);">' + esc(u.year || "?") + '</span>'
-            + '</div>'
-            + '<div style="font-size:18px;color:var(--text-2);margin-top:4px;">'
-            + 'Stk# ' + esc(u.stock_num) + ' &middot; ' + esc(u.status || "?") + ' &middot; ' + esc(u.lot_location || "N/A")
-            + '</div></div>';
+          h += renderUnitCard(mu[j]);
         }
         h += '</div>';
       }
@@ -3280,7 +3311,12 @@ var Views = (function () {
 
       var h = '<div class="view">';
       h += backBtn("home", "Home");
-      h += '<div class="zone-banner"><div class="zone-banner-name">All Inventory</div>'
+
+      // Contextual banner
+      var bannerTitle = "All Inventory";
+      if (preFilter.year) bannerTitle = preFilter.year + " Models in Stock";
+      else if (preFilter["dead-display"]) bannerTitle = "Dead in Display";
+      h += '<div class="zone-banner"><div class="zone-banner-name">' + esc(bannerTitle) + '</div>'
         + '<div class="zone-banner-count">' + units.length + ' units</div></div>';
 
       // Multi-select filters
@@ -3828,18 +3864,81 @@ var Views = (function () {
     for (var i = 0; i < units.length; i++) {
       var u = units[i];
       var st = (u.status || "").toUpperCase();
-      var statusColor = (st === "SHIPPED" || st === "DISPATCHED" || st === "IN TRANSIT" || st === "DRIVER NEEDED") ? "var(--green)" : "var(--blue)";
-      var statusDays = u.status_days != null ? u.status_days + "d" : "";
+      var condVal = (u.condition || "New").toUpperCase();
+      var isTransfer = (st === "TRANSFER" || st === "STORE-TO-STORE TRANSFER" || st === "OPS TRANSFER");
+      var isShipped = (st === "SHIPPED" || st === "DISPATCHED" || st === "IN TRANSIT" || st === "DRIVER NEEDED");
+      var isRetailOrder = (st === "RETAIL ORDERED");
+      var isOrdered = (st === "ORDERED" || st === "PO ISSUED" || st === "PURCHASED");
+      var statusColor = isShipped ? "var(--green)" : isTransfer ? "var(--orange)" : "var(--blue)";
+      var sd = parseInt(u.status_days) || 0;
+      var sdColor = sd > 14 ? 'var(--red)' : sd > 7 ? 'var(--orange)' : 'var(--text-3)';
 
-      h += '<a class="card card-interactive" href="#detail/' + encodeURIComponent(u.stock_num) + '" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:#1a1a2e;">';
-      h += '<div>';
-      h += '<div style="font-size:18px;font-weight:600;">' + esc(u.year || "") + ' ' + esc(u.make || "") + ' ' + esc(u.model || "") + '</div>';
-      h += '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">' + esc(u.stock_num || "") + ' · ' + esc(u.veh_type || "") + (u.floor_layout ? ' · ' + esc(u.floor_layout) : '') + '</div>';
+      h += '<div class="result-card" data-action="detail" data-stock="' + esc(u.stock_num) + '" data-condition="' + esc(condVal) + '">';
+      h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;">';
+
+      // Left side
+      h += '<div style="flex:1;min-width:0;">';
+
+      // Line 1: Year Make Model-Stock
+      h += '<div class="result-ymm">' + esc(u.year || "") + ' ' + esc(u.make || "") + ' ' + esc(u.model || "")
+        + '<span style="color:var(--text-3);font-weight:400;">-' + esc(u.stock_num) + '</span></div>';
+
+      // Line 2: Manufacturer
+      if (u.manufacturer) h += '<div style="font-size:11px;color:var(--text-3);margin-top:1px;text-transform:uppercase;letter-spacing:0.5px;">' + esc(u.manufacturer) + '</div>';
+
+      // Line 3: Type · Layout · Sub
+      var line3 = [];
+      if (u.veh_type) line3.push(esc(u.veh_type));
+      if (u.floor_layout) line3.push(esc(u.floor_layout));
+      if (u.sub_floorplan) line3.push(esc(u.sub_floorplan));
+      if (line3.length > 0) h += '<div class="result-meta">' + line3.join('<span class="sep">&middot;</span>') + '</div>';
+
+      // Line 4: Status badge + status days
+      h += '<div style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap;">';
+      h += '<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:' + statusColor + ';color:#fff;">' + esc(u.status) + '</span>';
+      if (u.status_days != null && u.status_days !== "") h += '<span style="font-size:11px;font-weight:700;color:' + sdColor + ';">' + sd + 'd in status</span>';
+      if (condVal === "USED") h += '<span style="display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;background:#fde8e8;color:#C8102E;">USED</span>';
       h += '</div>';
-      h += '<div style="text-align:right;">';
-      h += '<div style="font-size:12px;font-weight:700;color:' + statusColor + ';">' + esc(st) + '</div>';
-      if (statusDays) h += '<div style="font-size:12px;color:var(--text-3);">' + statusDays + '</div>';
-      h += '</div></a>';
+
+      // Line 5: Status-specific context
+      h += '<div style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap;">';
+
+      if (isTransfer) {
+        // Transfer: show origin location → destination
+        if (u.current_loc) h += '<span style="font-size:11px;color:var(--text-2);">From: <strong>' + esc(u.current_loc) + '</strong></span>';
+        if (u.lot_location) h += '<span style="font-size:11px;color:var(--green);">To: <strong>' + esc(u.lot_location) + '</strong></span>';
+        if (u.transfer_notes) h += '<span style="font-size:11px;color:var(--text-3);font-style:italic;">' + esc(u.transfer_notes) + '</span>';
+      } else if (isShipped) {
+        // Shipped: show expected delivery
+        if (u.exp_delivery_date) h += '<span style="font-size:11px;color:var(--green);">ETA: <strong>' + esc(u.exp_delivery_date) + '</strong></span>';
+        if (u.lot_location) h += '<span style="font-size:11px;color:var(--text-3);">' + esc(u.lot_location) + '</span>';
+      } else if (isRetailOrder) {
+        // Retail ordered: deal info like sale pending
+        if (u.deal_number) h += '<span style="font-size:11px;font-weight:700;color:var(--text-2);">Deal #' + esc(u.deal_number) + '</span>';
+        if (u.deal_status) {
+          var dsU = (u.deal_status || "").toUpperCase();
+          var dsBg = '#e9ecef', dsFg = 'var(--text-2)';
+          if (dsU.indexOf("FUNDED") !== -1 || dsU.indexOf("APPROVED") !== -1) { dsBg = 'var(--green-dim)'; dsFg = 'var(--green)'; }
+          else if (dsU.indexOf("PENDING") !== -1 || dsU.indexOf("SUBMITTED") !== -1) { dsBg = 'var(--orange-dim)'; dsFg = 'var(--orange)'; }
+          h += '<span style="display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;background:' + dsBg + ';color:' + dsFg + ';">' + esc(u.deal_status) + '</span>';
+        }
+        if (u.hold_salesman) h += '<span style="font-size:11px;color:var(--text-3);">' + esc(u.hold_salesman) + '</span>';
+        if (u.deal_delivery_date) h += '<span style="font-size:11px;color:var(--green);">Delivery: ' + esc(u.deal_delivery_date) + '</span>';
+      } else if (isOrdered) {
+        // Ordered / PO Issued: order date + expected delivery
+        if (u.order_date) h += '<span style="font-size:11px;color:var(--text-2);">Ordered: ' + esc(u.order_date) + '</span>';
+        if (u.exp_delivery_date) h += '<span style="font-size:11px;color:var(--green);">ETA: <strong>' + esc(u.exp_delivery_date) + '</strong></span>';
+        if (u.lot_location) h += '<span style="font-size:11px;color:var(--text-3);">' + esc(u.lot_location) + '</span>';
+      }
+
+      h += '</div>';
+      h += '</div>';
+
+      // Right side: status days big + price
+      h += '<div style="text-align:right;min-width:50px;">';
+      h += '<div style="font-size:16px;font-weight:800;color:' + sdColor + ';">' + sd + 'd</div>';
+      if (fmtPrice(u.retail_price)) h += '<div style="font-size:11px;color:var(--text-3);">' + fmtPrice(u.retail_price) + '</div>';
+      h += '</div></div></div>';
     }
     return h;
   }
