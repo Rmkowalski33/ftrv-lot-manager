@@ -626,7 +626,7 @@ var Views = (function () {
 
         // Powered by RAY.i footer
         h += '<div style="margin:0 -16px;overflow:hidden;">'
-          + '<img src="img/powered-by-rayi.png" alt="Powered by RAY.i" style="width:100%;display:block;mix-blend-mode:lighten;opacity:0.85;" />'
+          + '<img src="img/powered-by-rayi.png" alt="Powered by RAY.i" style="width:100%;display:block;mix-blend-mode:lighten;opacity:1;filter:brightness(1.5);" />'
           + '</div>';
 
         h += '</div></div>';
