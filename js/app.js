@@ -782,31 +782,9 @@ var App = (function () {
       // Save user name for future forms
       if (data.user) { try { localStorage.setItem("ftrv_note_user", data.user); } catch(e) {} }
 
-      // Append spot details to description if provided
-      if (data.spot_details) {
-        data.description = (data.description || "") + (data.description ? " | Spot: " : "Spot: ") + data.spot_details;
-        delete data.spot_details;
-      }
-
-      // For holes: combine type + make into missing_type field
-      if (data.missing_veh_type || data.missing_make) {
-        var parts = [];
-        if (data.missing_veh_type) parts.push(data.missing_veh_type);
-        if (data.missing_make) parts.push(data.missing_make);
-        data.missing_type = parts.join(" - ");
-        delete data.missing_veh_type;
-        delete data.missing_make;
-      }
-
-      // For reorg: combine from/to zones into the zone field
-      if (data.zone_from || data.zone_to) {
-        var parts = [];
-        if (data.zone_from) parts.push("From: CLE-" + data.zone_from);
-        if (data.zone_to) parts.push("To: CLE-" + data.zone_to);
-        data.zone = parts.join(" → ");
-        delete data.zone_from;
-        delete data.zone_to;
-      }
+      // Keep all raw fields — Code.gs routes to type-specific tabs
+      // spot_details, missing_veh_type, missing_make, zone_from, zone_to
+      // are all sent as-is for clean column mapping
 
       // If reorg has a backfill stock, queue a second note
       var backfillStock = "";
@@ -814,7 +792,7 @@ var App = (function () {
       var backfillInput = document.getElementById("reorgBackfillStock");
       if (backfillToggle && backfillToggle.checked && backfillInput && backfillInput.value.trim()) {
         backfillStock = backfillInput.value.trim().toUpperCase();
-        data.notes = (data.notes || "") + (data.notes ? " | " : "") + "Backfill with: " + backfillStock;
+        data.backfill_stock = backfillStock;
       }
 
       DB.queueNote(data).then(function () {
