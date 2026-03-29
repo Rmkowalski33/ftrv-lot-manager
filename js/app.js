@@ -21,7 +21,7 @@ var App = (function () {
   }
 
   // ── Root views (no back button) ────────────────────────────────
-  var ROOT_VIEWS = ["home", "notes", "audit", "activity", "coverage", "location-picker"];
+  var ROOT_VIEWS = ["home", "notes", "audit", "activity", "coverage", "location-picker", "zone-map-view"];
 
   // ── Tab mapping: view → which tab to highlight ─────────────────
   var TAB_MAP = {
@@ -37,6 +37,7 @@ var App = (function () {
     "replace-picker": "activity", "repl-log": "coverage",
     "help": "home", "all-inventory": "home",
     "location-picker": "",
+    "zone-map-view": "",
     "coverage": "coverage", "coverage-matrix": "coverage", "zone-map": "coverage",
     "overflow-only": "coverage",
   };
@@ -269,6 +270,9 @@ var App = (function () {
       case "location-picker":
         renderPromise = Views.locationPickerView();
         break;
+      case "zone-map-view":
+        renderPromise = Views.zoneMapView();
+        break;
       default:
         renderPromise = Views.homeView();
     }
@@ -282,7 +286,7 @@ var App = (function () {
     renderPromise.then(function (html) {
       // Inject "Data as of" timestamp at top of every view (skip home — has its own)
       DB.getMeta("exported_at").then(function (exportedAt) {
-        if (exportedAt && view !== "home" && view !== "location-picker") {
+        if (exportedAt && view !== "home" && view !== "location-picker" && view !== "zone-map-view") {
           var ts = '<div style="text-align:right;font-size:11px;color:#8899aa;padding:2px 8px 0;opacity:0.7;">Updated ' + exportedAt + '</div>';
           container.innerHTML = ts + html;
         } else {
@@ -399,6 +403,8 @@ var App = (function () {
           });
         });
         }); // close isDupe check
+      } else if (action === "goto-zone-map") {
+        navigate("zone-map-view");
       } else if (action === "goto-picker") {
         // Admin: tapping the location badge → back to location picker
         navigate("location-picker");

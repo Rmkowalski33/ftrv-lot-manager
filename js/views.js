@@ -3301,6 +3301,34 @@ var Views = (function () {
   }
 
   // ══════════════════════════════════════════════════════════════════
+  // ZONE MAP — Master Zone Alignment Q2 2026
+  // ══════════════════════════════════════════════════════════════════
+
+  function zoneMapView() {
+    var h = '<div class="view" style="padding:0 0 24px;">';
+
+    h += '<div style="padding:16px 16px 12px;border-bottom:1px solid var(--border);">';
+    h += '<div style="font-size:22px;font-weight:800;color:var(--text-1);letter-spacing:-0.3px;">Zone Map</div>';
+    h += '<div style="font-size:12px;color:var(--text-3);margin-top:3px;">Master Zone Alignment · Q2 2026 · Effective 03/29/26</div>';
+    h += '</div>';
+
+    h += '<div style="padding:16px;">';
+
+    h += '<div style="margin-bottom:16px;">';
+    h += '<div style="overflow:auto;-webkit-overflow-scrolling:touch;background:#fff;border-radius:10px;border:1px solid var(--border);">';
+    h += '<img src="img/zone-map.jpg" alt="FTRV Master Zone Map Q2 2026" style="display:block;width:100%;min-width:500px;height:auto;" />';
+    h += '</div></div>';
+
+    h += '<div>';
+    h += '<div style="overflow:auto;-webkit-overflow-scrolling:touch;background:#fff;border-radius:10px;border:1px solid var(--border);">';
+    h += '<img src="img/zone-table.jpg" alt="Zone Location Table" style="display:block;width:100%;min-width:500px;height:auto;" />';
+    h += '</div></div>';
+
+    h += '</div></div>';
+    return Promise.resolve(h);
+  }
+
+  // ══════════════════════════════════════════════════════════════════
   // REPLACEMENT PICKER — Select overflow unit to backfill a sale pending slot
   // ══════════════════════════════════════════════════════════════════
 
@@ -4085,7 +4113,11 @@ var Views = (function () {
 
       // Header
       h += '<div style="padding:20px 16px 12px;border-bottom:1px solid var(--border);">';
+      h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;">';
       h += '<div style="font-size:24px;font-weight:800;color:var(--text-1);letter-spacing:-0.3px;">Select Location</div>';
+      h += '<span data-action="goto-zone-map" style="font-size:12px;font-weight:600;color:var(--accent);cursor:pointer;'
+         + 'padding:5px 10px;border:1px solid var(--accent);border-radius:6px;white-space:nowrap;margin-top:3px;">Zone Details &amp; Map</span>';
+      h += '</div>';
       h += '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Viewing as: <strong>Corporate</strong></div>';
       if (sel) {
         h += '<div style="margin-top:10px;padding:8px 12px;background:var(--surface-2);border-radius:8px;font-size:13px;'
@@ -4228,6 +4260,7 @@ var Views = (function () {
     incomingMakeView: incomingMakeView,
     incomingUnitsView: incomingUnitsView,
     locationPickerView: locationPickerView,
+    zoneMapView: zoneMapView,
     renderUnitCard: renderUnitCard,
     renderUnitPickTile: renderUnitPickTile,
     renderUnitFillTile: renderUnitFillTile,
