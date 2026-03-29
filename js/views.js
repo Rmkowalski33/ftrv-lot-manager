@@ -4007,6 +4007,91 @@ var Views = (function () {
     return h;
   }
 
+  // ── Location Picker (admin only) ────────────────────────────────
+  // Full-screen location selector shown to admin users before syncing.
+  // Grouped by zone; tapping a card fires data-action="pick-location".
+  function locationPickerView() {
+    var codeMap = Gate.getCodeMap();
+    var sel = Gate.getAdminSelection();
+
+    // Collect all non-admin locations
+    var locations = [];
+    Object.keys(codeMap).forEach(function (code) {
+      var ctx = codeMap[code];
+      if (ctx.type === "admin") return;
+      locations.push({
+        pc:    ctx.location || code,
+        name:  ctx.name    || ctx.location || code,
+        zone:  ctx.zone    || "OTHER",
+        state: ctx.state   || "",
+      });
+    });
+
+    // Sort within each zone by name
+    locations.sort(function (a, b) {
+      if (a.zone !== b.zone) return a.zone.localeCompare(b.zone);
+      return a.name.localeCompare(b.name);
+    });
+
+    // Group by zone in display order
+    var ZONE_ORDER = ["TX-NCENTRAL", "TX-NE", "TX-SOUTH", "TX-W/WEST US", "CENTRAL US", "EAST US", "OTHER"];
+    var byZone = {};
+    locations.forEach(function (loc) {
+      var z = loc.zone || "OTHER";
+      if (!byZone[z]) byZone[z] = [];
+      byZone[z].push(loc);
+    });
+
+    var h = '<div class="view" style="padding:0 0 24px;">';
+
+    // Header
+    h += '<div style="padding:20px 16px 12px;border-bottom:1px solid var(--border);">';
+    h += '<div style="font-size:24px;font-weight:800;color:var(--text-1);letter-spacing:-0.3px;">Select Location</div>';
+    h += '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Viewing as: <strong>Corporate</strong></div>';
+    if (sel) {
+      h += '<div style="margin-top:10px;padding:8px 12px;background:var(--surface-2);border-radius:8px;font-size:13px;'
+         + 'display:flex;justify-content:space-between;align-items:center;">'
+         + '<span>Currently viewing: <strong>' + esc(sel) + '</strong></span>'
+         + '<span data-action="clear-admin-loc" style="cursor:pointer;color:var(--accent);font-weight:600;padding:2px 8px;">Change</span>'
+         + '</div>';
+    }
+    h += '</div>';
+
+    ZONE_ORDER.forEach(function (zone) {
+      var locs = byZone[zone];
+      if (!locs || locs.length === 0) return;
+
+      h += '<div style="padding:16px 16px 0;">';
+      h += '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;'
+         + 'color:var(--text-3);margin-bottom:10px;padding-bottom:4px;border-bottom:1px solid var(--border);">'
+         + esc(zone) + '</div>';
+      h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;">';
+
+      locs.forEach(function (loc) {
+        var isSelected = sel && sel.toUpperCase() === loc.pc.toUpperCase();
+        var bg     = isSelected ? "var(--accent)"   : "var(--surface-2)";
+        var border = isSelected ? "var(--accent)"   : "var(--border)";
+        var clr1   = isSelected ? "#fff"            : "var(--text-1)";
+        var clr2   = isSelected ? "rgba(255,255,255,0.80)" : "var(--text-3)";
+        var check  = isSelected ? ' <span style="font-size:11px;">&#10003;</span>' : "";
+
+        h += '<div data-action="pick-location" data-pc="' + esc(loc.pc) + '"'
+           + ' style="padding:12px 10px;background:' + bg + ';border-radius:10px;cursor:pointer;'
+           + 'text-align:center;border:1.5px solid ' + border + ';user-select:none;'
+           + 'transition:opacity 0.1s;">';
+        h += '<div style="font-size:16px;font-weight:700;color:' + clr1 + ';">' + esc(loc.pc) + check + '</div>';
+        h += '<div style="font-size:11px;color:' + clr2 + ';margin-top:3px;line-height:1.3;">'
+           + esc(loc.name) + (loc.state ? '<br>' + esc(loc.state) : "") + '</div>';
+        h += '</div>';
+      });
+
+      h += '</div></div>';
+    });
+
+    h += '</div>';
+    return Promise.resolve(h);
+  }
+
   // ── Module Exports ──────────────────────────────────────────────
   return {
     homeView: homeView,
@@ -4049,6 +4134,7 @@ var Views = (function () {
     incomingStatusView: incomingStatusView,
     incomingMakeView: incomingMakeView,
     incomingUnitsView: incomingUnitsView,
+    locationPickerView: locationPickerView,
     renderUnitCard: renderUnitCard,
     renderUnitPickTile: renderUnitPickTile,
     renderUnitFillTile: renderUnitFillTile,

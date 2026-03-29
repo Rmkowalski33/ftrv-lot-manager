@@ -9,6 +9,7 @@ var App = (function () {
   var _searchDebounce = null;
   var _noteStockDebounce = null;
   var _reorgStockDebounce = null;
+  var _initialized = false;   // prevents double-binding listeners on admin re-init
 
   // ── Data source URLs ────────────────────────────────────────────
   var JSON_URL_PROD = "data.json";
@@ -20,7 +21,7 @@ var App = (function () {
   }
 
   // ── Root views (no back button) ────────────────────────────────
-  var ROOT_VIEWS = ["home", "notes", "audit", "activity", "coverage"];
+  var ROOT_VIEWS = ["home", "notes", "audit", "activity", "coverage", "location-picker"];
 
   // ── Tab mapping: view → which tab to highlight ─────────────────
   var TAB_MAP = {
@@ -35,30 +36,62 @@ var App = (function () {
     "incoming": "activity", "incoming-status": "activity", "incoming-make": "activity", "incoming-units": "activity",
     "replace-picker": "activity", "repl-log": "coverage",
     "help": "home", "all-inventory": "home",
+    "location-picker": "",
     "coverage": "coverage", "coverage-matrix": "coverage", "zone-map": "coverage",
     "overflow-only": "coverage",
   };
 
+  // ── Admin header helpers ────────────────────────────────────────
+  function _updateAdminHeader() {
+    var badge = document.getElementById("headerBadge");
+    if (!badge) return;
+    if (Gate.isAdmin()) {
+      var sel = Gate.getAdminSelection();
+      badge.textContent = sel || "\u00B7\u00B7\u00B7";   // "···" when no location selected
+      badge.setAttribute("data-action", "goto-picker");
+      badge.style.cursor = "pointer";
+      badge.title = "Switch location";
+    }
+  }
+
   // ── Initialize ─────────────────────────────────────────────────
   function init() {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("sw.js").catch(function (err) {
+        console.warn("SW registration failed:", err);
+      });
+    }
+
     DB.open().then(function () {
-      // Single master data file — Gate.getFilter() scopes units at sync time
-      var jsonUrl = isLocal() ? "demo_data.json" : JSON_URL_PROD;
+      // Bind global listeners only once (admin may call init() again after picking a location)
+      if (!_initialized) {
+        window.addEventListener("hashchange", routeFromHash);
+        document.addEventListener("click", handleClick);
+        Sync.init();
+        _initialized = true;
+      }
+
+      // Admin with no location selected → go straight to picker, skip sync
+      if (Gate.isAdmin() && !Gate.getAdminSelection()) {
+        _updateAdminHeader();
+        navigate("location-picker", "", "", false);
+        return;
+      }
 
       // Update location badge in header
       var loc = Gate.getLocation();
       var badge = document.getElementById("headerBadge");
       if (badge && loc.location) badge.textContent = loc.location;
+      _updateAdminHeader();
 
+      // Single master data file — Gate.getFilter() scopes units at sync time
+      var jsonUrl = isLocal() ? "demo_data.json" : JSON_URL_PROD;
       Sync.configure({
         jsonUrl:   jsonUrl,
         submitUrl: APPS_SCRIPT_URL,
       });
-      Sync.init();
 
       routeFromHash();
-      window.addEventListener("hashchange", routeFromHash);
-      document.addEventListener("click", handleClick);
 
       Sync.fullSync(false).then(function () {
         routeFromHash();
@@ -67,12 +100,6 @@ var App = (function () {
 
       Sync.updateQueueBadge();
     });
-
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("sw.js").catch(function (err) {
-        console.warn("SW registration failed:", err);
-      });
-    }
   }
 
 
@@ -239,6 +266,9 @@ var App = (function () {
       case "incoming-units":
         renderPromise = Views.incomingUnitsView(param, param2);
         break;
+      case "location-picker":
+        renderPromise = Views.locationPickerView();
+        break;
       default:
         renderPromise = Views.homeView();
     }
@@ -252,7 +282,7 @@ var App = (function () {
     renderPromise.then(function (html) {
       // Inject "Data as of" timestamp at top of every view (skip home — has its own)
       DB.getMeta("exported_at").then(function (exportedAt) {
-        if (exportedAt && view !== "home") {
+        if (exportedAt && view !== "home" && view !== "location-picker") {
           var ts = '<div style="text-align:right;font-size:11px;color:#8899aa;padding:2px 8px 0;opacity:0.7;">Updated ' + exportedAt + '</div>';
           container.innerHTML = ts + html;
         } else {
@@ -369,6 +399,38 @@ var App = (function () {
           });
         });
         }); // close isDupe check
+      } else if (action === "goto-picker") {
+        // Admin: tapping the location badge → back to location picker
+        navigate("location-picker");
+      } else if (action === "clear-admin-loc") {
+        // Admin: "Change" link on picker header → clear selection, return to picker
+        Gate.clearAdminLocation();
+        Sync.stopAutoSync();
+        _updateAdminHeader();
+        navigate("location-picker", "", "", false);
+      } else if (action === "pick-location") {
+        // Admin: select a location from the picker
+        var pickPc = card.getAttribute("data-pc");
+        if (!pickPc) return;
+        var currentSel = Gate.getAdminSelection();
+        // Tapping the already-selected location → just go home
+        if (currentSel && currentSel.toUpperCase() === pickPc.toUpperCase()) {
+          navigate("home");
+          return;
+        }
+        // Store selection and re-sync for the new location
+        Gate.setAdminLocation(pickPc);
+        var loc3 = Gate.getLocation();
+        var badge3 = document.getElementById("headerBadge");
+        if (badge3) badge3.textContent = loc3.location;
+        _updateAdminHeader();
+        Sync.stopAutoSync();
+        var jsonUrlPick = isLocal() ? "demo_data.json" : JSON_URL_PROD;
+        Sync.configure({ jsonUrl: jsonUrlPick, submitUrl: APPS_SCRIPT_URL });
+        navigate("home");
+        Sync.fullSync(false).then(function () {
+          Sync.startAutoSync();
+        });
       } else if (action === "clear-notes-history") {
         if (confirm("Clear all recent notes from local history?\n\nThis only clears the display — submitted notes remain on the Google Sheet.")) {
           DB.clearNotesHistory().then(function() { navigate("notes"); }).catch(function(e) { alert("Error: " + e); navigate("notes"); });

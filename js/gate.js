@@ -8,10 +8,17 @@
    access_codes.json format:
    {
      "FTRV-CLE-2026": {
-       "type":     "internal",          // "internal" | "manufacturer"
+       "type":     "internal",          // "internal" | "admin"
        "name":     "Cleburne",          // human-readable label
-       "location": "CLE",              // location code (internal) or brand (mfr)
+       "location": "CLE",              // PC code
+       "state":    "TX",
+       "zone":     "TX-NCENTRAL",
        "filter":   { "field": "pc", "values": ["CLE", "BCLE"] }
+     },
+     "FTRV-CORP-2026": {
+       "type":     "admin",             // sees location picker
+       "name":     "Corporate",
+       "location": "CORP"
      }
    }
 
@@ -21,14 +28,20 @@
 
 var Gate = (function () {
 
-  var STORAGE_KEY = "ftrv_access_code";
-  var CONTEXT_KEY = "ftrv_context";
+  var STORAGE_KEY  = "ftrv_access_code";
+  var CONTEXT_KEY  = "ftrv_context";
+  var ADMIN_LOC_KEY = "ftrv_admin_loc";   // admin's selected location PC
 
   // Fallback — used if fetch fails (e.g. offline on first visit)
   var FALLBACK_MAP = {
     "FTRV-CLE-2026": {
       type: "internal", name: "Cleburne", location: "CLE",
+      state: "TX", zone: "TX-NCENTRAL",
       filter: { field: "pc", values: ["CLE", "BCLE"] }
+    },
+    "FTRV-CORP-2026": {
+      type: "admin", name: "Corporate", location: "CORP",
+      state: "TX", zone: "OTHER"
     }
   };
   var _codeMap = FALLBACK_MAP;
@@ -77,6 +90,7 @@ var Gate = (function () {
     try {
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(CONTEXT_KEY);
+      localStorage.removeItem(ADMIN_LOC_KEY);
     } catch (e) { /* ignore */ }
   }
 
@@ -92,19 +106,103 @@ var Gate = (function () {
     return FALLBACK_MAP["FTRV-CLE-2026"];
   }
 
-  /** Returns the filter rule: { field, values } */
+  // ── Admin helpers ───────────────────────────────────────────────
+
+  /** Returns true if the authenticated user has admin (corp) access */
+  function isAdmin() {
+    var code = getSavedCode();
+    return !!(code && _codeMap[code] && _codeMap[code].type === "admin");
+  }
+
+  /** Returns the PC code the admin has selected, or null if none */
+  function getAdminSelection() {
+    try { return localStorage.getItem(ADMIN_LOC_KEY) || null; } catch (e) { return null; }
+  }
+
+  /** Stores admin's selected location PC so subsequent syncs apply the right filter */
+  function setAdminLocation(pc) {
+    try { localStorage.setItem(ADMIN_LOC_KEY, pc.trim().toUpperCase()); } catch (e) { /* ignore */ }
+  }
+
+  /** Returns admin to the location picker */
+  function clearAdminLocation() {
+    try { localStorage.removeItem(ADMIN_LOC_KEY); } catch (e) { /* ignore */ }
+  }
+
+  /**
+   * Returns the filter rule for a given location PC code.
+   * Searches the code map for an entry whose .location matches the PC.
+   * Falls back to a simple single-value filter if not found.
+   */
+  function getFilterForLocation(pc) {
+    var upper = (pc || "").trim().toUpperCase();
+    var keys = Object.keys(_codeMap);
+    for (var i = 0; i < keys.length; i++) {
+      var ctx = _codeMap[keys[i]];
+      if (ctx.location && ctx.location.toUpperCase() === upper) {
+        return ctx.filter || { field: "pc", values: [upper] };
+      }
+    }
+    // Fallback: simple filter on the PC itself
+    return { field: "pc", values: [upper] };
+  }
+
+  /**
+   * Returns the full code map — used by location picker to build the UI.
+   * Do NOT mutate the returned object.
+   */
+  function getCodeMap() {
+    return _codeMap;
+  }
+
+  // ── Public filter / location accessors ─────────────────────────
+
+  /**
+   * Returns the active filter rule: { field, values }.
+   * Admin: returns the selected location's filter (or null if no location picked yet).
+   * Regular user: returns their access-code filter.
+   */
   function getFilter() {
+    if (isAdmin()) {
+      var sel = getAdminSelection();
+      if (sel) return getFilterForLocation(sel);
+      return null;   // no selection — caller should show picker, not sync
+    }
     return _getContext().filter || null;
   }
 
-  /** Returns location code string (e.g. "CLE") — kept for backward compat */
+  /**
+   * Returns location info: { location, name, type, state, zone }.
+   * Admin: reflects the currently selected location (or CORP if none).
+   */
   function getLocation() {
-    var ctx = _getContext();
-    // Support both new { location } and legacy { data_file } shapes
+    if (isAdmin()) {
+      var sel = getAdminSelection();
+      if (sel) {
+        var upper = sel.toUpperCase();
+        var keys = Object.keys(_codeMap);
+        for (var i = 0; i < keys.length; i++) {
+          var ctx = _codeMap[keys[i]];
+          if (ctx.location && ctx.location.toUpperCase() === upper) {
+            return {
+              location: ctx.location,
+              name:     ctx.name     || sel,
+              type:     "admin-view",
+              state:    ctx.state    || "",
+              zone:     ctx.zone     || "",
+            };
+          }
+        }
+      }
+      return { location: "CORP", name: "Corporate", type: "admin", state: "TX", zone: "OTHER" };
+    }
+    var ctx2 = _getContext();
     return {
-      location: ctx.location || "CLE",
-      name:     ctx.name     || "Cleburne",
-      type:     ctx.type     || "internal",
+      location: ctx2.location || "CLE",
+      name:     ctx2.name     || "Cleburne",
+      type:     ctx2.type     || "internal",
+      state:    ctx2.state    || "",
+      zone:     ctx2.zone     || "",
     };
   }
 
@@ -170,11 +268,17 @@ var Gate = (function () {
   }
 
   return {
-    check:           check,
-    isAuthenticated: isAuthenticated,
-    clearCode:       clearCode,
-    getFilter:       getFilter,
-    getLocation:     getLocation,   // backward compat
+    check:                check,
+    isAuthenticated:      isAuthenticated,
+    isAdmin:              isAdmin,
+    clearCode:            clearCode,
+    getFilter:            getFilter,
+    getLocation:          getLocation,       // backward compat
+    getAdminSelection:    getAdminSelection,
+    setAdminLocation:     setAdminLocation,
+    clearAdminLocation:   clearAdminLocation,
+    getFilterForLocation: getFilterForLocation,
+    getCodeMap:           getCodeMap,
   };
 })();
 

@@ -1,8 +1,288 @@
 {
+  "FTRV-CORP-2026": {
+    "type": "admin",
+    "name": "Corporate",
+    "location": "CORP",
+    "state": "TX",
+    "zone": "OTHER"
+  },
+
   "FTRV-CLE-2026": {
     "type": "internal",
     "name": "Cleburne",
     "location": "CLE",
+    "state": "TX",
+    "zone": "TX-NCENTRAL",
     "filter": { "field": "pc", "values": ["CLE", "BCLE"] }
+  },
+  "FTRV-WAC-2026": {
+    "type": "internal",
+    "name": "Waco",
+    "location": "WAC",
+    "state": "TX",
+    "zone": "TX-NCENTRAL",
+    "filter": { "field": "pc", "values": ["WAC"] }
+  },
+
+  "FTRV-DEN-2026": {
+    "type": "internal",
+    "name": "Denton",
+    "location": "DEN",
+    "state": "TX",
+    "zone": "TX-NE",
+    "filter": { "field": "pc", "values": ["DEN"] }
+  },
+  "FTRV-ROC-2026": {
+    "type": "internal",
+    "name": "Rockwall",
+    "location": "ROC",
+    "state": "TX",
+    "zone": "TX-NE",
+    "filter": { "field": "pc", "values": ["ROC"] }
+  },
+  "FTRV-TYL-2026": {
+    "type": "internal",
+    "name": "Tyler",
+    "location": "TYL",
+    "state": "TX",
+    "zone": "TX-NE",
+    "filter": { "field": "pc", "values": ["TYL"] }
+  },
+  "FTRV-FAR-2026": {
+    "type": "internal",
+    "name": "Fairfield",
+    "location": "FAR",
+    "state": "TX",
+    "zone": "TX-NE",
+    "filter": { "field": "pc", "values": ["FAR"] }
+  },
+  "FTRV-CANA-2026": {
+    "type": "internal",
+    "name": "Corsicana",
+    "location": "CANA",
+    "state": "TX",
+    "zone": "TX-NE",
+    "filter": { "field": "pc", "values": ["CANA"] }
+  },
+  "FTRV-TAR-2026": {
+    "type": "internal",
+    "name": "Texarkana",
+    "location": "TAR",
+    "state": "AR",
+    "zone": "TX-NE",
+    "filter": { "field": "pc", "values": ["TAR"] }
+  },
+
+  "FTRV-HOU-2026": {
+    "type": "internal",
+    "name": "Houston",
+    "location": "HOU",
+    "state": "TX",
+    "zone": "TX-SOUTH",
+    "filter": { "field": "pc", "values": ["HOU"] }
+  },
+  "FTRV-GID-2026": {
+    "type": "internal",
+    "name": "Giddings",
+    "location": "GID",
+    "state": "TX",
+    "zone": "TX-SOUTH",
+    "filter": { "field": "pc", "values": ["GID"] }
+  },
+  "FTRV-CON-2026": {
+    "type": "internal",
+    "name": "Conroe",
+    "location": "CON",
+    "state": "TX",
+    "zone": "TX-SOUTH",
+    "filter": { "field": "pc", "values": ["CON"] }
+  },
+  "FTRV-ORA-2026": {
+    "type": "internal",
+    "name": "Orange",
+    "location": "ORA",
+    "state": "TX",
+    "zone": "TX-SOUTH",
+    "filter": { "field": "pc", "values": ["ORA"] }
+  },
+  "FTRV-CIB-2026": {
+    "type": "internal",
+    "name": "San Antonio",
+    "location": "CIB",
+    "state": "TX",
+    "zone": "TX-SOUTH",
+    "filter": { "field": "pc", "values": ["CIB"] }
+  },
+  "FTRV-WALL-2026": {
+    "type": "internal",
+    "name": "Waller",
+    "location": "WALL",
+    "state": "TX",
+    "zone": "TX-SOUTH",
+    "filter": { "field": "pc", "values": ["WALL"] }
+  },
+
+  "FTRV-ANG-2026": {
+    "type": "internal",
+    "name": "San Angelo",
+    "location": "ANG",
+    "state": "TX",
+    "zone": "TX-W/WEST US",
+    "filter": { "field": "pc", "values": ["ANG"] }
+  },
+  "FTRV-AMA-2026": {
+    "type": "internal",
+    "name": "Amarillo",
+    "location": "AMA",
+    "state": "TX",
+    "zone": "TX-W/WEST US",
+    "filter": { "field": "pc", "values": ["AMA"] }
+  },
+  "FTRV-LAS-2026": {
+    "type": "internal",
+    "name": "Las Vegas",
+    "location": "LAS",
+    "state": "NV",
+    "zone": "TX-W/WEST US",
+    "filter": { "field": "pc", "values": ["LAS"] }
+  },
+  "FTRV-SUR-2026": {
+    "type": "internal",
+    "name": "Surprise",
+    "location": "SUR",
+    "state": "AZ",
+    "zone": "TX-W/WEST US",
+    "filter": { "field": "pc", "values": ["SUR"] }
+  },
+
+  "FTRV-WIN-2026": {
+    "type": "internal",
+    "name": "Winstar",
+    "location": "WIN",
+    "state": "OK",
+    "zone": "CENTRAL US",
+    "filter": { "field": "pc", "values": ["WIN"] }
+  },
+  "FTRV-OKC-2026": {
+    "type": "internal",
+    "name": "Oklahoma City",
+    "location": "OKC",
+    "state": "OK",
+    "zone": "CENTRAL US",
+    "filter": { "field": "pc", "values": ["OKC"] }
+  },
+  "FTRV-OTT-2026": {
+    "type": "internal",
+    "name": "Ottawa",
+    "location": "OTT",
+    "state": "KS",
+    "zone": "CENTRAL US",
+    "filter": { "field": "pc", "values": ["OTT"] }
+  },
+  "FTRV-BRY-2026": {
+    "type": "internal",
+    "name": "Bryant",
+    "location": "BRY",
+    "state": "AR",
+    "zone": "CENTRAL US",
+    "filter": { "field": "pc", "values": ["BRY"] }
+  },
+  "FTRV-LRK-2026": {
+    "type": "internal",
+    "name": "Little Rock",
+    "location": "LRK",
+    "state": "AR",
+    "zone": "CENTRAL US",
+    "filter": { "field": "pc", "values": ["LRK"] }
+  },
+  "FTRV-KCMO-2026": {
+    "type": "internal",
+    "name": "Kansas City",
+    "location": "KCMO",
+    "state": "MO",
+    "zone": "CENTRAL US",
+    "filter": { "field": "pc", "values": ["KCMO"] }
+  },
+
+  "FTRV-ANNA-2026": {
+    "type": "internal",
+    "name": "Anna",
+    "location": "ANNA",
+    "state": "IL",
+    "zone": "EAST US",
+    "filter": { "field": "pc", "values": ["ANNA"] }
+  },
+  "FTRV-NDE-2026": {
+    "type": "internal",
+    "name": "North Detroit",
+    "location": "NDE",
+    "state": "MI",
+    "zone": "EAST US",
+    "filter": { "field": "pc", "values": ["NDE"] }
+  },
+  "FTRV-FCFR-2026": {
+    "type": "internal",
+    "name": "Elkhart",
+    "location": "FCFR",
+    "state": "IN",
+    "zone": "EAST US",
+    "filter": { "field": "pc", "values": ["FCFR"] }
+  },
+  "FTRV-GRND-2026": {
+    "type": "internal",
+    "name": "Grand Rapids",
+    "location": "GRND",
+    "state": "MI",
+    "zone": "EAST US",
+    "filter": { "field": "pc", "values": ["GRND"] }
+  },
+  "FTRV-JACK-2026": {
+    "type": "internal",
+    "name": "Jackson",
+    "location": "JACK",
+    "state": "MI",
+    "zone": "EAST US",
+    "filter": { "field": "pc", "values": ["JACK"] }
+  },
+  "FTRV-NAT-2026": {
+    "type": "internal",
+    "name": "Crystal River",
+    "location": "NAT",
+    "state": "FL",
+    "zone": "EAST US",
+    "filter": { "field": "pc", "values": ["NAT"] }
+  },
+  "FTRV-INDY-2026": {
+    "type": "internal",
+    "name": "Indianapolis",
+    "location": "INDY",
+    "state": "IN",
+    "zone": "EAST US",
+    "filter": { "field": "pc", "values": ["INDY"] }
+  },
+
+  "FTRV-ELK-2026": {
+    "type": "internal",
+    "name": "Excellence Ctr",
+    "location": "ELK",
+    "state": "TX",
+    "zone": "OTHER",
+    "filter": { "field": "pc", "values": ["ELK"] }
+  },
+  "FTRV-ELK2-2026": {
+    "type": "internal",
+    "name": "Excellence Ctr 2",
+    "location": "ELK2",
+    "state": "TX",
+    "zone": "OTHER",
+    "filter": { "field": "pc", "values": ["ELK2"] }
+  },
+  "FTRV-MSC-2026": {
+    "type": "internal",
+    "name": "Mega Svc Ctr",
+    "location": "MSC",
+    "state": "TX",
+    "zone": "OTHER",
+    "filter": { "field": "pc", "values": ["MSC"] }
   }
 }
