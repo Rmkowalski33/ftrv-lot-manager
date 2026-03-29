@@ -4071,7 +4071,7 @@ var Views = (function () {
         var isSelected = sel && sel.toUpperCase() === loc.pc.toUpperCase();
         var bg     = isSelected ? "var(--accent)"   : "var(--surface-2)";
         var border = isSelected ? "var(--accent)"   : "var(--border)";
-        var clr1   = isSelected ? "#fff"            : "var(--text-1)";
+        var clr1   = isSelected ? "#fff"   : "var(--bg)";
         var clr2   = isSelected ? "rgba(255,255,255,0.85)" : "var(--text-2)";
         var check  = isSelected ? ' <span style="font-size:11px;">&#10003;</span>' : "";
 
