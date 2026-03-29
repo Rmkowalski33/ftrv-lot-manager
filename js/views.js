@@ -4072,7 +4072,7 @@ var Views = (function () {
         var bg     = isSelected ? "var(--accent)"   : "var(--surface-2)";
         var border = isSelected ? "var(--accent)"   : "var(--border)";
         var clr1   = isSelected ? "#fff"            : "var(--text-1)";
-        var clr2   = isSelected ? "rgba(255,255,255,0.80)" : "var(--text-3)";
+        var clr2   = isSelected ? "rgba(255,255,255,0.85)" : "var(--text-2)";
         var check  = isSelected ? ' <span style="font-size:11px;">&#10003;</span>' : "";
 
         h += '<div data-action="pick-location" data-pc="' + esc(loc.pc) + '"'

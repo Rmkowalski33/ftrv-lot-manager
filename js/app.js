@@ -429,6 +429,7 @@ var App = (function () {
         Sync.configure({ jsonUrl: jsonUrlPick, submitUrl: APPS_SCRIPT_URL });
         navigate("home");
         Sync.fullSync(false).then(function () {
+          routeFromHash();   // re-render home with freshly synced data
           Sync.startAutoSync();
         });
       } else if (action === "clear-notes-history") {
