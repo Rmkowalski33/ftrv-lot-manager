@@ -4098,7 +4098,7 @@ var Views = (function () {
 
       h += '<div style="padding:16px 16px 0;">';
       h += '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;'
-         + 'color:var(--text-3);margin-bottom:10px;padding-bottom:4px;border-bottom:1px solid var(--border);">'
+         + 'color:var(--red);margin-bottom:10px;padding-bottom:4px;border-bottom:1px solid var(--border);">'
          + esc(zone) + '</div>';
       h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;">';
 
