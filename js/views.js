@@ -4049,16 +4049,17 @@ var Views = (function () {
     var codeMap = Gate.getCodeMap();
     var sel = Gate.getAdminSelection();
 
-    // Collect all non-admin locations
+    // Collect all non-admin locations, carrying filter values for multi-PC rollups
     var locations = [];
     Object.keys(codeMap).forEach(function (code) {
       var ctx = codeMap[code];
       if (ctx.type === "admin") return;
       locations.push({
-        pc:    ctx.location || code,
-        name:  ctx.name    || ctx.location || code,
-        zone:  ctx.zone    || "OTHER",
-        state: ctx.state   || "",
+        pc:       ctx.location || code,
+        name:     ctx.name    || ctx.location || code,
+        zone:     ctx.zone    || "OTHER",
+        state:    ctx.state   || "",
+        pcValues: (ctx.filter && ctx.filter.values) ? ctx.filter.values : [ctx.location || code],
       });
     });
 
@@ -4077,54 +4078,111 @@ var Views = (function () {
       byZone[z].push(loc);
     });
 
-    var h = '<div class="view" style="padding:0 0 24px;">';
+    return DB.getMeta("location_summary").then(function (summary) {
+      summary = summary || {};
 
-    // Header
-    h += '<div style="padding:20px 16px 12px;border-bottom:1px solid var(--border);">';
-    h += '<div style="font-size:24px;font-weight:800;color:var(--text-1);letter-spacing:-0.3px;">Select Location</div>';
-    h += '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Viewing as: <strong>Corporate</strong></div>';
-    if (sel) {
-      h += '<div style="margin-top:10px;padding:8px 12px;background:var(--surface-2);border-radius:8px;font-size:13px;'
-         + 'display:flex;justify-content:space-between;align-items:center;">'
-         + '<span>Currently viewing: <strong>' + esc(sel) + '</strong></span>'
-         + '<span data-action="clear-admin-loc" style="cursor:pointer;color:var(--accent);font-weight:600;padding:2px 8px;">Change</span>'
-         + '</div>';
-    }
-    h += '</div>';
+      var h = '<div class="view" style="padding:0 0 24px;">';
 
-    ZONE_ORDER.forEach(function (zone) {
-      var locs = byZone[zone];
-      if (!locs || locs.length === 0) return;
+      // Header
+      h += '<div style="padding:20px 16px 12px;border-bottom:1px solid var(--border);">';
+      h += '<div style="font-size:24px;font-weight:800;color:var(--text-1);letter-spacing:-0.3px;">Select Location</div>';
+      h += '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Viewing as: <strong>Corporate</strong></div>';
+      if (sel) {
+        h += '<div style="margin-top:10px;padding:8px 12px;background:var(--surface-2);border-radius:8px;font-size:13px;'
+           + 'display:flex;justify-content:space-between;align-items:center;">'
+           + '<span>Currently viewing: <strong>' + esc(sel) + '</strong></span>'
+           + '<span data-action="clear-admin-loc" style="cursor:pointer;color:var(--accent);font-weight:600;padding:2px 8px;">Change</span>'
+           + '</div>';
+      }
+      h += '</div>';
 
-      h += '<div style="padding:16px 16px 0;">';
-      h += '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;'
-         + 'color:var(--red);margin-bottom:10px;padding-bottom:4px;border-bottom:1px solid var(--border);">'
-         + esc(zone) + '</div>';
-      h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;">';
+      ZONE_ORDER.forEach(function (zone) {
+        var locs = byZone[zone];
+        if (!locs || locs.length === 0) return;
 
-      locs.forEach(function (loc) {
-        var isSelected = sel && sel.toUpperCase() === loc.pc.toUpperCase();
-        var bg     = isSelected ? "var(--accent)"   : "var(--surface-2)";
-        var border = isSelected ? "var(--accent)"   : "var(--border)";
-        var clr1   = isSelected ? "#fff"   : "var(--bg)";
-        var clr2   = isSelected ? "rgba(255,255,255,0.85)" : "var(--text-2)";
-        var check  = isSelected ? ' <span style="font-size:11px;">&#10003;</span>' : "";
+        h += '<div style="padding:16px 16px 0;">';
+        h += '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;'
+           + 'color:var(--red);margin-bottom:10px;padding-bottom:4px;border-bottom:1px solid var(--border);">'
+           + esc(zone) + '</div>';
+        h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;">';
 
-        h += '<div data-action="pick-location" data-pc="' + esc(loc.pc) + '"'
-           + ' style="padding:12px 10px;background:' + bg + ';border-radius:10px;cursor:pointer;'
-           + 'text-align:center;border:1.5px solid ' + border + ';user-select:none;'
-           + 'transition:opacity 0.1s;">';
-        h += '<div style="font-size:16px;font-weight:700;color:' + clr1 + ';">' + esc(loc.pc) + check + '</div>';
-        h += '<div style="font-size:11px;color:' + clr2 + ';margin-top:3px;line-height:1.3;">'
-           + esc(loc.name) + (loc.state ? '<br>' + esc(loc.state) : "") + '</div>';
-        h += '</div>';
+        locs.forEach(function (loc) {
+          var isSelected = sel && sel.toUpperCase() === loc.pc.toUpperCase();
+          var bg     = isSelected ? "var(--accent)"   : "var(--surface-2)";
+          var border = isSelected ? "var(--accent)"   : "var(--border)";
+          var clr1   = isSelected ? "#fff"   : "var(--bg)";
+          var clr2   = isSelected ? "rgba(255,255,255,0.85)" : "var(--text-2)";
+          var clrKpi = isSelected ? "rgba(255,255,255,0.9)" : "var(--text-2)";
+          var clrBar = isSelected ? "rgba(255,255,255,0.35)" : "var(--border)";
+          var clrFill= isSelected ? "rgba(255,255,255,0.85)" : "var(--accent)";
+          var check  = isSelected ? ' <span style="font-size:11px;">&#10003;</span>' : "";
+
+          // Aggregate KPIs across filter.values PCs (handles CLE+BCLE rollup)
+          var locTotal    = 0;
+          var locSellable = 0;
+          var locSP       = 0;
+          var locIn       = 0;
+          var locCap      = 0;
+          loc.pcValues.forEach(function (pv) {
+            var s = summary[pv.toUpperCase()] || summary[pv] || {};
+            locTotal    += s.total    || 0;
+            locSellable += s.sellable || 0;
+            locSP       += s.sp       || 0;
+            locIn       += s.incoming || 0;
+            // Use the primary PC's capacity (e.g. CLE, not BCLE which has none)
+            if (!locCap && s.capacity) locCap = s.capacity;
+          });
+          // Fallback: also check primary PC directly
+          if (!locCap) {
+            var ps = summary[loc.pc.toUpperCase()] || summary[loc.pc] || {};
+            locCap = ps.capacity || 0;
+          }
+
+          // Utilization bar
+          var utilPct = locCap ? Math.min(100, Math.round(locTotal / locCap * 100)) : 0;
+          var utilLabel = locCap ? (locTotal + "\u202f/\u202f" + locCap) : (locTotal > 0 ? locTotal + " units" : "");
+
+          var kpiHtml = "";
+          if (locTotal > 0 || locCap > 0) {
+            kpiHtml += '<div style="margin-top:7px;padding-top:7px;border-top:1px solid ' + clrBar + ';">';
+            if (locCap) {
+              kpiHtml += '<div style="font-size:10px;color:' + clrKpi + ';margin-bottom:3px;display:flex;justify-content:space-between;">'
+                       + '<span>' + locTotal + '\u202f/\u202f' + locCap + '</span>'
+                       + '<span>' + utilPct + '%</span>'
+                       + '</div>';
+              // Progress bar
+              kpiHtml += '<div style="height:4px;border-radius:2px;background:' + clrBar + ';overflow:hidden;margin-bottom:5px;">'
+                       + '<div style="height:100%;width:' + utilPct + '%;background:' + clrFill + ';border-radius:2px;"></div>'
+                       + '</div>';
+            } else if (locTotal > 0) {
+              kpiHtml += '<div style="font-size:10px;color:' + clrKpi + ';margin-bottom:5px;">' + locTotal + ' units</div>';
+            }
+            if (locSP > 0 || locIn > 0) {
+              kpiHtml += '<div style="font-size:10px;color:' + clrKpi + ';display:flex;gap:6px;justify-content:center;">';
+              if (locSP > 0)  kpiHtml += '<span>SP:' + locSP + '</span>';
+              if (locIn > 0)  kpiHtml += '<span>In:' + locIn + '</span>';
+              kpiHtml += '</div>';
+            }
+            kpiHtml += '</div>';
+          }
+
+          h += '<div data-action="pick-location" data-pc="' + esc(loc.pc) + '"'
+             + ' style="padding:12px 10px;background:' + bg + ';border-radius:10px;cursor:pointer;'
+             + 'text-align:center;border:1.5px solid ' + border + ';user-select:none;'
+             + 'transition:opacity 0.1s;">';
+          h += '<div style="font-size:16px;font-weight:700;color:' + clr1 + ';">' + esc(loc.pc) + check + '</div>';
+          h += '<div style="font-size:11px;color:' + clr2 + ';margin-top:3px;line-height:1.3;">'
+             + esc(loc.name) + (loc.state ? '<br>' + esc(loc.state) : "") + '</div>';
+          h += kpiHtml;
+          h += '</div>';
+        });
+
+        h += '</div></div>';
       });
 
-      h += '</div></div>';
+      h += '</div>';
+      return h;
     });
-
-    h += '</div>';
-    return Promise.resolve(h);
   }
 
   // ── Module Exports ──────────────────────────────────────────────
