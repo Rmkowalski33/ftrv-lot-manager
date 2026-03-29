@@ -10,6 +10,7 @@ var App = (function () {
   var _noteStockDebounce = null;
   var _reorgStockDebounce = null;
   var _initialized = false;   // prevents double-binding listeners on admin re-init
+  var _allocState = null;     // selected CORP unit for alloc-form
 
   // ── Data source URLs ────────────────────────────────────────────
   var JSON_URL_PROD = "data.json";
@@ -31,6 +32,8 @@ var App = (function () {
     "makes": "home", "make-detail": "home", "model-units": "home",
     "shop": "home", "shop-body": "home", "shop-layout": "home",
     "notes": "notes", "note-form": "notes",
+    "alloc-request": "notes", "alloc-form": "notes",
+    "order-request": "notes",
     "audit": "audit", "audit-status": "audit", "hierarchy": "audit", "hierarchy-detail": "audit",
     "activity": "activity", "sales-section": "activity", "sales-make": "activity", "sales-units": "activity",
     "incoming": "activity", "incoming-status": "activity", "incoming-make": "activity", "incoming-units": "activity",
@@ -228,6 +231,22 @@ var App = (function () {
       case "note-form":
         renderPromise = Views.noteFormView(param, param2);
         break;
+      case "alloc-request":
+        renderPromise = Views.allocRequestView();
+        break;
+      case "alloc-form":
+        renderPromise = Views.allocFormView(
+          (_allocState && _allocState.stock)  || param,
+          (_allocState && _allocState.year)   || param2,
+          (_allocState && _allocState.make)   || "",
+          (_allocState && _allocState.model)  || "",
+          (_allocState && _allocState.type)   || "",
+          (_allocState && _allocState.status) || "",
+          (_allocState && _allocState.msrp)   || "");
+        break;
+      case "order-request":
+        renderPromise = Views.orderRequestView();
+        break;
       case "audit":
         renderPromise = Views.auditTabView();
         break;
@@ -297,6 +316,8 @@ var App = (function () {
         if (view === "home") initSearch();
         if (view === "detail") loadDupes(param);
         if (view === "note-form") initNoteForm();
+        if (view === "alloc-form") initAllocForm();
+        if (view === "order-request") initOrderForm();
         if (view === "audit-status") initAuditFilters();
       }).catch(function () {
         container.innerHTML = html;
@@ -304,6 +325,8 @@ var App = (function () {
         if (view === "home") initSearch();
         if (view === "detail") loadDupes(param);
         if (view === "note-form") initNoteForm();
+        if (view === "alloc-form") initAllocForm();
+        if (view === "order-request") initOrderForm();
         if (view === "audit-status") initAuditFilters();
       });
     });
@@ -403,6 +426,22 @@ var App = (function () {
           });
         });
         }); // close isDupe check
+      } else if (action === "alloc-select") {
+        // User taps a CORP pool unit — store state then navigate to the request form
+        _allocState = {
+          stock:  card.getAttribute("data-stock")  || "",
+          year:   card.getAttribute("data-year")   || "",
+          make:   card.getAttribute("data-make")   || "",
+          model:  card.getAttribute("data-model")  || "",
+          type:   card.getAttribute("data-type")   || "",
+          status: card.getAttribute("data-status") || "",
+          msrp:   card.getAttribute("data-msrp")   || "",
+        };
+        navigate("alloc-form", _allocState.stock, _allocState.year);
+      } else if (action === "goto-alloc-request") {
+        navigate("alloc-request");
+      } else if (action === "goto-order-request") {
+        navigate("order-request");
       } else if (action === "goto-zone-map") {
         navigate("zone-map-view");
       } else if (action === "goto-picker") {
@@ -967,6 +1006,60 @@ var App = (function () {
     if (wrap) {
       wrap.style.display = (val === "No" || val === "Not Found") ? "block" : "none";
     }
+  }
+
+  // ── Allocation Request Form ────────────────────────────────────
+  function initAllocForm() {
+    var form = document.getElementById("allocForm");
+    if (!form) return;
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var btn = form.querySelector("button[type=submit]");
+      if (btn) { btn.disabled = true; btn.textContent = "Submitting..."; }
+      var data = { key: localStorage.getItem("ftrv_access_code") || "" };
+      var inputs = form.querySelectorAll("input,select,textarea");
+      for (var i = 0; i < inputs.length; i++) {
+        if (inputs[i].name) data[inputs[i].name] = inputs[i].value;
+      }
+      if (data.user) { try { localStorage.setItem("ftrv_note_user", data.user); } catch(e2) {} }
+      data.action = "submit_field_note";
+      data.entry_type = "alloc_request";
+      data.location = Gate.getLocation().location || "";
+      Sync.submitNote(data).then(function (ok) {
+        if (btn) {
+          btn.textContent = ok ? "Request Submitted!" : "Queued — will retry";
+          btn.style.background = ok ? "var(--green)" : "var(--warning, #f59e0b)";
+        }
+        setTimeout(function () { navigate("notes"); }, 1800);
+      });
+    });
+  }
+
+  // ── Order Request Form ─────────────────────────────────────────
+  function initOrderForm() {
+    var form = document.getElementById("orderForm");
+    if (!form) return;
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var btn = form.querySelector("button[type=submit]");
+      if (btn) { btn.disabled = true; btn.textContent = "Submitting..."; }
+      var data = { key: localStorage.getItem("ftrv_access_code") || "" };
+      var inputs = form.querySelectorAll("input,select,textarea");
+      for (var i = 0; i < inputs.length; i++) {
+        if (inputs[i].name) data[inputs[i].name] = inputs[i].value;
+      }
+      if (data.user) { try { localStorage.setItem("ftrv_note_user", data.user); } catch(e2) {} }
+      data.action = "submit_field_note";
+      data.entry_type = "order_request";
+      data.location = Gate.getLocation().location || "";
+      Sync.submitNote(data).then(function (ok) {
+        if (btn) {
+          btn.textContent = ok ? "Request Submitted!" : "Queued — will retry";
+          btn.style.background = ok ? "var(--green)" : "var(--warning, #f59e0b)";
+        }
+        setTimeout(function () { navigate("notes"); }, 1800);
+      });
+    });
   }
 
   // ── Audit filter chips ─────────────────────────────────────────

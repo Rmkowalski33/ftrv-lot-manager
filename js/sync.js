@@ -99,6 +99,9 @@ var Sync = (function () {
             DB.setMeta("exported_at", data.exported_at || ""),
             DB.setMeta("retail_sold_today", soldList),
             DB.setMeta("location_summary", data.location_summary || {}),
+            DB.setMeta("corp_pool", data.corp_pool || []),
+            DB.setMeta("on_order", data.on_order || []),
+            DB.setMeta("licensing", data.licensing || {}),
           ]).then(function () {
             if (!silent) {
               showSyncBar(count + " units synced");

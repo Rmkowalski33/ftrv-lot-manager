@@ -2005,6 +2005,18 @@ var Views = (function () {
         // New note type cards
         h += '<div class="section-header">New Field Note</div>';
 
+        // Allocation + Order request shortcuts
+        h += '<div style="display:flex;gap:8px;margin-bottom:12px;">';
+        h += '<div class="note-type-card" data-action="goto-alloc-request" style="flex:1;border-left:3px solid var(--blue);">'
+          + '<div class="note-type-icon" style="background:var(--blue-dim);color:var(--blue);"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg></div>'
+          + '<div><div class="note-type-label">Corp Allocation</div>'
+          + '<div class="note-type-desc">Request a CORP unit for your lot</div></div></div>';
+        h += '<div class="note-type-card" data-action="goto-order-request" style="flex:1;border-left:3px solid var(--purple);">'
+          + '<div class="note-type-icon" style="background:#f0eaff;color:var(--purple);"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12l7-7 7 7"/><path d="M3 19h18"/></svg></div>'
+          + '<div><div class="note-type-label">Order Request</div>'
+          + '<div class="note-type-desc">Request new models to be ordered</div></div></div>';
+        h += '</div>';
+
         h += '<div class="note-type-card" data-action="note-form" data-type="verify" style="border-left:3px solid var(--green);">'
           + '<div class="note-type-icon" style="background:var(--green-dim);color:var(--green);"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg></div>'
           + '<div><div class="note-type-label">Verify Location</div>'
@@ -3616,6 +3628,285 @@ var Views = (function () {
 
 
   // ══════════════════════════════════════════════════════════════════
+  // ALLOCATION REQUEST — Request a CORP pool unit for your location
+  // ══════════════════════════════════════════════════════════════════
+
+  function allocRequestView() {
+    var loc = Gate.getLocation();
+    var locCode = (loc.location || "").toUpperCase();
+
+    return Promise.all([
+      DB.getMeta("corp_pool"),
+      DB.getMeta("licensing"),
+    ]).then(function (res) {
+      var pool      = res[0] || [];
+      var licensing = res[1] || {};
+      var myBrands  = (licensing[locCode] || []).map(function (b) { return b.toUpperCase(); });
+
+      var h = '<div class="view">' + backBtn("notes", "Requests");
+      h += '<div class="section-header">Request CORP Unit Allocation</div>';
+      h += '<div style="font-size:18px;color:var(--text-2);margin:-4px 0 12px;">Select a unit from the CORP pool to request for ' + esc(loc.name || locCode) + '. Your request goes to the lot management sheet for corporate review.</div>';
+
+      // Filter pool by location's licensed brands (prefix match, case-insensitive)
+      function isLicensed(make) {
+        var m = (make || "").toUpperCase();
+        return myBrands.length === 0 || myBrands.some(function (b) {
+          return m === b || m.indexOf(b) === 0;
+        });
+      }
+
+      var filtered = pool.filter(function (u) { return isLicensed(u.make); });
+
+      if (filtered.length === 0) {
+        h += '<div class="card" style="text-align:center;padding:32px;color:var(--text-3);">'
+          + '<div style="font-size:32px;margin-bottom:8px;">📦</div>'
+          + '<div style="font-size:20px;">No CORP pool units available for licensed brands at ' + esc(loc.name || locCode) + '.</div>'
+          + '</div>';
+        h += '</div>';
+        return h;
+      }
+
+      // Group by make
+      var byMake = {};
+      for (var i = 0; i < filtered.length; i++) {
+        var u = filtered[i];
+        var mk = u.make || "Unknown";
+        if (!byMake[mk]) byMake[mk] = [];
+        byMake[mk].push(u);
+      }
+      var makes = Object.keys(byMake).sort();
+
+      h += '<div style="font-size:14px;color:var(--text-3);margin-bottom:12px;">'
+        + filtered.length + ' units available · ' + makes.length + ' brands</div>';
+
+      for (var mi = 0; mi < makes.length; mi++) {
+        var mk = makes[mi];
+        var units = byMake[mk];
+        h += '<div class="section-header" style="margin-top:12px;">' + esc(mk)
+          + ' <span style="font-weight:400;color:var(--text-3);">(' + units.length + ')</span></div>';
+        for (var ui = 0; ui < units.length; ui++) {
+          var u = units[ui];
+          var statusColor = u.status && u.status.toUpperCase().indexOf("ORDERED") >= 0 ? "var(--blue)"
+            : u.status && u.status.toUpperCase().indexOf("SHIPPED") >= 0 ? "var(--purple)"
+            : "var(--green)";
+          h += '<div class="card card-interactive" data-action="alloc-select"'
+            + ' data-stock="' + esc(u.stock) + '"'
+            + ' data-year="' + esc(u.year) + '"'
+            + ' data-make="' + esc(u.make) + '"'
+            + ' data-model="' + esc(u.model) + '"'
+            + ' data-type="' + esc(u.type) + '"'
+            + ' data-status="' + esc(u.status) + '"'
+            + ' data-lot="' + esc(u.lot) + '"'
+            + ' data-msrp="' + (u.msrp || "") + '"'
+            + ' style="padding:12px;">';
+          h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;">';
+          h += '<div>';
+          h += '<div style="font-size:20px;font-weight:800;">'
+            + esc(u.year) + ' ' + esc(u.make) + ' ' + esc(u.model) + '</div>';
+          h += '<div style="font-size:14px;color:var(--text-3);margin-top:2px;">'
+            + 'Stk# ' + esc(u.stock)
+            + (u.type ? ' · ' + esc(u.type) : '')
+            + (u.lot  ? ' · ' + esc(u.lot)  : '')
+            + '</div>';
+          h += '</div>';
+          h += '<div style="text-align:right;">';
+          if (u.msrp) h += '<div style="font-size:16px;font-weight:700;color:var(--text-1);">$' + Number(u.msrp).toLocaleString() + '</div>';
+          h += '<div style="font-size:12px;color:' + statusColor + ';font-weight:600;margin-top:2px;">' + esc(u.status) + '</div>';
+          if (u.days != null) h += '<div style="font-size:11px;color:var(--text-3);">' + u.days + 'd</div>';
+          h += '</div></div></div>';
+        }
+      }
+
+      h += '</div>';
+      return h;
+    });
+  }
+
+  function allocFormView(stock, year, make, model, type, status, msrp) {
+    var loc = Gate.getLocation();
+    var h = '<div class="view">' + backBtn("alloc-request", "Corp Pool");
+    h += '<div class="card"><div class="card-title">Request Unit Allocation</div>';
+    h += '<form id="allocForm">';
+    h += renderUserField();
+
+    h += '<div style="background:var(--surface-2);border-radius:8px;padding:12px;margin-bottom:12px;">';
+    h += '<div style="font-size:20px;font-weight:800;">' + esc(year) + ' ' + esc(make) + ' ' + esc(model) + '</div>';
+    h += '<div style="font-size:14px;color:var(--text-3);margin-top:4px;">'
+      + 'Stk# ' + esc(stock)
+      + (type  ? ' · ' + esc(type)   : '')
+      + (status ? ' · ' + esc(status) : '')
+      + (msrp   ? ' · $' + Number(msrp).toLocaleString() : '')
+      + '</div></div>';
+
+    h += '<input type="hidden" name="stock" value="' + esc(stock) + '">';
+    h += '<input type="hidden" name="year" value="' + esc(year) + '">';
+    h += '<input type="hidden" name="make" value="' + esc(make) + '">';
+    h += '<input type="hidden" name="model" value="' + esc(model) + '">';
+    h += '<input type="hidden" name="veh_type" value="' + esc(type) + '">';
+    h += '<input type="hidden" name="msrp" value="' + esc(msrp) + '">';
+
+    h += '<label class="form-label">Reason for Request</label>';
+    h += '<select class="form-select" name="reason" required>'
+      + '<option value="">Select reason...</option>'
+      + '<option>Display Floor Need</option>'
+      + '<option>Customer Interest</option>'
+      + '<option>Replenish Sold Unit</option>'
+      + '<option>Increase Brand Depth</option>'
+      + '<option>Seasonal Demand</option>'
+      + '<option>Other</option>'
+      + '</select>';
+
+    h += '<label class="form-label">Priority</label>';
+    h += '<div class="form-radio-group">'
+      + '<label class="form-radio" onclick="App.selectRadio(this)"><input type="radio" name="priority" value="High" required><span style="color:var(--red);font-weight:600;">High — Urgent</span></label>'
+      + '<label class="form-radio" onclick="App.selectRadio(this)"><input type="radio" name="priority" value="Normal"><span>Normal</span></label>'
+      + '<label class="form-radio" onclick="App.selectRadio(this)"><input type="radio" name="priority" value="Low"><span style="color:var(--text-3);">Low — When Available</span></label>'
+      + '</div>';
+
+    h += '<label class="form-label">Notes <span style="font-weight:400;color:var(--text-3);">(optional)</span></label>';
+    h += '<textarea class="form-textarea" name="notes" placeholder="Customer name, deal in progress, display spot available..."></textarea>';
+
+    h += '<button class="btn btn-blue mt-8" type="submit">Submit Allocation Request</button>';
+    h += '</form></div></div>';
+    return Promise.resolve(h);
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // ORDER REQUEST — Request new model orders from manufacturer
+  // ══════════════════════════════════════════════════════════════════
+
+  function orderRequestView() {
+    var loc = Gate.getLocation();
+    var locCode = (loc.location || "").toUpperCase();
+
+    return Promise.all([
+      DB.getMeta("on_order"),
+      DB.getMeta("licensing"),
+    ]).then(function (res) {
+      var onOrder   = res[0] || [];
+      var licensing = res[1] || {};
+      var myBrands  = (licensing[locCode] || []).map(function (b) { return b.toUpperCase(); });
+
+      function isLicensed(div) {
+        var d = (div || "").toUpperCase();
+        return myBrands.length === 0 || myBrands.some(function (b) {
+          return d === b || d.indexOf(b) === 0 || d.indexOf(b + "/") === 0;
+        });
+      }
+
+      var filtered = onOrder.filter(function (u) { return isLicensed(u.div); });
+
+      var h = '<div class="view">' + backBtn("notes", "Requests");
+
+      // ── On-Order Reference ──
+      h += '<div class="section-header">What\'s Already On Order (CORP)</div>';
+      h += '<div style="font-size:16px;color:var(--text-2);margin:-4px 0 12px;">Units currently in the CORP pipeline for brands licensed at '
+        + esc(loc.name || locCode) + '. Use this as a reference before requesting new orders.</div>';
+
+      if (filtered.length === 0) {
+        h += '<div class="card" style="padding:16px;color:var(--text-3);font-size:18px;">No on-order data for licensed brands.</div>';
+      } else {
+        // Group by division → model, count
+        var byDiv = {};
+        for (var i = 0; i < filtered.length; i++) {
+          var u = filtered[i];
+          var d = u.div || "Unknown";
+          if (!byDiv[d]) byDiv[d] = {};
+          var mk = u.model || "Unknown";
+          if (!byDiv[d][mk]) byDiv[d][mk] = { count: 0, year: u.year, type: u.type, msrp: u.msrp, statuses: {} };
+          byDiv[d][mk].count++;
+          byDiv[d][mk].statuses[u.status || "Unknown"] = (byDiv[d][mk].statuses[u.status || "Unknown"] || 0) + 1;
+        }
+        var divs = Object.keys(byDiv).sort();
+
+        h += '<div style="font-size:14px;color:var(--text-3);margin-bottom:8px;">'
+          + filtered.length + ' units on order · ' + divs.length + ' brands</div>';
+
+        for (var di = 0; di < divs.length; di++) {
+          var div = divs[di];
+          var models = Object.keys(byDiv[div]).sort();
+          var divTotal = models.reduce(function(s, m) { return s + byDiv[div][m].count; }, 0);
+          h += '<div style="background:var(--surface-2);border-radius:8px;margin-bottom:8px;overflow:hidden;">';
+          h += '<div style="padding:10px 12px;background:var(--surface-3);font-weight:700;font-size:17px;display:flex;justify-content:space-between;">'
+            + '<span>' + esc(div) + '</span>'
+            + '<span style="color:var(--text-3);font-weight:400;font-size:14px;">' + divTotal + ' units</span>'
+            + '</div>';
+          for (var mj = 0; mj < models.length; mj++) {
+            var mname = models[mj];
+            var info = byDiv[div][mname];
+            var statStr = Object.keys(info.statuses).map(function(s) {
+              return info.statuses[s] + ' ' + s;
+            }).join(', ');
+            h += '<div style="padding:8px 12px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">';
+            h += '<div>';
+            h += '<div style="font-size:16px;font-weight:600;">' + esc(mname) + '</div>';
+            h += '<div style="font-size:13px;color:var(--text-3);">' + esc(statStr) + '</div>';
+            h += '</div>';
+            h += '<div style="font-size:22px;font-weight:800;color:var(--blue);">' + info.count + '</div>';
+            h += '</div>';
+          }
+          h += '</div>';
+        }
+      }
+
+      // ── Request Form ──
+      h += '<div class="section-header" style="margin-top:20px;">New Order Request</div>';
+      h += '<div class="card"><form id="orderForm">';
+      h += renderUserField();
+
+      // Brand dropdown from licensed brands
+      h += '<label class="form-label">Brand / Manufacturer</label>';
+      h += '<select class="form-select" name="make" required>'
+        + '<option value="">Select brand...</option>';
+      var sortedBrands = (licensing[locCode] || []).slice().sort();
+      for (var bi = 0; bi < sortedBrands.length; bi++) {
+        h += '<option value="' + esc(sortedBrands[bi]) + '">' + esc(sortedBrands[bi]) + '</option>';
+      }
+      h += '</select>';
+
+      h += '<label class="form-label">Model / Series</label>';
+      h += '<input class="form-input" type="text" name="model" placeholder="e.g. Forest River Rockwood 2516, Cougar 32BHSWE..." required autocapitalize="words">';
+
+      h += '<label class="form-label">Year</label>';
+      h += '<input class="form-input" type="text" name="year" placeholder="e.g. 2026" inputmode="numeric" maxlength="4">';
+
+      h += '<label class="form-label">Vehicle Type</label>';
+      h += '<select class="form-select" name="veh_type">'
+        + '<option value="">Select type...</option>'
+        + '<option>Travel Trailer</option>'
+        + '<option>Fifth Wheel</option>'
+        + '<option>Class A</option>'
+        + '<option>Class B</option>'
+        + '<option>Class C</option>'
+        + '<option>Toy Hauler - TT</option>'
+        + '<option>Toy Hauler - FW</option>'
+        + '<option>Destination Trailer</option>'
+        + '<option>Park Model</option>'
+        + '</select>';
+
+      h += '<label class="form-label">Quantity Requested</label>';
+      h += '<input class="form-input" type="number" name="qty" min="1" max="50" value="1" required inputmode="numeric">';
+
+      h += '<label class="form-label">Justification</label>';
+      h += '<textarea class="form-textarea" name="description" required placeholder="Why do you need this model? Customer demand, display gap, competitive pressure..."></textarea>';
+
+      h += '<label class="form-label">Priority</label>';
+      h += '<div class="form-radio-group">'
+        + '<label class="form-radio" onclick="App.selectRadio(this)"><input type="radio" name="priority" value="High" required><span style="color:var(--red);font-weight:600;">High</span></label>'
+        + '<label class="form-radio" onclick="App.selectRadio(this)"><input type="radio" name="priority" value="Normal"><span>Normal</span></label>'
+        + '<label class="form-radio" onclick="App.selectRadio(this)"><input type="radio" name="priority" value="Low"><span style="color:var(--text-3);">Low</span></label>'
+        + '</div>';
+
+      h += '<label class="form-label">Notes <span style="font-weight:400;color:var(--text-3);">(optional)</span></label>';
+      h += '<textarea class="form-textarea" name="notes" placeholder="Floor plan preferences, pricing targets, customer names..."></textarea>';
+
+      h += '<button class="btn btn-blue mt-8" type="submit">Submit Order Request</button>';
+      h += '</form></div></div>';
+      return h;
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════════════
   // HELP / FAQ
   // ══════════════════════════════════════════════════════════════════
 
@@ -4274,6 +4565,9 @@ var Views = (function () {
     hierarchyDetailView: hierarchyDetailView,
     notesView: notesView,
     noteFormView: noteFormView,
+    allocRequestView: allocRequestView,
+    allocFormView: allocFormView,
+    orderRequestView: orderRequestView,
     auditTabView: auditTabView,
     auditStatusView: auditStatusView,
     activityView: activityView,
