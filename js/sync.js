@@ -86,13 +86,18 @@ var Sync = (function () {
           unitList.push(u);
         }
 
+        // Apply the same location filter to retail sold records
+        var soldList = (data.retail_sold_today || []).filter(function (s) {
+          return _matchesFilter(s, filter);
+        });
+
         return DB.putUnits(unitList).then(function (count) {
           var ts = data.exported_at || new Date().toISOString();
           return Promise.all([
             DB.setMeta("last_sync", ts),
             DB.setMeta("unit_count", count),
             DB.setMeta("exported_at", data.exported_at || ""),
-            DB.setMeta("retail_sold_today", data.retail_sold_today || []),
+            DB.setMeta("retail_sold_today", soldList),
           ]).then(function () {
             if (!silent) {
               showSyncBar(count + " units synced");

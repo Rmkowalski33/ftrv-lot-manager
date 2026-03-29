@@ -2898,11 +2898,46 @@ var Views = (function () {
         + '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Customer orders placed today</div></div>'
         + '<span class="stat-val" style="font-size:28px;color:#a855f7;">' + roToday.length + '</span></a>';
 
-      // Retail Sold tile
-      h += '<a class="card card-interactive" href="#sales-section/sold/ALL" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;">'
+      // Retail Sold tile — expanded with make/condition breakdown + revenue
+      var soldNew = 0, soldUsed = 0, soldRevenue = 0;
+      var soldMakes = {};
+      for (var si = 0; si < soldToday.length; si++) {
+        var sv = soldToday[si];
+        if ((sv.condition || "").toUpperCase() === "USED") soldUsed++; else soldNew++;
+        if (sv.deal_selling_price) soldRevenue += (sv.deal_selling_price || 0);
+        var mk = sv.make || sv.manufacturer || "Unknown";
+        soldMakes[mk] = (soldMakes[mk] || 0) + 1;
+      }
+      var topMakes = Object.keys(soldMakes).sort(function(a,b){ return soldMakes[b]-soldMakes[a]; }).slice(0,3);
+      h += '<div class="card" style="padding:14px 16px;">';
+      h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">'
         + '<div><div style="font-size:18px;font-weight:600;">Retail Sold Today</div>'
-        + '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Deals closed today</div></div>'
-        + '<span class="stat-val" style="font-size:28px;color:var(--green);">' + soldToday.length + '</span></a>';
+        + '<div style="font-size:13px;color:var(--text-3);margin-top:2px;">Deals closed today</div></div>'
+        + '<a href="#sales-section/sold/ALL" style="font-size:24px;font-weight:800;color:var(--green);text-decoration:none;">' + soldToday.length + '</a>'
+        + '</div>';
+      if (soldToday.length > 0) {
+        // New / Used split
+        h += '<div style="display:flex;gap:8px;margin-bottom:8px;">';
+        h += '<div style="flex:1;background:var(--surface-2);border-radius:6px;padding:8px;text-align:center;">'
+          + '<div style="font-size:18px;font-weight:700;color:var(--blue);">' + soldNew + '</div>'
+          + '<div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px;">New</div></div>';
+        h += '<div style="flex:1;background:var(--surface-2);border-radius:6px;padding:8px;text-align:center;">'
+          + '<div style="font-size:18px;font-weight:700;color:var(--copper);">' + soldUsed + '</div>'
+          + '<div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px;">Used</div></div>';
+        if (soldRevenue > 0) {
+          h += '<div style="flex:1.5;background:var(--surface-2);border-radius:6px;padding:8px;text-align:center;">'
+            + '<div style="font-size:16px;font-weight:700;color:var(--green);">$' + (soldRevenue >= 1000000 ? (soldRevenue/1000000).toFixed(1)+'M' : soldRevenue >= 1000 ? Math.round(soldRevenue/1000)+'K' : soldRevenue) + '</div>'
+            + '<div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px;">Revenue</div></div>';
+        }
+        h += '</div>';
+        // Top makes
+        if (topMakes.length > 0) {
+          h += '<div style="font-size:11px;color:var(--text-3);">';
+          h += topMakes.map(function(m){ return esc(m) + ' <strong style="color:var(--text-2);">' + soldMakes[m] + '</strong>'; }).join('&ensp;&middot;&ensp;');
+          h += '</div>';
+        }
+      }
+      h += '</div>';
 
       // (Sold Not Delivered removed — redundant with Sale Pending)
 
