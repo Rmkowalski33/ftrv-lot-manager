@@ -277,13 +277,4 @@
     "zone": "WEST US",
     "filter": { "field": "pc", "values": ["SUR"] }
   },
-
-  "FTRV-ELK-2026": {
-    "type": "internal",
-    "name": "Excellence Ctr",
-    "location": "ELK",
-    "state": "TX",
-    "zone": "OTHER",
-    "filter": { "field": "pc", "values": ["ELK"] }
-  }
 }
