@@ -4070,7 +4070,7 @@ var Views = (function () {
     });
 
     // Group by zone in display order
-    var ZONE_ORDER = ["TX-NCENTRAL", "TX-NE", "TX-SOUTH", "TX-W/WEST US", "CENTRAL US", "EAST US", "OTHER"];
+    var ZONE_ORDER = ["CLE & SERVICE", "TX-CENTRAL/EAST", "TX-N/NORTHWEST", "OK/AR", "TX-SOUTH/FL", "MIDWEST US", "WEST US", "OTHER"];
     var byZone = {};
     locations.forEach(function (loc) {
       var z = loc.zone || "OTHER";
