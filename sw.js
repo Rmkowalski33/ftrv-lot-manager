@@ -4,7 +4,7 @@
    by IndexedDB (see db.js), not the SW cache.
    ================================================================ */
 
-var CACHE_NAME = "ftrv-lot-v85";
+var CACHE_NAME = "ftrv-lot-v86";
 var APP_SHELL = [
   "./",
   "./index.html",
@@ -20,6 +20,36 @@ var APP_SHELL = [
   "./img/lot-map-p2.jpg",
   "./img/zone-map.jpg",
   "./img/zone-table.jpg",
+  // Per-location lot maps
+  "./img/lot-map-AMA.jpg",
+  "./img/lot-map-ANNA.jpg",
+  "./img/lot-map-ANG.jpg",
+  "./img/lot-map-BRY.jpg",
+  "./img/lot-map-CANA.jpg",
+  "./img/lot-map-CIB.jpg",
+  "./img/lot-map-CLE.jpg",
+  "./img/lot-map-DEN.jpg",
+  "./img/lot-map-FCFR.jpg",
+  "./img/lot-map-FAR.jpg",
+  "./img/lot-map-GID.jpg",
+  "./img/lot-map-GRND.jpg",
+  "./img/lot-map-HOU.jpg",
+  "./img/lot-map-INDY.jpg",
+  "./img/lot-map-JACK.jpg",
+  "./img/lot-map-KCMO.jpg",
+  "./img/lot-map-LAS.jpg",
+  "./img/lot-map-LRK.jpg",
+  "./img/lot-map-NAT.jpg",
+  "./img/lot-map-OKC.jpg",
+  "./img/lot-map-ORA.jpg",
+  "./img/lot-map-OTT.jpg",
+  "./img/lot-map-ROC.jpg",
+  "./img/lot-map-SUR.jpg",
+  "./img/lot-map-TAR.jpg",
+  "./img/lot-map-TYL.jpg",
+  "./img/lot-map-WAC.jpg",
+  "./img/lot-map-WALL.jpg",
+  "./img/lot-map-WIN.jpg",
 ];
 
 // Install — cache the app shell

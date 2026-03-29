@@ -12,6 +12,16 @@ var Views = (function () {
       .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
 
+  // Strip location prefix generically: "AMA-DSP01" → "DSP01", "CLE-DISP01" → "DISP01"
+  // Also normalises legacy CLE "DSP" → "DISP" inconsistency
+  function stripLotPrefix(raw) {
+    if (!raw) return "";
+    var upper = raw.toUpperCase().trim();
+    var dash = upper.indexOf("-");
+    var stripped = dash > 0 ? upper.substring(dash + 1) : upper;
+    return stripped.replace(/^DSP(\d)/, "DISP$1");
+  }
+
   // ── Status Categories ────────────────────────────────────────
   // From Lot Management Meeting — 4 categories (matches build_cle_lot_report.py)
   var STATUS_CATS = [
@@ -1019,146 +1029,120 @@ var Views = (function () {
 
   function lotsView() {
     return DB.getAllUnits().then(function (units) {
-      // Build dynamic zone labels from actual inventory
-      getZoneInfo(units);
+      var loc = Gate.getLocation();
+      var locName = loc.name || loc.location || "";
 
-      var areas = {};
-      for (var i = 0; i < units.length; i++) {
-        var a = units[i].lot_area || "UNASSIGNED";
-        if (!areas[a]) areas[a] = [];
-        areas[a].push(units[i]);
+      // Alpha prefix of a stripped code: "DISP01" → "DISP", "SHR01A" → "SHR"
+      function codeType(stripped) {
+        var m = stripped.match(/^([A-Z]+)/);
+        return m ? m[1] : stripped;
       }
 
-      // Pre-compute primary vehicle type per zone code
-      var _allZoneCodes = ["SHR01","SHR02","SHR03","DISP01","DISP02","DISP03","DISP04","DISP05","DISP06","DISP07","DISP08","DISP10","DISP11","OVR01","OVR02","OVR03","OVRB"];
-      var zoneVtCounts = {};
-      var globalVtCounts = {};
+      var TYPE_LABELS = {
+        "DISP": "Display", "DSP": "Display",
+        "SHR": "Showroom", "OVR": "Overflow",
+        "SVC": "Service Parking", "PDI": "PDI Bays",
+        "QAC": "QA / Check", "WLK": "Walk-Through",
+        "XFR": "Transfer / Receiving", "RCL": "Recall / Hold",
+        "SLP": "Slips", "HIT": "Hitches",
+        "TCI": "Trade Check-In", "WSH": "Wash",
+        "MGR": "Manager", "RVP": "RV Park", "FIN": "Finance",
+      };
+      var TYPE_ORDER = ["DISP","DSP","SHR","OVR","SVC","PDI","QAC","WLK","XFR","TCI","RCL","SLP","WSH","HIT","MGR","RVP","FIN"];
+
+      // Build stripped code → units + veh_type counts maps
+      var byCode = {}, vtByCode = {}, noLoc = [];
       for (var i = 0; i < units.length; i++) {
-        var uLot = (units[i].lot_location || "").toUpperCase().replace("CLE-", "");
-        var uVt = (units[i].veh_type || "Other").toUpperCase();
-        globalVtCounts[uVt] = (globalVtCounts[uVt] || 0) + 1;
-        for (var zi = 0; zi < _allZoneCodes.length; zi++) {
-          if (uLot.indexOf(_allZoneCodes[zi]) === 0) {
-            if (!zoneVtCounts[_allZoneCodes[zi]]) zoneVtCounts[_allZoneCodes[zi]] = {};
-            zoneVtCounts[_allZoneCodes[zi]][uVt] = (zoneVtCounts[_allZoneCodes[zi]][uVt] || 0) + 1;
-            break;
-          }
-        }
+        var u = units[i];
+        var raw = (u.lot_location || "").trim();
+        if (!raw) { noLoc.push(u); continue; }
+        var stripped = stripLotPrefix(raw);
+        if (!stripped) { noLoc.push(u); continue; }
+        if (!byCode[stripped]) { byCode[stripped] = []; vtByCode[stripped] = {}; }
+        byCode[stripped].push(u);
+        var vt = u.veh_type || "Other";
+        vtByCode[stripped][vt] = (vtByCode[stripped][vt] || 0) + 1;
       }
-      function zonePrimaryVt(code) {
-        var vc = zoneVtCounts[code];
+
+      // Dominant vehicle type label for a code
+      function dominantVt(stripped) {
+        var vc = vtByCode[stripped];
         if (!vc) return "";
         var best = "", bestN = 0;
         for (var k in vc) { if (vc[k] > bestN) { best = k; bestN = vc[k]; } }
         return best;
       }
-      function zoneHasVt(code, vt) {
-        var vc = zoneVtCounts[code];
-        return vc && vc[vt] > 0;
-      }
+
+      // Group codes by type, sort within type numerically
+      var byType = {};
+      Object.keys(byCode).forEach(function (code) {
+        var type = codeType(code);
+        if (!byType[type]) byType[type] = [];
+        byType[type].push(code);
+      });
+      Object.keys(byType).forEach(function (type) {
+        byType[type].sort(function (a, b) {
+          var na = parseInt(a.replace(/\D/g, "") || "0");
+          var nb = parseInt(b.replace(/\D/g, "") || "0");
+          return na - nb || a.localeCompare(b);
+        });
+      });
+
+      var allTypes = Object.keys(byType);
+      allTypes.sort(function (a, b) {
+        var ai = TYPE_ORDER.indexOf(a), bi = TYPE_ORDER.indexOf(b);
+        if (ai < 0) ai = 99; if (bi < 0) bi = 99;
+        return ai - bi || a.localeCompare(b);
+      });
 
       var h = '<div class="view">';
 
-      // View All tile
+      // View All
       h += '<a class="card card-interactive" href="#area-detail/ALL" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:#1a1a2e;">'
-        + '<div style="font-size:16px;font-weight:700;">View All Inventory</div>'
-        + '<span style="font-size:22px;font-weight:800;color:var(--blue);">' + units.length + '</span></a>';
+         + '<div style="font-size:16px;font-weight:700;">View All Inventory</div>'
+         + '<span style="font-size:22px;font-weight:800;color:var(--blue);">' + units.length + '</span></a>';
 
-      // Lot Map quick-access
+      // Lot Map quick-access (location-specific)
       h += '<a href="#lot-map" style="display:flex;align-items:center;gap:10px;padding:12px 16px;margin-bottom:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);text-decoration:none;color:#1a1a2e;">'
-        + '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="var(--copper)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>'
-        + '<div><div style="font-size:16px;font-weight:600;">CLE Lot Map</div>'
-        + '<div style="font-size:12px;color:var(--text-3);">View full lot layout</div></div></a>';
+         + '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="var(--copper)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>'
+         + '<div><div style="font-size:16px;font-weight:600;">' + esc(locName) + ' Lot Map</div>'
+         + '<div style="font-size:12px;color:var(--text-3);">View full lot layout</div></div></a>';
 
-      // Type filter dropdown
-      var vtKeys = Object.keys(globalVtCounts).sort();
-      if (vtKeys.length > 1) {
-        h += '<select id="lotTypeFilter" class="form-select" style="margin-bottom:12px;" onchange="App.filterLotCells(this.value)">'
-          + '<option value="ALL">All Types (' + units.length + ')</option>';
-        for (var vi = 0; vi < vtKeys.length; vi++) {
-          h += '<option value="' + esc(vtKeys[vi]) + '">' + esc(vtKeys[vi]) + ' (' + globalVtCounts[vtKeys[vi]] + ')</option>';
-        }
-        h += '</select>';
+      // Dynamic lot sections built from data
+      if (allTypes.length === 0) {
+        h += '<div class="card" style="text-align:center;color:var(--text-3);padding:32px 16px;">'
+           + 'No lot location data available for ' + esc(locName) + '.<br>'
+           + '<span style="font-size:12px;">Sync will populate this once pipeline data arrives.</span>'
+           + '</div>';
+      } else {
+        allTypes.forEach(function (type) {
+          var codes = byType[type];
+          var label = TYPE_LABELS[type] || type;
+          h += '<div class="section-header">' + esc(label) + '</div>';
+          h += '<div class="lot-grid">';
+          codes.forEach(function (code) {
+            var count = byCode[code].length;
+            var dvt = dominantVt(code);
+            h += '<div class="lot-cell" data-action="zone-detail" data-zone="' + esc(code) + '">'
+               + '<div class="lot-cell-code">' + esc(code) + '</div>'
+               + '<div class="lot-cell-count">' + count + '</div>'
+               + (dvt ? '<div class="lot-cell-desc">' + esc(dvt) + '</div>' : '')
+               + '</div>';
+          });
+          h += '</div>';
+        });
       }
 
-      // Showroom grid
-      h += '<div class="section-header">Showrooms</div>';
-      h += '<div class="lot-grid">';
-      var showroomCodes = ["SHR01","SHR02","SHR03"];
-      for (var si = 0; si < showroomCodes.length; si++) {
-        var scode = showroomCodes[si];
-        var scount = 0;
-        for (var j = 0; j < units.length; j++) {
-          var slot = (units[j].lot_location || "").toUpperCase().replace("CLE-", "");
-          if (slot.indexOf(scode) === 0) scount++;
-        }
-        var sVts = zoneVtCounts[scode] ? Object.keys(zoneVtCounts[scode]).join(",") : "";
-        h += '<div class="lot-cell lot-cell-filterable" data-action="zone-detail" data-zone="' + scode + '" data-primary-vt="' + zonePrimaryVt(scode) + '" data-vt-list="' + esc(sVts) + '">'
-          + '<div class="lot-cell-code">' + scode + '</div>'
-          + '<div class="lot-cell-count">' + scount + '</div>'
-          + '<div class="lot-cell-desc">' + esc((ZONE_INFO[scode] || "").split(" — ")[1] || "") + '</div>'
-          + '</div>';
-      }
-      h += '</div>';
-
-      // Display zone grid
-      h += '<div class="section-header">Display Zones</div>';
-      h += '<div class="lot-grid">';
-      var displayCodes = ["DISP01","DISP02","DISP03","DISP04","DISP05","DISP06","DISP07","DISP08","DISP10","DISP11"];
-      for (var di = 0; di < displayCodes.length; di++) {
-        var code = displayCodes[di];
-        var count = 0;
-        for (var j = 0; j < units.length; j++) {
-          var lot = (units[j].lot_location || "").toUpperCase().replace("CLE-", "");
-          if (lot.indexOf(code) === 0) count++;
-        }
-        var shortCode = code;
-        var dVts = zoneVtCounts[code] ? Object.keys(zoneVtCounts[code]).join(",") : "";
-        h += '<div class="lot-cell lot-cell-filterable" data-action="zone-detail" data-zone="' + code + '" data-primary-vt="' + zonePrimaryVt(code) + '" data-vt-list="' + esc(dVts) + '">'
-          + '<div class="lot-cell-code">' + shortCode + '</div>'
-          + '<div class="lot-cell-count">' + count + '</div>'
-          + '<div class="lot-cell-desc">' + esc((ZONE_INFO[code] || "").split(" — ")[1] || "") + '</div>'
-          + '</div>';
-      }
-      h += '</div>';
-
-      // Overflow zone grid
-      h += '<div class="section-header">Overflow</div>';
-      h += '<div class="lot-grid">';
-      var overflowCodes = ["OVR01","OVR02","OVR03","OVRB"];
-      for (var oi = 0; oi < overflowCodes.length; oi++) {
-        var ocode = overflowCodes[oi];
-        var ocount = 0;
-        for (var j = 0; j < units.length; j++) {
-          var olot = (units[j].lot_location || "").toUpperCase().replace("CLE-", "");
-          if (olot.indexOf(ocode) === 0) ocount++;
-        }
-        if (ocount > 0) {
-          var oVts = zoneVtCounts[ocode] ? Object.keys(zoneVtCounts[ocode]).join(",") : "";
-          h += '<div class="lot-cell lot-cell-filterable" data-action="zone-detail" data-zone="' + ocode + '" data-primary-vt="' + zonePrimaryVt(ocode) + '" data-vt-list="' + esc(oVts) + '">'
-            + '<div class="lot-cell-code">' + ocode + '</div>'
-            + '<div class="lot-cell-count">' + ocount + '</div>'
-            + '</div>';
-        }
-      }
-      h += '</div>';
-
-      // Other areas grid
-      var OTHER_AREAS = ["Service Parking","PDI Bay","QAC Bay","Wash","Walk Thru","Receiving Line",
-                         "Sold/Sale Pending","RV Park","Trade Check-In","Showroom","OTHER / OFF-SITE","UNASSIGNED"];
-      h += '<div class="section-header">Other Areas</div>';
-      for (var oa = 0; oa < OTHER_AREAS.length; oa++) {
-        var oaName = OTHER_AREAS[oa];
-        var oaUnits = areas[oaName];
-        if (!oaUnits || oaUnits.length === 0) continue;
-        h += '<div class="card card-interactive" data-action="area-detail" data-area="' + esc(oaName) + '">'
-          + '<div style="display:flex;justify-content:space-between;align-items:center;">'
-          + '<span style="font-size:16px;font-weight:600;">' + esc(oaName) + '</span>'
-          + '<span class="stat-val text-blue" style="font-size:24px;">' + oaUnits.length + '</span>'
-          + '</div></div>';
+      // Unassigned
+      if (noLoc.length > 0) {
+        h += '<div class="section-header">No Lot Assigned</div>';
+        h += '<div class="card card-interactive" data-action="area-detail" data-area="UNASSIGNED">'
+           + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+           + '<span style="font-size:16px;font-weight:600;">Unassigned</span>'
+           + '<span class="stat-val text-blue" style="font-size:24px;">' + noLoc.length + '</span>'
+           + '</div></div>';
       }
 
-      // Cross-filters
       h += renderCrossFilters(units, "lots");
       h += '</div>';
       return h;
@@ -1195,13 +1179,12 @@ var Views = (function () {
     return DB.getAllUnits().then(function (units) {
       getZoneInfo(units);
       var zoneUnits = units.filter(function (u) {
-        var lot = (u.lot_location || "").toUpperCase().replace("CLE-", "");
-        return lot.indexOf(zoneCode) === 0;
+        return stripLotPrefix(u.lot_location).indexOf(zoneCode) === 0;
       });
 
       if (!window._drillViewConfigs) window._drillViewConfigs = {};
       window._drillViewConfigs.zoneDetail = {
-        preFilter: function(all) { return all.filter(function(u) { var lot = (u.lot_location || "").toUpperCase().replace("CLE-", ""); return lot.indexOf(zoneCode) === 0; }); },
+        preFilter: function(all) { return all.filter(function(u) { return stripLotPrefix(u.lot_location).indexOf(zoneCode) === 0; }); },
         groupAndRender: renderGroupedByStatusCat
       };
 
@@ -3282,20 +3265,29 @@ var Views = (function () {
   // ══════════════════════════════════════════════════════════════════
 
   function lotMapView() {
-    var h = '<div class="section-title">CLE LOT MAP</div>';
-    h += '<p style="color:#8899aa;font-size:13px;margin:0 0 12px;">Pinch to zoom · Swipe to pan</p>';
+    var loc = Gate.getLocation();
+    var pc  = (loc.location || "").toUpperCase();
+    var locName = loc.name || pc;
+    var imgSrc = "img/lot-map-" + pc + ".jpg";
 
-    h += '<div style="margin-bottom:16px;">';
-    h += '<div style="font-weight:600;margin-bottom:8px;color:#c8cdd3;">Page 1 — Overview</div>';
-    h += '<div style="overflow:auto;-webkit-overflow-scrolling:touch;background:#fff;border-radius:10px;padding:8px;border:1px solid var(--border);">';
-    h += '<img src="img/lot-map-p1.jpg" alt="CLE Lot Map Page 1" style="display:block;width:100%;min-width:600px;height:auto;" />';
-    h += '</div></div>';
+    var h = '<div class="section-title">' + esc(locName) + ' LOT MAP</div>';
+    h += '<p style="color:var(--text-3);font-size:13px;margin:0 0 12px;">Pinch to zoom · Swipe to pan</p>';
 
-    h += '<div style="margin-bottom:16px;">';
-    h += '<div style="font-weight:600;margin-bottom:8px;color:var(--text-2);">Page 2 — Legend & Codes</div>';
     h += '<div style="overflow:auto;-webkit-overflow-scrolling:touch;background:#fff;border-radius:10px;padding:8px;border:1px solid var(--border);">';
-    h += '<img src="img/lot-map-p2.jpg" alt="CLE Lot Map Page 2" style="display:block;width:100%;min-width:600px;height:auto;" />';
-    h += '</div></div>';
+    h += '<img src="' + imgSrc + '" alt="' + esc(locName) + ' Lot Map"'
+      + ' style="display:block;width:100%;min-width:600px;height:auto;"'
+      + ' onerror="this.parentNode.innerHTML=\'<div style=&quot;padding:32px;text-align:center;color:#8899aa;font-size:18px;&quot;>No lot map available for ' + esc(locName) + '.</div>\'"'
+      + ' />';
+    h += '</div>';
+
+    // CLE has a second page (legend/codes)
+    if (pc === "CLE") {
+      h += '<div style="margin-top:16px;">';
+      h += '<div style="font-weight:600;margin-bottom:8px;color:var(--text-2);">Page 2 — Legend & Codes</div>';
+      h += '<div style="overflow:auto;-webkit-overflow-scrolling:touch;background:#fff;border-radius:10px;padding:8px;border:1px solid var(--border);">';
+      h += '<img src="img/lot-map-p2.jpg" alt="CLE Lot Map Page 2" style="display:block;width:100%;min-width:600px;height:auto;" />';
+      h += '</div></div>';
+    }
 
     return Promise.resolve(h);
   }
