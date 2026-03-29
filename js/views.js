@@ -3643,10 +3643,6 @@ var Views = (function () {
       var licensing = res[1] || {};
       var myBrands  = (licensing[locCode] || []).map(function (b) { return b.toUpperCase(); });
 
-      var h = '<div class="view">' + backBtn("notes", "Requests");
-      h += '<div class="section-header">Request CORP Unit Allocation</div>';
-      h += '<div style="font-size:18px;color:var(--red);margin:-4px 0 12px;">Select a unit from the CORP pool to request for ' + esc(loc.name || locCode) + '. Your request goes to the lot management sheet for corporate review.</div>';
-
       // Filter pool by location's licensed brands.
       // Match on the division/manufacturer name (u.mfr) which aligns with
       // the Brand Licensing tab — e.g. "COACHMEN" division covers makes like
@@ -3663,6 +3659,10 @@ var Views = (function () {
 
       var filtered = pool.filter(function (u) { return isLicensed(u); });
 
+      var h = '<div class="view">' + backBtn("notes", "Requests");
+      h += '<div class="section-header">Request CORP Unit Allocation</div>';
+      h += '<div style="font-size:18px;color:var(--red);margin:-4px 0 12px;">Select a unit from the CORP pool to request for ' + esc(loc.name || locCode) + '. Your request goes to the lot management sheet for corporate review.</div>';
+
       if (filtered.length === 0) {
         h += '<div class="card" style="text-align:center;padding:32px;color:var(--text-3);">'
           + '<div style="font-size:32px;margin-bottom:8px;">📦</div>'
@@ -3672,56 +3672,108 @@ var Views = (function () {
         return h;
       }
 
-      // Group by make
-      var byMake = {};
+      // Build dropdown options from filtered data
+      var typeSet = {}, makeSet = {}, allTypes = [], allMakes = [];
       for (var i = 0; i < filtered.length; i++) {
-        var u = filtered[i];
-        var mk = u.make || "Unknown";
-        if (!byMake[mk]) byMake[mk] = [];
-        byMake[mk].push(u);
+        var fi_u = filtered[i];
+        var fi_t = (fi_u.type || "").trim();
+        var fi_m = (fi_u.make || "Unknown").trim();
+        if (fi_t && !typeSet[fi_t]) { typeSet[fi_t] = 1; allTypes.push(fi_t); }
+        if (fi_m && !makeSet[fi_m]) { makeSet[fi_m] = 1; allMakes.push(fi_m); }
       }
-      var makes = Object.keys(byMake).sort();
+      allTypes.sort();
+      allMakes.sort();
 
-      h += '<div style="font-size:14px;color:var(--text-3);margin-bottom:12px;">'
-        + filtered.length + ' units available · ' + makes.length + ' brands</div>';
+      // ── Filter bar ──────────────────────────────────────────────
+      var selStyle = 'flex:1;min-width:0;padding:10px 6px;border-radius:8px;border:1px solid #2d3748;'
+        + 'background:#161d2e;color:#e4e4e7;font-size:13px;font-family:inherit;outline:none;-webkit-appearance:none;';
 
-      for (var mi = 0; mi < makes.length; mi++) {
-        var mk = makes[mi];
-        var units = byMake[mk];
-        h += '<div class="section-header" style="margin-top:12px;">' + esc(mk)
-          + ' <span style="font-weight:400;color:var(--text-3);">(' + units.length + ')</span></div>';
-        for (var ui = 0; ui < units.length; ui++) {
-          var u = units[ui];
-          var statusColor = u.status && u.status.toUpperCase().indexOf("ORDERED") >= 0 ? "var(--blue)"
-            : u.status && u.status.toUpperCase().indexOf("SHIPPED") >= 0 ? "var(--purple)"
-            : "var(--green)";
-          h += '<div class="card card-interactive" data-action="alloc-select"'
-            + ' data-stock="' + esc(u.stock) + '"'
-            + ' data-year="' + esc(u.year) + '"'
-            + ' data-make="' + esc(u.make) + '"'
-            + ' data-model="' + esc(u.model) + '"'
-            + ' data-type="' + esc(u.type) + '"'
-            + ' data-status="' + esc(u.status) + '"'
-            + ' data-lot="' + esc(u.lot) + '"'
-            + ' data-msrp="' + (u.msrp || "") + '"'
-            + ' style="padding:12px;">';
-          h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;">';
-          h += '<div>';
-          h += '<div style="font-size:20px;font-weight:800;">'
-            + esc(u.year) + ' ' + esc(u.make) + ' ' + esc(u.model) + '</div>';
-          h += '<div style="font-size:14px;color:var(--text-3);margin-top:2px;">'
-            + 'Stk# ' + esc(u.stock)
-            + (u.type ? ' · ' + esc(u.type) : '')
-            + (u.lot  ? ' · ' + esc(u.lot)  : '')
-            + '</div>';
-          h += '</div>';
-          h += '<div style="text-align:right;">';
-          if (fmtPrice(u.msrp)) h += '<div style="font-size:16px;font-weight:700;color:var(--text-1);">' + fmtPrice(u.msrp) + '</div>';
-          h += '<div style="font-size:12px;color:' + statusColor + ';font-weight:600;margin-top:2px;">' + esc(u.status) + '</div>';
-          if (u.days != null) h += '<div style="font-size:11px;color:var(--text-3);">' + u.days + 'd</div>';
-          h += '</div></div></div>';
-        }
+      h += '<div id="allocFilters" style="margin-bottom:12px;">';
+
+      // Search input
+      h += '<div class="search-box" style="margin-bottom:8px;">'
+        + '<svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'
+        + '<input id="allocSearch" class="search-input" type="text" placeholder="Stock #, make, or model…">'
+        + '<button id="allocSearchClear" class="search-clear" type="button">×</button>'
+        + '</div>';
+
+      // Dropdowns: Type | Make | Sort
+      h += '<div style="display:flex;gap:6px;margin-bottom:8px;">';
+      h += '<select id="allocTypeFilter" style="' + selStyle + '">'
+        + '<option value="">All Types</option>';
+      for (var ti = 0; ti < allTypes.length; ti++)
+        h += '<option value="' + esc(allTypes[ti]) + '">' + esc(allTypes[ti]) + '</option>';
+      h += '</select>';
+      h += '<select id="allocMakeFilter" style="' + selStyle + '">'
+        + '<option value="">All Makes</option>';
+      for (var mi2 = 0; mi2 < allMakes.length; mi2++)
+        h += '<option value="' + esc(allMakes[mi2]) + '">' + esc(allMakes[mi2]) + '</option>';
+      h += '</select>';
+      h += '<select id="allocSort" style="' + selStyle + '">'
+        + '<option value="brand">Brand A–Z</option>'
+        + '<option value="price-lo">Price ↑</option>'
+        + '<option value="price-hi">Price ↓</option>'
+        + '<option value="year-new">Year ↓</option>'
+        + '</select>';
+      h += '</div>';
+
+      // Licensed toggle + result count
+      h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">';
+      h += '<label style="display:flex;align-items:center;gap:6px;font-size:14px;color:var(--text-light);cursor:pointer;">'
+        + '<input id="allocLicensedToggle" type="checkbox" checked style="width:16px;height:16px;accent-color:var(--red);">'
+        // TODO: Licensed Only toggle — when licensing data is available client-side, bind this
+        // in initAllocFilters() to show/hide cards with data-licensed="0" based on checked state.
+        + 'Licensed Only</label>';
+      h += '<div id="allocCount" style="font-size:13px;color:var(--text-3);">'
+        + filtered.length + ' of ' + filtered.length + ' units</div>';
+      h += '</div>';
+
+      h += '</div>'; // #allocFilters
+
+      // ── Unit list (flat, default sorted brand A-Z then year desc) ──
+      filtered.sort(function (a, b) {
+        var ma = (a.make || "").toUpperCase(), mb = (b.make || "").toUpperCase();
+        if (ma < mb) return -1; if (ma > mb) return 1;
+        return (parseInt(b.year) || 0) - (parseInt(a.year) || 0);
+      });
+
+      h += '<div id="allocUnitList">';
+      for (var fi = 0; fi < filtered.length; fi++) {
+        var u = filtered[fi];
+        var msrpNum = priceNum(u.msrp);
+        var statusColor = u.status && u.status.toUpperCase().indexOf("ORDERED") >= 0 ? "var(--blue)"
+          : u.status && u.status.toUpperCase().indexOf("SHIPPED") >= 0 ? "var(--purple)"
+          : "var(--green)";
+        var searchStr = [u.stock, u.make, u.model, u.type].filter(Boolean).join(" ").toUpperCase();
+        h += '<div class="card card-interactive" data-action="alloc-select"'
+          + ' data-stock="' + esc(u.stock) + '"'
+          + ' data-year="' + esc(u.year) + '"'
+          + ' data-make="' + esc(u.make) + '"'
+          + ' data-model="' + esc(u.model) + '"'
+          + ' data-type="' + esc(u.type) + '"'
+          + ' data-status="' + esc(u.status) + '"'
+          + ' data-lot="' + esc(u.lot) + '"'
+          + ' data-msrp="' + (u.msrp || "") + '"'
+          + ' data-msrp-num="' + msrpNum + '"'
+          + ' data-search="' + esc(searchStr) + '"'
+          + ' style="padding:12px;">';
+        h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;">';
+        h += '<div>';
+        h += '<div style="font-size:20px;font-weight:800;">'
+          + esc(u.year) + ' ' + esc(u.make) + ' ' + esc(u.model) + '</div>';
+        h += '<div style="font-size:14px;color:var(--text-3);margin-top:2px;">'
+          + 'Stk# ' + esc(u.stock)
+          + (u.type ? ' · ' + esc(u.type) : '')
+          + (u.lot  ? ' · ' + esc(u.lot)  : '')
+          + '</div>';
+        h += '</div>';
+        h += '<div style="text-align:right;">';
+        if (fmtPrice(u.msrp)) h += '<div style="font-size:16px;font-weight:700;color:var(--text-1);">' + fmtPrice(u.msrp) + '</div>';
+        h += '<div style="font-size:12px;color:' + statusColor + ';font-weight:600;margin-top:2px;">' + esc(u.status) + '</div>';
+        if (u.days != null) h += '<div style="font-size:11px;color:var(--text-3);">' + u.days + 'd</div>';
+        h += '</div></div></div>';
       }
+      h += '</div>'; // #allocUnitList
 
       h += '</div>';
       return h;

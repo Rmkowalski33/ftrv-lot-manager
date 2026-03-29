@@ -318,6 +318,7 @@ var App = (function () {
         if (view === "home") initSearch();
         if (view === "detail") loadDupes(param);
         if (view === "note-form") initNoteForm();
+        if (view === "alloc-request") initAllocFilters();
         if (view === "alloc-form") initAllocForm();
         if (view === "order-request") initOrderForm();
         if (view === "audit-status") initAuditFilters();
@@ -327,6 +328,7 @@ var App = (function () {
         if (view === "home") initSearch();
         if (view === "detail") loadDupes(param);
         if (view === "note-form") initNoteForm();
+        if (view === "alloc-request") initAllocFilters();
         if (view === "alloc-form") initAllocForm();
         if (view === "order-request") initOrderForm();
         if (view === "audit-status") initAuditFilters();
@@ -1035,6 +1037,81 @@ var App = (function () {
         setTimeout(function () { navigate("notes"); }, 1800);
       });
     });
+  }
+
+  // ── Allocation Request Filters ────────────────────────────────
+  function initAllocFilters() {
+    var searchInput     = document.getElementById("allocSearch");
+    var searchClear     = document.getElementById("allocSearchClear");
+    var typeFilter      = document.getElementById("allocTypeFilter");
+    var makeFilter      = document.getElementById("allocMakeFilter");
+    var sortSelect      = document.getElementById("allocSort");
+    var unitList        = document.getElementById("allocUnitList");
+    var countEl         = document.getElementById("allocCount");
+
+    if (!searchInput || !unitList) return;
+
+    var allCards  = Array.prototype.slice.call(unitList.querySelectorAll(".card"));
+    var totalCount = allCards.length;
+
+    function applyFilters() {
+      var q    = (searchInput.value || "").toUpperCase().trim();
+      var type = typeFilter ? typeFilter.value.toUpperCase() : "";
+      var make = makeFilter ? makeFilter.value.toUpperCase() : "";
+      var sort = sortSelect ? sortSelect.value : "brand";
+
+      var visible = [], hidden = [];
+      allCards.forEach(function (card) {
+        var matchQ    = !q    || (card.getAttribute("data-search") || "").toUpperCase().indexOf(q) >= 0;
+        var matchType = !type || (card.getAttribute("data-type")   || "").toUpperCase() === type;
+        var matchMake = !make || (card.getAttribute("data-make")   || "").toUpperCase() === make;
+        if (matchQ && matchType && matchMake) {
+          card.style.display = "";
+          visible.push(card);
+        } else {
+          card.style.display = "none";
+          hidden.push(card);
+        }
+      });
+
+      visible.sort(function (a, b) {
+        if (sort === "price-lo") {
+          return parseFloat(a.getAttribute("data-msrp-num") || 0) - parseFloat(b.getAttribute("data-msrp-num") || 0);
+        }
+        if (sort === "price-hi") {
+          return parseFloat(b.getAttribute("data-msrp-num") || 0) - parseFloat(a.getAttribute("data-msrp-num") || 0);
+        }
+        if (sort === "year-new") {
+          return (parseInt(b.getAttribute("data-year") || 0)) - (parseInt(a.getAttribute("data-year") || 0));
+        }
+        // brand A-Z, then year desc
+        var ma = (a.getAttribute("data-make") || "").toUpperCase();
+        var mb = (b.getAttribute("data-make") || "").toUpperCase();
+        if (ma < mb) return -1; if (ma > mb) return 1;
+        return (parseInt(b.getAttribute("data-year") || 0)) - (parseInt(a.getAttribute("data-year") || 0));
+      });
+
+      visible.forEach(function (c) { unitList.appendChild(c); });
+      hidden.forEach(function  (c) { unitList.appendChild(c); });
+
+      if (countEl) countEl.textContent = visible.length + " of " + totalCount + " units";
+      if (searchClear) searchClear.classList.toggle("show", q.length > 0);
+    }
+
+    var debounce;
+    searchInput.addEventListener("input", function () {
+      clearTimeout(debounce);
+      debounce = setTimeout(applyFilters, 150);
+    });
+    if (searchClear) searchClear.addEventListener("click", function () {
+      searchInput.value = "";
+      applyFilters();
+      searchInput.focus();
+    });
+    if (typeFilter) typeFilter.addEventListener("change", applyFilters);
+    if (makeFilter) makeFilter.addEventListener("change", applyFilters);
+    if (sortSelect) sortSelect.addEventListener("change", applyFilters);
+    // TODO: bind allocLicensedToggle here when non-licensed units are included in the DOM
   }
 
   // ── Order Request Form ─────────────────────────────────────────
