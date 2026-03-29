@@ -73,23 +73,26 @@ var Sync = (function () {
         return res.json();
       })
       .then(function (data) {
-        // Apply the access-code filter so only the user's units are stored
+        // Apply the access-code filter so only the user's units are stored.
+        // When filter is null (admin, no location selected yet) skip unit storage —
+        // we still store meta so the location picker can show KPIs.
         var filter = Gate.getFilter();
         var unitList = [];
-        var keys = Object.keys(data.units || {});
-        var seen = {};
-        for (var i = 0; i < keys.length; i++) {
-          var u = data.units[keys[i]];
-          if (!u.stock_num || seen[u.stock_num]) continue;
-          if (!_matchesFilter(u, filter)) continue;
-          seen[u.stock_num] = true;
-          unitList.push(u);
+        var soldList = [];
+        if (filter) {
+          var keys = Object.keys(data.units || {});
+          var seen = {};
+          for (var i = 0; i < keys.length; i++) {
+            var u = data.units[keys[i]];
+            if (!u.stock_num || seen[u.stock_num]) continue;
+            if (!_matchesFilter(u, filter)) continue;
+            seen[u.stock_num] = true;
+            unitList.push(u);
+          }
+          soldList = (data.retail_sold_today || []).filter(function (s) {
+            return _matchesFilter(s, filter);
+          });
         }
-
-        // Apply the same location filter to retail sold records
-        var soldList = (data.retail_sold_today || []).filter(function (s) {
-          return _matchesFilter(s, filter);
-        });
 
         return DB.putUnits(unitList).then(function (count) {
           var ts = data.exported_at || new Date().toISOString();

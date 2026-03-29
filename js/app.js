@@ -75,11 +75,13 @@ var App = (function () {
         _initialized = true;
       }
 
-      // Admin with no location selected → go straight to picker, skip sync
+      // Admin with no location selected → go straight to picker.
+      // Still configure and run sync so location_summary KPIs populate.
+      // (Sync skips unit storage when filter is null — just fetches meta.)
       if (Gate.isAdmin() && !Gate.getAdminSelection()) {
         _updateAdminHeader();
         navigate("location-picker", "", "", false);
-        return;
+        // fall through to configure + fullSync below
       }
 
       // Update location badge in header
