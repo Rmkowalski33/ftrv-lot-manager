@@ -3645,7 +3645,7 @@ var Views = (function () {
 
       var h = '<div class="view">' + backBtn("notes", "Requests");
       h += '<div class="section-header">Request CORP Unit Allocation</div>';
-      h += '<div style="font-size:18px;color:var(--text-2);margin:-4px 0 12px;">Select a unit from the CORP pool to request for ' + esc(loc.name || locCode) + '. Your request goes to the lot management sheet for corporate review.</div>';
+      h += '<div style="font-size:18px;color:var(--red);margin:-4px 0 12px;">Select a unit from the CORP pool to request for ' + esc(loc.name || locCode) + '. Your request goes to the lot management sheet for corporate review.</div>';
 
       // Filter pool by location's licensed brands.
       // Match on the division/manufacturer name (u.mfr) which aligns with
@@ -3716,7 +3716,7 @@ var Views = (function () {
             + '</div>';
           h += '</div>';
           h += '<div style="text-align:right;">';
-          if (u.msrp) h += '<div style="font-size:16px;font-weight:700;color:var(--text-1);">$' + Number(u.msrp).toLocaleString() + '</div>';
+          if (fmtPrice(u.msrp)) h += '<div style="font-size:16px;font-weight:700;color:var(--text-1);">' + fmtPrice(u.msrp) + '</div>';
           h += '<div style="font-size:12px;color:' + statusColor + ';font-weight:600;margin-top:2px;">' + esc(u.status) + '</div>';
           if (u.days != null) h += '<div style="font-size:11px;color:var(--text-3);">' + u.days + 'd</div>';
           h += '</div></div></div>';
