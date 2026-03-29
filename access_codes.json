@@ -276,5 +276,5 @@
     "state": "AZ",
     "zone": "WEST US",
     "filter": { "field": "pc", "values": ["SUR"] }
-  },
+  }
 }

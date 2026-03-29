@@ -4140,14 +4140,6 @@ var Views = (function () {
 
         locs.forEach(function (loc) {
           var isSelected = sel && sel.toUpperCase() === loc.pc.toUpperCase();
-          var bg     = isSelected ? "var(--accent)"   : "var(--surface-2)";
-          var border = isSelected ? "var(--accent)"   : "var(--border)";
-          var clr1   = isSelected ? "#fff"   : "var(--bg)";
-          var clr2   = isSelected ? "rgba(255,255,255,0.85)" : "var(--text-2)";
-          var clrKpi = isSelected ? "rgba(255,255,255,0.9)" : "var(--text-2)";
-          var clrBar = isSelected ? "rgba(255,255,255,0.35)" : "var(--border)";
-          var clrFill= isSelected ? "rgba(255,255,255,0.85)" : "var(--accent)";
-          var check  = isSelected ? ' <span style="font-size:11px;">&#10003;</span>' : "";
 
           // Aggregate KPIs across filter.values PCs (handles CLE+BCLE rollup)
           var locTotal    = 0;
@@ -4161,38 +4153,85 @@ var Views = (function () {
             locSellable += s.sellable || 0;
             locSP       += s.sp       || 0;
             locIn       += s.incoming || 0;
-            // Use the primary PC's capacity (e.g. CLE, not BCLE which has none)
             if (!locCap && s.capacity) locCap = s.capacity;
           });
-          // Fallback: also check primary PC directly
           if (!locCap) {
             var ps = summary[loc.pc.toUpperCase()] || summary[loc.pc] || {};
             locCap = ps.capacity || 0;
           }
 
-          // Utilization bar
-          var utilPct = locCap ? Math.min(100, Math.round(locTotal / locCap * 100)) : 0;
-          var utilLabel = locCap ? (locTotal + "\u202f/\u202f" + locCap) : (locTotal > 0 ? locTotal + " units" : "");
+          var utilPct = locCap ? Math.min(100, Math.round(locTotal / locCap * 100)) : -1;
+          var hasData = locTotal > 0 || locCap > 0;
 
+          // ── Capacity alert level (only when we have real data) ──────
+          // critical ≥ 85%, warning 60–84%, healthy < 60%, unknown = no data
+          var alertLevel = "none";
+          if (utilPct >= 85)      alertLevel = "critical";
+          else if (utilPct >= 60) alertLevel = "warning";
+          else if (utilPct >= 0)  alertLevel = "healthy";
+
+          // ── Derive colors from alert level + selection state ────────
+          var bg, border, clr1, clr2, clrKpi, clrBar, clrFill, alertBadge;
+          if (isSelected) {
+            bg      = "var(--accent)";
+            border  = "var(--accent)";
+            clr1    = "#fff";
+            clr2    = "rgba(255,255,255,0.85)";
+            clrKpi  = "rgba(255,255,255,0.9)";
+            clrBar  = "rgba(255,255,255,0.3)";
+            clrFill = "rgba(255,255,255,0.9)";
+          } else if (alertLevel === "critical") {
+            bg      = "#fff5f5";
+            border  = "var(--red)";
+            clr1    = "#c0161a";
+            clr2    = "#c0161a";
+            clrKpi  = "#c0161a";
+            clrBar  = "#ffd0d0";
+            clrFill = "var(--red)";
+          } else if (alertLevel === "warning") {
+            bg      = "#fffbf0";
+            border  = "#e68a00";
+            clr1    = "#7a4600";
+            clr2    = "#7a4600";
+            clrKpi  = "#7a4600";
+            clrBar  = "#ffe9b0";
+            clrFill = "#e68a00";
+          } else {
+            bg      = "var(--surface-2)";
+            border  = "var(--border)";
+            clr1    = "var(--bg)";
+            clr2    = "var(--text-2)";
+            clrKpi  = "var(--text-2)";
+            clrBar  = "var(--border)";
+            clrFill = "var(--accent)";
+          }
+
+          var check = isSelected ? ' <span style="font-size:11px;">&#10003;</span>' : "";
+
+          // ── KPI section ─────────────────────────────────────────────
           var kpiHtml = "";
-          if (locTotal > 0 || locCap > 0) {
-            kpiHtml += '<div style="margin-top:7px;padding-top:7px;border-top:1px solid ' + clrBar + ';">';
+          if (hasData) {
+            kpiHtml += '<div style="margin-top:7px;padding-top:6px;border-top:1px solid ' + clrBar + ';">';
             if (locCap) {
-              kpiHtml += '<div style="font-size:10px;color:' + clrKpi + ';margin-bottom:3px;display:flex;justify-content:space-between;">'
+              // Utilization row
+              kpiHtml += '<div style="font-size:10px;font-weight:600;color:' + clrKpi + ';margin-bottom:3px;display:flex;justify-content:space-between;">'
                        + '<span>' + locTotal + '\u202f/\u202f' + locCap + '</span>'
-                       + '<span>' + utilPct + '%</span>'
+                       + '<span>' + utilPct + '%\u00a0full</span>'
                        + '</div>';
               // Progress bar
               kpiHtml += '<div style="height:4px;border-radius:2px;background:' + clrBar + ';overflow:hidden;margin-bottom:5px;">'
-                       + '<div style="height:100%;width:' + utilPct + '%;background:' + clrFill + ';border-radius:2px;"></div>'
+                       + '<div style="height:100%;width:' + utilPct + '%;background:' + clrFill + ';border-radius:2px;transition:width 0.3s;"></div>'
                        + '</div>';
             } else if (locTotal > 0) {
               kpiHtml += '<div style="font-size:10px;color:' + clrKpi + ';margin-bottom:5px;">' + locTotal + ' units</div>';
             }
+            // SP / Incoming pills
             if (locSP > 0 || locIn > 0) {
-              kpiHtml += '<div style="font-size:10px;color:' + clrKpi + ';display:flex;gap:6px;justify-content:center;">';
-              if (locSP > 0)  kpiHtml += '<span>SP:' + locSP + '</span>';
-              if (locIn > 0)  kpiHtml += '<span>In:' + locIn + '</span>';
+              kpiHtml += '<div style="font-size:10px;color:' + clrKpi + ';display:flex;gap:5px;justify-content:center;flex-wrap:wrap;">';
+              if (locSP > 0) kpiHtml += '<span style="background:' + clrBar + ';border-radius:3px;padding:1px 4px;">'
+                                      + locSP + '\u00a0SP</span>';
+              if (locIn > 0) kpiHtml += '<span style="background:' + clrBar + ';border-radius:3px;padding:1px 4px;">'
+                                      + locIn + '\u00a0incoming</span>';
               kpiHtml += '</div>';
             }
             kpiHtml += '</div>';
@@ -4200,8 +4239,7 @@ var Views = (function () {
 
           h += '<div data-action="pick-location" data-pc="' + esc(loc.pc) + '"'
              + ' style="padding:12px 10px;background:' + bg + ';border-radius:10px;cursor:pointer;'
-             + 'text-align:center;border:1.5px solid ' + border + ';user-select:none;'
-             + 'transition:opacity 0.1s;">';
+             + 'text-align:center;border:1.5px solid ' + border + ';user-select:none;">';
           h += '<div style="font-size:16px;font-weight:700;color:' + clr1 + ';">' + esc(loc.pc) + check + '</div>';
           h += '<div style="font-size:11px;color:' + clr2 + ';margin-top:3px;line-height:1.3;">'
              + esc(loc.name) + (loc.state ? '<br>' + esc(loc.state) : "") + '</div>';
