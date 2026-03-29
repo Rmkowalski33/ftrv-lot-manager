@@ -3647,15 +3647,21 @@ var Views = (function () {
       h += '<div class="section-header">Request CORP Unit Allocation</div>';
       h += '<div style="font-size:18px;color:var(--text-2);margin:-4px 0 12px;">Select a unit from the CORP pool to request for ' + esc(loc.name || locCode) + '. Your request goes to the lot management sheet for corporate review.</div>';
 
-      // Filter pool by location's licensed brands (prefix match, case-insensitive)
-      function isLicensed(make) {
-        var m = (make || "").toUpperCase();
-        return myBrands.length === 0 || myBrands.some(function (b) {
-          return m === b || m.indexOf(b) === 0;
+      // Filter pool by location's licensed brands.
+      // Match on the division/manufacturer name (u.mfr) which aligns with
+      // the Brand Licensing tab — e.g. "COACHMEN" division covers makes like
+      // "CATALINA", "BROOKSTONE", etc.
+      function isLicensed(unit) {
+        if (myBrands.length === 0) return true;
+        var mfr  = (unit.mfr  || "").toUpperCase();
+        var make = (unit.make || "").toUpperCase();
+        return myBrands.some(function (b) {
+          return mfr === b || mfr.indexOf(b) === 0
+              || make === b || make.indexOf(b) === 0;
         });
       }
 
-      var filtered = pool.filter(function (u) { return isLicensed(u.make); });
+      var filtered = pool.filter(function (u) { return isLicensed(u); });
 
       if (filtered.length === 0) {
         h += '<div class="card" style="text-align:center;padding:32px;color:var(--text-3);">'
@@ -3819,17 +3825,18 @@ var Views = (function () {
         }
         var divs = Object.keys(byDiv).sort();
 
-        h += '<div style="font-size:14px;color:var(--text-3);margin-bottom:8px;">'
-          + filtered.length + ' units on order · ' + divs.length + ' brands</div>';
+        h += '<div style="font-size:18px;color:var(--text-3);margin-bottom:10px;">'
+          + filtered.length + ' units on order &nbsp;·&nbsp; ' + divs.length + ' brands</div>';
 
         for (var di = 0; di < divs.length; di++) {
           var div = divs[di];
           var models = Object.keys(byDiv[div]).sort();
           var divTotal = models.reduce(function(s, m) { return s + byDiv[div][m].count; }, 0);
-          h += '<div style="background:var(--surface-2);border-radius:8px;margin-bottom:8px;overflow:hidden;">';
-          h += '<div style="padding:10px 12px;background:var(--surface-3);font-weight:700;font-size:17px;display:flex;justify-content:space-between;">'
-            + '<span>' + esc(div) + '</span>'
-            + '<span style="color:var(--text-3);font-weight:400;font-size:14px;">' + divTotal + ' units</span>'
+          h += '<div style="background:var(--surface-2);border-radius:10px;margin-bottom:10px;overflow:hidden;">';
+          // Brand header row
+          h += '<div style="padding:12px 14px;background:var(--surface-3);display:flex;justify-content:space-between;align-items:center;">'
+            + '<span style="font-size:20px;font-weight:800;">' + esc(div) + '</span>'
+            + '<span style="font-size:18px;font-weight:600;color:var(--blue);">' + divTotal + '</span>'
             + '</div>';
           for (var mj = 0; mj < models.length; mj++) {
             var mname = models[mj];
@@ -3837,12 +3844,12 @@ var Views = (function () {
             var statStr = Object.keys(info.statuses).map(function(s) {
               return info.statuses[s] + ' ' + s;
             }).join(', ');
-            h += '<div style="padding:8px 12px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">';
-            h += '<div>';
-            h += '<div style="font-size:16px;font-weight:600;">' + esc(mname) + '</div>';
-            h += '<div style="font-size:13px;color:var(--text-3);">' + esc(statStr) + '</div>';
+            h += '<div style="padding:10px 14px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">';
+            h += '<div style="flex:1;min-width:0;">';
+            h += '<div style="font-size:18px;font-weight:600;">' + esc(mname) + '</div>';
+            h += '<div style="font-size:15px;color:var(--text-3);margin-top:2px;">' + esc(statStr) + '</div>';
             h += '</div>';
-            h += '<div style="font-size:22px;font-weight:800;color:var(--blue);">' + info.count + '</div>';
+            h += '<div style="font-size:24px;font-weight:800;color:var(--blue);margin-left:12px;">' + info.count + '</div>';
             h += '</div>';
           }
           h += '</div>';
@@ -3850,7 +3857,10 @@ var Views = (function () {
       }
 
       // ── Request Form ──
-      h += '<div class="section-header" style="margin-top:20px;">New Order Request</div>';
+      h += '<div style="margin-top:24px;padding:16px 0 4px;border-top:2px solid var(--border);">';
+      h += '<div style="font-size:22px;font-weight:800;color:var(--text-1);margin-bottom:4px;">Request a New Order</div>';
+      h += '<div style="font-size:16px;color:var(--text-2);margin-bottom:16px;">Fill out the form below — your request will be sent to the lot management sheet for corporate review.</div>';
+      h += '</div>';
       h += '<div class="card"><form id="orderForm">';
       h += renderUserField();
 
