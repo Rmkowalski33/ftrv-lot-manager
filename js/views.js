@@ -3791,9 +3791,9 @@ var Views = (function () {
     h += '<div style="font-size:20px;font-weight:800;">' + esc(year) + ' ' + esc(make) + ' ' + esc(model) + '</div>';
     h += '<div style="font-size:14px;color:var(--text-3);margin-top:4px;">'
       + 'Stk# ' + esc(stock)
-      + (type  ? ' · ' + esc(type)   : '')
+      + (type   ? ' · ' + esc(type)   : '')
       + (status ? ' · ' + esc(status) : '')
-      + (msrp   ? ' · $' + Number(msrp).toLocaleString() : '')
+      + (fmtPrice(msrp) ? ' · ' + fmtPrice(msrp) : '')
       + '</div></div>';
 
     h += '<input type="hidden" name="stock" value="' + esc(stock) + '">';
@@ -3804,25 +3804,17 @@ var Views = (function () {
     h += '<input type="hidden" name="msrp" value="' + esc(msrp) + '">';
 
     h += '<label class="form-label">Reason for Request</label>';
-    h += '<select class="form-select" name="reason" required>'
-      + '<option value="">Select reason...</option>'
-      + '<option>Display Floor Need</option>'
-      + '<option>Customer Interest</option>'
-      + '<option>Replenish Sold Unit</option>'
-      + '<option>Increase Brand Depth</option>'
-      + '<option>Seasonal Demand</option>'
-      + '<option>Other</option>'
-      + '</select>';
+    h += '<textarea class="form-textarea" name="reason" required placeholder="Why do you need this unit? Customer deal in progress, display floor gap, replenishing a sold unit..."></textarea>';
 
     h += '<label class="form-label">Priority</label>';
-    h += '<div class="form-radio-group">'
-      + '<label class="form-radio" onclick="App.selectRadio(this)"><input type="radio" name="priority" value="High" required><span style="color:var(--red);font-weight:600;">High — Urgent</span></label>'
-      + '<label class="form-radio" onclick="App.selectRadio(this)"><input type="radio" name="priority" value="Normal"><span>Normal</span></label>'
-      + '<label class="form-radio" onclick="App.selectRadio(this)"><input type="radio" name="priority" value="Low"><span style="color:var(--text-3);">Low — When Available</span></label>'
-      + '</div>';
+    h += '<select class="form-select" name="priority" required>'
+      + '<option value="Normal" selected>Normal</option>'
+      + '<option value="High">High</option>'
+      + '<option value="Urgent">Urgent</option>'
+      + '</select>';
 
     h += '<label class="form-label">Notes <span style="font-weight:400;color:var(--text-3);">(optional)</span></label>';
-    h += '<textarea class="form-textarea" name="notes" placeholder="Customer name, deal in progress, display spot available..."></textarea>';
+    h += '<textarea class="form-textarea" name="notes" placeholder="Customer name, timeline, display spot available..."></textarea>';
 
     h += '<button class="btn btn-blue mt-8" type="submit">Submit Allocation Request</button>';
     h += '</form></div></div>';
@@ -3916,48 +3908,40 @@ var Views = (function () {
       h += '<div class="card"><form id="orderForm">';
       h += renderUserField();
 
-      // Brand dropdown from licensed brands
-      h += '<label class="form-label">Brand / Manufacturer</label>';
-      h += '<select class="form-select" name="make" required>'
-        + '<option value="">Select brand...</option>';
-      var sortedBrands = (licensing[locCode] || []).slice().sort();
-      for (var bi = 0; bi < sortedBrands.length; bi++) {
-        h += '<option value="' + esc(sortedBrands[bi]) + '">' + esc(sortedBrands[bi]) + '</option>';
-      }
-      h += '</select>';
+      h += '<label class="form-label">Brand / Make</label>';
+      h += '<input class="form-input" type="text" name="make" required placeholder="e.g. Keystone, Forest River, Grand Design..." autocapitalize="words">';
 
       h += '<label class="form-label">Model / Series</label>';
-      h += '<input class="form-input" type="text" name="model" placeholder="e.g. Forest River Rockwood 2516, Cougar 32BHSWE..." required autocapitalize="words">';
+      h += '<input class="form-input" type="text" name="model" required placeholder="e.g. Cougar 32BHSWE, Rockwood 2516..." autocapitalize="words">';
 
       h += '<label class="form-label">Year</label>';
-      h += '<input class="form-input" type="text" name="year" placeholder="e.g. 2026" inputmode="numeric" maxlength="4">';
-
-      h += '<label class="form-label">Vehicle Type</label>';
-      h += '<select class="form-select" name="veh_type">'
-        + '<option value="">Select type...</option>'
-        + '<option>Travel Trailer</option>'
-        + '<option>Fifth Wheel</option>'
-        + '<option>Class A</option>'
-        + '<option>Class B</option>'
-        + '<option>Class C</option>'
-        + '<option>Toy Hauler - TT</option>'
-        + '<option>Toy Hauler - FW</option>'
-        + '<option>Destination Trailer</option>'
-        + '<option>Park Model</option>'
+      h += '<select class="form-select" name="year" required>'
+        + '<option value="2026" selected>2026</option>'
+        + '<option value="2027">2027</option>'
+        + '<option value="2025">2025</option>'
         + '</select>';
 
-      h += '<label class="form-label">Quantity Requested</label>';
+      h += '<label class="form-label">Vehicle Type</label>';
+      h += '<select class="form-select" name="veh_type" required>'
+        + '<option value="">Select type...</option>'
+        + '<option value="TT">TT — Travel Trailer</option>'
+        + '<option value="FW">FW — Fifth Wheel</option>'
+        + '<option value="MH">MH — Motorhome</option>'
+        + '<option value="TH">TH — Toy Hauler</option>'
+        + '</select>';
+
+      h += '<label class="form-label">Qty Requested</label>';
       h += '<input class="form-input" type="number" name="qty" min="1" max="50" value="1" required inputmode="numeric">';
 
       h += '<label class="form-label">Justification</label>';
       h += '<textarea class="form-textarea" name="description" required placeholder="Why do you need this model? Customer demand, display gap, competitive pressure..."></textarea>';
 
       h += '<label class="form-label">Priority</label>';
-      h += '<div class="form-radio-group">'
-        + '<label class="form-radio" onclick="App.selectRadio(this)"><input type="radio" name="priority" value="High" required><span style="color:var(--red);font-weight:600;">High</span></label>'
-        + '<label class="form-radio" onclick="App.selectRadio(this)"><input type="radio" name="priority" value="Normal"><span>Normal</span></label>'
-        + '<label class="form-radio" onclick="App.selectRadio(this)"><input type="radio" name="priority" value="Low"><span style="color:var(--text-3);">Low</span></label>'
-        + '</div>';
+      h += '<select class="form-select" name="priority" required>'
+        + '<option value="Normal" selected>Normal</option>'
+        + '<option value="High">High</option>'
+        + '<option value="Urgent">Urgent</option>'
+        + '</select>';
 
       h += '<label class="form-label">Notes <span style="font-weight:400;color:var(--text-3);">(optional)</span></label>';
       h += '<textarea class="form-textarea" name="notes" placeholder="Floor plan preferences, pricing targets, customer names..."></textarea>';
