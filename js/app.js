@@ -22,7 +22,7 @@ var App = (function () {
   }
 
   // ── Root views (no back button) ────────────────────────────────
-  var ROOT_VIEWS = ["home", "notes", "audit", "activity", "coverage", "location-picker", "zone-map-view"];
+  var ROOT_VIEWS = ["home", "notes", "audit", "activity", "coverage", "location-picker", "location-zones"];
 
   // ── Tab mapping: view → which tab to highlight ─────────────────
   var TAB_MAP = {
@@ -40,8 +40,8 @@ var App = (function () {
     "replace-picker": "activity", "repl-log": "coverage",
     "help": "home", "all-inventory": "home",
     "location-picker": "",
-    "zone-map-view": "",
-    "coverage": "coverage", "coverage-matrix": "coverage", "zone-map": "coverage",
+    "location-zones": "",
+    "coverage": "coverage", "coverage-matrix": "coverage", "display-distribution": "coverage",
     "overflow-only": "coverage",
   };
 
@@ -215,8 +215,8 @@ var App = (function () {
       case "coverage-matrix":
         renderPromise = Views.coverageView();
         break;
-      case "zone-map":
-        renderPromise = Views.zoneMapView();
+      case "display-distribution":
+        renderPromise = Views.displayDistributionView();
         break;
       case "overflow-only":
         renderPromise = Views.overflowOnlyView();
@@ -291,8 +291,8 @@ var App = (function () {
       case "location-picker":
         renderPromise = Views.locationPickerView();
         break;
-      case "zone-map-view":
-        renderPromise = Views.zoneMapView();
+      case "location-zones":
+        renderPromise = Views.locationZonesView();
         break;
       default:
         renderPromise = Views.homeView();
@@ -307,7 +307,7 @@ var App = (function () {
     renderPromise.then(function (html) {
       // Inject "Data as of" timestamp at top of every view (skip home — has its own)
       DB.getMeta("exported_at").then(function (exportedAt) {
-        if (exportedAt && view !== "home" && view !== "location-picker" && view !== "zone-map-view") {
+        if (exportedAt && view !== "home" && view !== "location-picker" && view !== "location-zones") {
           var ts = '<div style="text-align:right;font-size:11px;color:#8899aa;padding:2px 8px 0;opacity:0.7;">Updated ' + exportedAt + '</div>';
           container.innerHTML = ts + html;
         } else {
@@ -446,8 +446,8 @@ var App = (function () {
         navigate("alloc-request");
       } else if (action === "goto-order-request") {
         navigate("order-request");
-      } else if (action === "goto-zone-map") {
-        navigate("zone-map-view");
+      } else if (action === "goto-location-zones") {
+        navigate("location-zones");
       } else if (action === "goto-picker") {
         // Admin: tapping the location badge → back to location picker
         navigate("location-picker");

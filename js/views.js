@@ -651,6 +651,7 @@ var Views = (function () {
         h += '<a class="quick-nav-tile" href="#status"><div class="quick-nav-label">Status</div><div class="quick-nav-sub">Stock, dead, transit</div></a>';
         h += '<a class="quick-nav-tile" href="#makes"><div class="quick-nav-label">Makes</div><div class="quick-nav-sub">By manufacturer</div></a>';
         h += '<a class="quick-nav-tile" href="#shop"><div class="quick-nav-label">Type</div><div class="quick-nav-sub">By vehicle type</div></a>';
+        h += '<a class="quick-nav-tile" href="#location-zones"><div class="quick-nav-label">Zones</div><div class="quick-nav-sub">Location zone map</div></a>';
         h += '</div>';
 
         // ── Section C: Attention Needed ──
@@ -1692,10 +1693,10 @@ var Views = (function () {
         + '<div><div class="note-type-label">Coverage Matrix</div>'
         + '<div class="note-type-desc">Model placement gaps — what needs displayed</div></div></a>';
 
-      h += '<a class="note-type-card" href="#zone-map">'
+      h += '<a class="note-type-card" href="#display-distribution">'
         + '<div class="note-type-icon" style="background:var(--green-dim);color:var(--green);"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg></div>'
-        + '<div><div class="note-type-label">Zone Map</div>'
-        + '<div class="note-type-desc">Per-zone model grid — what needs reorganized</div></div></a>';
+        + '<div><div class="note-type-label">Display Distribution</div>'
+        + '<div class="note-type-desc">Per-zone model grid \u2014 what needs reorganized</div></div></a>';
 
       h += '<a class="note-type-card" href="#overflow-only">'
         + '<div class="note-type-icon" style="background:var(--orange-dim);color:var(--orange);"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg></div>'
@@ -1901,9 +1902,9 @@ var Views = (function () {
     });
   }
 
-  // ── ZONE MAP ──
+  // ── DISPLAY DISTRIBUTION ──
   // Shows all models with per-zone columns: Showroom | DISP01-11 | Overflow | Other
-  function zoneMapView() {
+  function displayDistributionView() {
     return DB.getAllUnits().then(function (units) {
       var cov = buildCoverageData(units);
       var modelData = cov.modelData, makeGroups = cov.makeGroups, sortedMakeKeys = cov.sortedMakeKeys;
@@ -1919,8 +1920,8 @@ var Views = (function () {
 
       var h = '<div class="view">';
       h += backBtn("coverage", "Coverage");
-      h += '<div class="section-header" style="margin-top:0;">Zone Map</div>'
-        + '<div style="font-size:18px;color:#8899aa;margin-bottom:8px;">Where each model sits across display zones — find what needs reorganized</div>';
+      h += '<div class="section-header" style="margin-top:0;">Display Distribution</div>'
+        + '<div style="font-size:18px;color:#8899aa;margin-bottom:8px;">Where each model sits across display zones \u2014 find what needs reorganized</div>';
 
       // Type filter buttons
       h += '<div class="cov-type-filters" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">';
@@ -3305,15 +3306,15 @@ var Views = (function () {
   }
 
   // ══════════════════════════════════════════════════════════════════
-  // ZONE MAP — Master Zone Alignment Q2 2026
+  // LOCATION ZONES — Master Zone Alignment Q2 2026
   // ══════════════════════════════════════════════════════════════════
 
-  function zoneMapView() {
+  function locationZonesView() {
     var h = '<div class="view" style="padding:0 0 24px;">';
 
     h += '<div style="padding:16px 16px 12px;border-bottom:1px solid var(--border);">';
-    h += '<div style="font-size:22px;font-weight:800;color:var(--text-1);letter-spacing:-0.3px;">Zone Map</div>';
-    h += '<div style="font-size:12px;color:var(--text-3);margin-top:3px;">Master Zone Alignment · Q2 2026 · Effective 03/29/26</div>';
+    h += '<div style="font-size:22px;font-weight:800;color:var(--text-1);letter-spacing:-0.3px;">Location Zones</div>';
+    h += '<div style="font-size:12px;color:var(--text-3);margin-top:3px;">Master Zone Alignment \u00B7 Q2 2026 \u00B7 Effective 03/29/26</div>';
     h += '</div>';
 
     h += '<div style="padding:16px;">';
@@ -4166,10 +4167,10 @@ var Views = (function () {
     h += secHeader('help-coverage', '8', 'Coverage & Analysis');
     h += '<div class="card">';
     h += featureRow('Coverage Matrix', 'Every model&#x2019;s placement: SHR (blue), DSP (green), OVR, INC, OTH. Gap column flags missing coverage.');
-    h += featureRow('Zone Map', 'Per-zone column grid (DISP01-11). Shows which models are in each zone.');
+    h += featureRow('Display Distribution', 'Per-zone column grid (DISP01-11). Shows which models are in each zone.');
     h += featureRow('Overflow Only', 'Units in overflow with no display/showroom presence &mdash; candidates to move onto the floor.');
     h += featureRow('Replacement Log', 'Track replacement picks, mark complete or cancel.');
-    h += featureRow('Type Filters', 'Both Coverage Matrix and Zone Map have type filter buttons at the top.');
+    h += featureRow('Type Filters', 'Both Coverage Matrix and Display Distribution have type filter buttons at the top.');
     h += '</div>';
 
     // ── 9. AUDIT ──
@@ -4444,7 +4445,7 @@ var Views = (function () {
       h += '<div style="padding:20px 16px 12px;border-bottom:1px solid var(--border);">';
       h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;">';
       h += '<div style="font-size:24px;font-weight:800;color:var(--text-1);letter-spacing:-0.3px;">Select Location</div>';
-      h += '<span data-action="goto-zone-map" style="font-size:12px;font-weight:600;color:var(--accent);cursor:pointer;'
+      h += '<span data-action="goto-location-zones" style="font-size:12px;font-weight:600;color:var(--accent);cursor:pointer;'
          + 'padding:5px 10px;border:1px solid var(--accent);border-radius:6px;white-space:nowrap;margin-top:3px;">Zone Details &amp; Map</span>';
       h += '</div>';
       h += '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Viewing as: <strong>Corporate</strong></div>';
@@ -4605,7 +4606,7 @@ var Views = (function () {
     lotMapView: lotMapView,
     coverageTabView: coverageTabView,
     coverageView: coverageView,
-    zoneMapView: zoneMapView,
+    displayDistributionView: displayDistributionView,
     overflowOnlyView: overflowOnlyView,
     hierarchyView: hierarchyView,
     hierarchyDetailView: hierarchyDetailView,
@@ -4630,7 +4631,7 @@ var Views = (function () {
     incomingMakeView: incomingMakeView,
     incomingUnitsView: incomingUnitsView,
     locationPickerView: locationPickerView,
-    zoneMapView: zoneMapView,
+    locationZonesView: locationZonesView,
     renderUnitCard: renderUnitCard,
     renderUnitPickTile: renderUnitPickTile,
     renderUnitFillTile: renderUnitFillTile,
