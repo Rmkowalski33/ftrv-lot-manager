@@ -4,16 +4,16 @@
    by IndexedDB (see db.js), not the SW cache.
    ================================================================ */
 
-var CACHE_NAME = "ftrv-lot-v96";
+var CACHE_NAME = "ftrv-lot-v97";
 var APP_SHELL = [
   "./",
   "./index.html",
   "./css/app.css",
-  "./js/db.js?v=94",
-  "./js/sync.js?v=94",
-  "./js/views.js?v=94",
-  "./js/app.js?v=94",
-  "./js/gate.js?v=94",
+  "./js/db.js?v=95",
+  "./js/sync.js?v=95",
+  "./js/views.js?v=95",
+  "./js/app.js?v=95",
+  "./js/gate.js?v=95",
   "./manifest.json",
   "./img/powered-by-rayi.png",
   "./img/lot-map-p1.jpg",

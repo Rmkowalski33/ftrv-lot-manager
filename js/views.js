@@ -6,7 +6,7 @@
 var Views = (function () {
 
   // ── App Version (update on each deploy so users can verify they have the latest) ──
-  var APP_VERSION = "v94 · Apr 2 2026";
+  var APP_VERSION = "v95 · Apr 2 2026";
 
   // ── Helpers ────────────────────────────────────────────────────
   function esc(s) {
@@ -33,6 +33,39 @@ var Views = (function () {
   function _locPrefix() {
     try { return (Gate.getLocation().location || "").toUpperCase(); } catch(e) { return ""; }
   }
+
+  // ── Check for Update ─────────────────────────────────────────
+  // Forces service worker to check for a new version, clears old caches, and reloads
+  window._ftrv_checkUpdate = function (btn) {
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Checking...";
+    }
+    if (!navigator.serviceWorker || !navigator.serviceWorker.controller) {
+      // No SW — just hard reload
+      window.location.reload(true);
+      return;
+    }
+    navigator.serviceWorker.getRegistration().then(function (reg) {
+      if (!reg) { window.location.reload(true); return; }
+      return reg.update().then(function () {
+        // Give the new SW time to install + activate
+        return new Promise(function (resolve) { setTimeout(resolve, 2000); });
+      }).then(function () {
+        // Clear all caches so the next load fetches fresh
+        return caches.keys().then(function (names) {
+          return Promise.all(names.map(function (n) { return caches.delete(n); }));
+        });
+      }).then(function () {
+        // Unregister old SW so next load re-registers with fresh files
+        return reg.unregister();
+      }).then(function () {
+        window.location.reload(true);
+      });
+    }).catch(function () {
+      window.location.reload(true);
+    });
+  };
 
   // ── Status Categories ────────────────────────────────────────
   // From Lot Management Meeting — 4 categories (matches build_cle_lot_report.py)
@@ -587,7 +620,10 @@ var Views = (function () {
           + (exportedAt ? 'Updated ' + esc(exportedAt) : '')
           + '</span>'
           + '</div>';
-        h += '<div style="text-align:right;font-size:11px;color:#8899aa;margin:-4px 0 6px;letter-spacing:0.3px;">App ' + APP_VERSION + '</div>';
+        h += '<div style="display:flex;justify-content:space-between;align-items:center;margin:-2px 0 8px;">'
+          + '<span style="font-size:11px;color:#8899aa;letter-spacing:0.3px;">App ' + APP_VERSION + '</span>'
+          + '<button onclick="window._ftrv_checkUpdate(this)" style="font-size:12px;color:var(--blue,#3b82f6);background:none;border:1px solid var(--blue,#3b82f6);border-radius:6px;padding:3px 10px;cursor:pointer;">Check for Update</button>'
+          + '</div>';
 
         // Search box
         h += '<div class="search-box">'
@@ -4264,7 +4300,7 @@ var Views = (function () {
 
     // Header
     h += '<div style="text-align:center;margin-bottom:20px;">';
-    h += '<div style="font-size:22px;font-weight:800;color:var(--text-1);margin-bottom:4px;">CLE Lot Manager</div>';
+    h += '<div style="font-size:22px;font-weight:800;color:var(--text-1);margin-bottom:4px;">FTRV Lot Manager</div>';
     h += '<div style="font-size:13px;color:var(--text-3);">User Guide &amp; Feature Reference</div>';
     h += '</div>';
 
@@ -4486,13 +4522,35 @@ var Views = (function () {
     // ── 10. DATA REFRESH ──
     h += secHeader('help-refresh', '10', 'Data Refresh');
     h += '<div class="card">';
-    h += '<div style="font-size:13px;color:var(--text-2);line-height:1.6;margin-bottom:10px;">Data updates when the CLE Lot Report runs (typically daily).</div>';
-    h += stepCard(1, 'Run the CLE Lot Report', 'This triggers the data pipeline and pushes updated JSON to the app.');
-    h += stepCard(2, 'Close All Tabs', 'Close every tab/instance of the app on your phone.');
-    h += stepCard(3, 'Reopen the App', 'The new service worker installs and loads fresh data.');
+    h += '<div style="font-size:14px;font-weight:600;color:var(--text-1);margin-bottom:8px;">How Updates Work</div>';
+    h += '<div style="font-size:13px;color:var(--text-2);line-height:1.7;margin-bottom:12px;">'
+      + 'This app works offline by saving a copy of your inventory data to your device. '
+      + 'When new data is available, the app downloads it in the background. '
+      + 'Here\u2019s what to expect:</div>';
+
+    h += '<div style="font-size:14px;font-weight:600;color:var(--text-1);margin-bottom:6px;">Data Updates</div>';
+    h += '<div style="font-size:13px;color:var(--text-2);line-height:1.7;margin-bottom:12px;">'
+      + '\u2022 Inventory data is refreshed <strong>once daily</strong> (typically early morning).<br>'
+      + '\u2022 The \u201CUpdated\u201D timestamp on the Home tab shows when the data was last refreshed.<br>'
+      + '\u2022 When you open the app, it syncs the latest data automatically. You don\u2019t need to do anything.</div>';
+
+    h += '<div style="font-size:14px;font-weight:600;color:var(--text-1);margin-bottom:6px;">App Updates</div>';
+    h += '<div style="font-size:13px;color:var(--text-2);line-height:1.7;margin-bottom:12px;">'
+      + '\u2022 App updates (new features, bug fixes) are pushed separately from data.<br>'
+      + '\u2022 The \u201CApp v##\u201D line on the Home tab shows your current app version.<br>'
+      + '\u2022 Updates are cached for fast loading. When a new version is available, it downloads in the background and takes effect the next time you open the app.</div>';
+
+    h += '<div style="font-size:14px;font-weight:600;color:var(--text-1);margin-bottom:6px;">Check for Update</div>';
+    h += '<div style="font-size:13px;color:var(--text-2);line-height:1.7;margin-bottom:8px;">'
+      + 'If you want to make sure you\u2019re on the latest version right now, tap the <strong>Check for Update</strong> button on the Home tab (next to the version number). '
+      + 'This clears the cached version and reloads with the latest.</div>';
+
+    h += '<div style="text-align:center;margin-top:8px;">'
+      + '<button onclick="window._ftrv_checkUpdate(this)" style="font-size:14px;color:#fff;background:var(--blue,#3b82f6);border:none;border-radius:8px;padding:10px 24px;cursor:pointer;font-weight:600;">Check for Update Now</button>'
+      + '</div>';
     h += '</div>';
 
-    h += tipCard('<strong>Troubleshooting:</strong> If data looks stale after reopening, clear your browser cache (Settings &#x2192; Safari/Chrome &#x2192; Clear Cache) and reload.', 'var(--orange)');
+    h += tipCard('<strong>Still seeing old data?</strong> Tap Check for Update on the Home tab. If that doesn\u2019t work, close all browser tabs and reopen the app.', 'var(--orange)');
 
     // ── Daily Workflow ──
     h += '<div style="margin-top:24px;margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid var(--green);">'
@@ -4506,7 +4564,7 @@ var Views = (function () {
     h += stepCard(5, 'Review Coverage', 'Use the Coverage Matrix to spot remaining gaps.');
     h += '</div>';
 
-    h += '<div style="text-align:center;padding:16px 0;font-size:12px;color:var(--text-3);">CLE Lot Manager v1.2 &bull; Powered by RAY.i</div>';
+    h += '<div style="text-align:center;padding:16px 0;font-size:12px;color:var(--text-3);">FTRV Lot Manager &bull; ' + APP_VERSION + '</div>';
 
     return Promise.resolve(h);
   }
