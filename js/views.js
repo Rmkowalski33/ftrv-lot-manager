@@ -6,7 +6,7 @@
 var Views = (function () {
 
   // ── App Version (update on each deploy so users can verify they have the latest) ──
-  var APP_VERSION = "v93 · Apr 2 2026";
+  var APP_VERSION = "v94 · Apr 2 2026";
 
   // ── Helpers ────────────────────────────────────────────────────
   function esc(s) {
@@ -2662,25 +2662,73 @@ var Views = (function () {
     return DB.getAllUnits().then(function (units) {
       var flags = computeLotAuditFlags(units);
 
+      // Split into format-only (MISSING_HYPHEN) vs real issues
+      var formatFlags = [];
+      var issueFlags = [];
+      for (var i = 0; i < flags.length; i++) {
+        if (flags[i].flag === "MISSING_HYPHEN") formatFlags.push(flags[i]);
+        else issueFlags.push(flags[i]);
+      }
+
+      // Count by flag type for summary table
+      var flagCounts = {};
+      for (var i = 0; i < flags.length; i++) {
+        var f = flags[i].flag;
+        flagCounts[f] = (flagCounts[f] || 0) + 1;
+      }
+
       var h = '<div class="view">';
       h += backBtn("audit", "Audit");
-
-      var warning = flags.filter(function (f) { return f.severity === "WARNING"; }).length;
-      var info = flags.filter(function (f) { return f.severity === "INFO"; }).length;
 
       h += '<div class="section-header" style="margin-top:0;">Lot Location Audit</div>'
         + '<div style="font-size:18px;color:#8899aa;margin-bottom:12px;">Lot codes that need renaming in Motility DMS to match the standard format</div>';
 
-      h += '<div class="stats-row">'
-        + '<div class="stat-pill"><div class="stat-val text-orange">' + warning + '</div><div class="stat-label">Warning</div></div>'
-        + '<div class="stat-pill"><div class="stat-val text-blue">' + info + '</div><div class="stat-label">Info</div></div>'
-        + '<div class="stat-pill"><div class="stat-val" style="color:var(--text-2);">' + flags.length + '</div><div class="stat-label">Total</div></div>'
-        + '</div>';
+      // ── Summary Table ──
+      h += '<div class="card" style="padding:14px 16px;margin-bottom:16px;">'
+        + '<div style="font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;margin-bottom:10px;">Summary</div>';
 
+      var FLAG_LABELS = {
+        "MISSING_HYPHEN": { label: "Format Update", desc: "Add hyphen between area code and number", color: "var(--blue)", bg: "var(--blue-dim,#1a3a5c)" },
+        "NON_STANDARD":   { label: "Non-Standard Name", desc: "Abbreviation needs renaming (e.g., DISP \u2192 DSP)", color: "var(--orange)", bg: "var(--orange-dim,#3d2e1a)" },
+        "UNRECOGNIZED":   { label: "Unrecognized Code", desc: "Abbreviation not in official lot code list", color: "var(--red)", bg: "var(--red-dim,#3d1a1a)" },
+        "MISSING_PREFIX":  { label: "Missing Store Prefix", desc: "Lot code missing the location prefix (e.g., CLE-)", color: "var(--orange)", bg: "var(--orange-dim,#3d2e1a)" },
+        "NO_LOT_CODE":    { label: "No Lot Code", desc: "Sellable unit with no lot location assigned", color: "var(--orange)", bg: "var(--orange-dim,#3d2e1a)" }
+      };
+
+      var flagOrder = ["UNRECOGNIZED", "NON_STANDARD", "MISSING_PREFIX", "NO_LOT_CODE", "MISSING_HYPHEN"];
+      for (var fi = 0; fi < flagOrder.length; fi++) {
+        var fk = flagOrder[fi];
+        var cnt = flagCounts[fk] || 0;
+        if (cnt === 0) continue;
+        var fl = FLAG_LABELS[fk] || { label: fk, desc: "", color: "#888", bg: "#333" };
+        h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;' + (fi < flagOrder.length - 1 ? 'border-bottom:1px solid var(--border);' : '') + '">'
+          + '<div>'
+          + '<div style="font-size:18px;font-weight:600;">' + fl.label + '</div>'
+          + '<div style="font-size:13px;color:var(--text-3);margin-top:1px;">' + fl.desc + '</div>'
+          + '</div>'
+          + '<span style="font-size:22px;font-weight:800;color:' + fl.color + ';">' + cnt + '</span>'
+          + '</div>';
+      }
+
+      h += '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">'
+        + '<div style="font-size:18px;font-weight:700;">Total</div>'
+        + '<span style="font-size:22px;font-weight:800;">' + flags.length + '</span>'
+        + '</div>';
+      h += '</div>';
+
+      // ── Note about format updates ──
+      if (formatFlags.length > 0) {
+        h += '<div style="padding:10px 14px;background:var(--blue-dim,#1a3a5c);border-radius:8px;margin-bottom:16px;border-left:4px solid var(--blue,#3b82f6);">'
+          + '<div style="font-size:14px;font-weight:600;color:var(--blue,#3b82f6);margin-bottom:4px;">About Format Updates (' + formatFlags.length + ')</div>'
+          + '<div style="font-size:13px;color:var(--text-2);">These are not errors. The new standard format is [STORE]-[CODE]-[##] with a hyphen before the number (e.g., CLE-DSP-01 instead of CLE-DSP01). These will be cleaned up during the lot map rollout.</div>'
+          + '</div>';
+      }
+
+      // ── Filter chips ──
       h += '<div class="chip-row">'
         + '<div class="chip active" data-filter="all">All (' + flags.length + ')</div>'
-        + '<div class="chip" data-filter="WARNING">Warning (' + warning + ')</div>'
-        + '<div class="chip" data-filter="INFO">Info (' + info + ')</div>'
+        + '<div class="chip" data-filter="issues">Needs Attention (' + issueFlags.length + ')</div>'
+        + '<div class="chip" data-filter="format">Format Only (' + formatFlags.length + ')</div>'
         + '</div>';
 
       h += '<div id="lotAuditList">';
@@ -2693,8 +2741,11 @@ var Views = (function () {
   }
 
   function _renderLotAuditFlags(flags, filter) {
-    var filtered = filter === "all" ? flags
-      : flags.filter(function (f) { return f.severity === filter; });
+    var filtered;
+    if (filter === "all") filtered = flags;
+    else if (filter === "issues") filtered = flags.filter(function (f) { return f.flag !== "MISSING_HYPHEN"; });
+    else if (filter === "format") filtered = flags.filter(function (f) { return f.flag === "MISSING_HYPHEN"; });
+    else filtered = flags.filter(function (f) { return f.severity === filter; });
     if (filtered.length === 0) {
       return '<div class="empty-state"><div class="empty-icon">&#9989;</div>'
         + '<div class="empty-title">All codes are standard</div></div>';
