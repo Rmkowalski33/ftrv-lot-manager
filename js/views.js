@@ -668,11 +668,11 @@ var Views = (function () {
         h += '</div>';
 
         // ── Zones button (standalone) ──
-        h += '<a href="#location-zones" class="card card-interactive" style="display:flex;align-items:center;gap:14px;text-decoration:none;color:inherit;padding:14px 16px;">'
-          + '<div style="width:42px;height:42px;border-radius:10px;background:var(--blue-dim,#1a3a5c);display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
-          + '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="var(--blue,#3b82f6)" stroke-width="2" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></div>'
-          + '<div><div style="font-size:18px;font-weight:600;">Zone Map</div>'
-          + '<div style="font-size:13px;color:var(--text-3);margin-top:2px;">FTRV master zone alignment \u2014 locations, zone managers, and store assignments</div></div>'
+        h += '<a href="#location-zones" class="card card-interactive" style="display:flex;align-items:center;gap:14px;text-decoration:none;padding:14px 16px;">'
+          + '<div style="width:42px;height:42px;border-radius:10px;background:#e8f0fe;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
+          + '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#1a73e8" stroke-width="2" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></div>'
+          + '<div><div style="font-size:18px;font-weight:600;color:#1a1a2e;">Zone Map</div>'
+          + '<div style="font-size:13px;color:#64748b;margin-top:2px;">FTRV master zone alignment \u2014 locations, zone managers, and store assignments</div></div>'
           + '</a>';
 
         // ── Section C: Attention Needed ──
