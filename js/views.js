@@ -6,7 +6,7 @@
 var Views = (function () {
 
   // ── App Version (update on each deploy so users can verify they have the latest) ──
-  var APP_VERSION = "v91 · Apr 2 2026";
+  var APP_VERSION = "v92 · Apr 2 2026";
 
   // ── Helpers ────────────────────────────────────────────────────
   function esc(s) {
@@ -587,7 +587,7 @@ var Views = (function () {
           + (exportedAt ? 'Updated ' + esc(exportedAt) : '')
           + '</span>'
           + '</div>';
-        h += '<div style="text-align:right;font-size:10px;color:#556677;margin:-4px 0 6px;letter-spacing:0.3px;">' + APP_VERSION + '</div>';
+        h += '<div style="text-align:right;font-size:11px;color:#8899aa;margin:-4px 0 6px;letter-spacing:0.3px;">App ' + APP_VERSION + '</div>';
 
         // Search box
         h += '<div class="search-box">'
