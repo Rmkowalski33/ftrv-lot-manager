@@ -442,12 +442,9 @@ var Views = (function () {
       var stripped = stripLotPrefix(u.lot_location || "");
       var vt = u.veh_type || "Other";
       // Match zone prefix: "DSP-01A" → "DSP-01", "SHR-02" → "SHR-02"
-      var m = stripped.match(/^(DSP-\d+|SHR-\d+|DISP\d+|SHR\d+)/);
+      var m = stripped.match(/^(?:DSP|DISP|SHR)[\-]?\d+/i);
       if (!m) continue;
-      var zc = m[1];
-      // Normalize old format: DISP01 → DSP-01, SHR01 → SHR-01
-      zc = zc.replace(/^DISP(\d+)/, function(_, n) { return "DSP-" + (n.length < 2 ? "0" + n : n); });
-      zc = zc.replace(/^SHR(\d+)/, function(_, n) { return "SHR-" + (n.length < 2 ? "0" + n : n); });
+      var zc = _normalizeZoneCode(m[0]);
       if (!zoneCounts[zc]) zoneCounts[zc] = {};
       zoneCounts[zc][vt] = (zoneCounts[zc][vt] || 0) + 1;
     }
@@ -671,9 +668,11 @@ var Views = (function () {
         h += '</div>';
 
         // ── Zones button (standalone) ──
-        h += '<a href="#location-zones" style="display:block;margin:12px 0;padding:14px 16px;background:var(--surface-2);border-radius:10px;border:1px solid var(--border);text-decoration:none;color:inherit;">'
-          + '<div style="font-size:18px;font-weight:600;color:var(--text-1);">Zone Map</div>'
-          + '<div style="font-size:13px;color:var(--text-3);margin-top:2px;">FTRV master zone alignment \u2014 locations, zone managers, and store assignments</div>'
+        h += '<a href="#location-zones" class="card card-interactive" style="display:flex;align-items:center;gap:14px;text-decoration:none;color:inherit;padding:14px 16px;">'
+          + '<div style="width:42px;height:42px;border-radius:10px;background:var(--blue-dim,#1a3a5c);display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
+          + '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="var(--blue,#3b82f6)" stroke-width="2" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></div>'
+          + '<div><div style="font-size:18px;font-weight:600;">Zone Map</div>'
+          + '<div style="font-size:13px;color:var(--text-3);margin-top:2px;">FTRV master zone alignment \u2014 locations, zone managers, and store assignments</div></div>'
           + '</a>';
 
         // ── Section C: Attention Needed ──
@@ -1756,39 +1755,54 @@ var Views = (function () {
   var _discoveredDispZones = null; // sorted array of stripped DSP zone codes found in data
   var _discoveredDispLabels = null;
 
+  function _normalizeZoneCode(raw) {
+    // Normalize any display zone code to DSP-## with zero-padded 2-digit number
+    var code = raw.toUpperCase().trim();
+    // DISP01, DISP1, DISP-01, DISP-1 → DSP-01
+    var m = code.match(/^(?:DISP|DSP)[\-]?(\d+)/);
+    if (m) return "DSP-" + (m[1].length < 2 ? "0" + m[1] : m[1]);
+    // SHR01, SHR1, SHR-01 → SHR-01
+    m = code.match(/^SHR[\-]?(\d+)/);
+    if (m) return "SHR-" + (m[1].length < 2 ? "0" + m[1] : m[1]);
+    // OVR01, OVR-1 → OVR-01
+    m = code.match(/^OVR[\-]?(\d+)/);
+    if (m) return "OVR-" + (m[1].length < 2 ? "0" + m[1] : m[1]);
+    return code;
+  }
+
   function _discoverZones(units) {
     if (_discoveredDispZones) return;
     var seen = {};
     for (var i = 0; i < units.length; i++) {
       var s = stripLotPrefix(units[i].lot_location || "");
-      // Match DSP-## or legacy DISP## patterns
-      var m = s.match(/^(DSP-\d+|DISP\d+)/);
+      // Match any display zone pattern
+      var m = s.match(/^(?:DSP|DISP)[\-]?\d+/);
       if (m) {
-        var code = m[1];
-        // Normalize DISP01 → DSP-01
-        code = code.replace(/^DISP(\d+)/, function(_, n) { return "DSP-" + (n.length < 2 ? "0" + n : n); });
-        seen[code] = true;
+        seen[_normalizeZoneCode(m[0])] = true;
       }
     }
     _discoveredDispZones = Object.keys(seen).sort();
-    _discoveredDispLabels = _discoveredDispZones.map(function(z) { return z; }); // e.g., "DSP-01"
+    _discoveredDispLabels = _discoveredDispZones.map(function(z) { return z; });
   }
 
   function lotBucket(lot) {
     if (!lot) return "OTHER";
     var stripped = stripLotPrefix(lot);
     // Showroom
-    if (/^SHR/.test(stripped)) return "SHOWROOM";
-    // Display — match against discovered zones
-    if (_discoveredDispZones) {
-      for (var di = 0; di < _discoveredDispZones.length; di++) {
-        if (stripped.indexOf(_discoveredDispZones[di]) === 0) return _discoveredDispZones[di];
+    if (/^SHR/i.test(stripped)) return "SHOWROOM";
+    // Display — normalize then match against discovered zones
+    var m = stripped.match(/^(?:DSP|DISP)[\-]?\d+/i);
+    if (m) {
+      var normalized = _normalizeZoneCode(m[0]);
+      if (_discoveredDispZones) {
+        for (var di = 0; di < _discoveredDispZones.length; di++) {
+          if (normalized === _discoveredDispZones[di]) return _discoveredDispZones[di];
+        }
       }
+      return "DISPLAY"; // fallback if zones not discovered yet
     }
-    // Fallback for DSP prefix not yet discovered
-    if (/^DSP/.test(stripped)) return "DISPLAY";
     // Overflow
-    if (/^OVR/.test(stripped)) return "OVERFLOW";
+    if (/^OVR/i.test(stripped)) return "OVERFLOW";
     return "OTHER";
   }
 
