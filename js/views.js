@@ -6,7 +6,7 @@
 var Views = (function () {
 
   // ── App Version (update on each deploy so users can verify they have the latest) ──
-  var APP_VERSION = "v92 · Apr 2 2026";
+  var APP_VERSION = "v93 · Apr 2 2026";
 
   // ── Helpers ────────────────────────────────────────────────────
   function esc(s) {
@@ -2564,7 +2564,7 @@ var Views = (function () {
     "OVER": "OVR", "OVERFLOW": "OVR", "OF": "OVR",
     "SERVICE": "SVC", "SR": "SHR", "WT": "WLK"
   };
-  var LOT_KNOWN_ABBREVS = ["DSP","SHR","OVR","PDI","QAC","WLK","SVC","RCL","XFR","SLP","TCI","HIT","MGR","OFF","FIN","RVP","WSH"];
+  var LOT_KNOWN_ABBREVS = ["DSP","SHR","OVR","PDI","QAC","WLK","SVC","RCL","XFR","SLP","TCI","HIT","MGR","OFF","FIN","RVP","WSH","USD"];
 
   function computeLotAuditFlags(units) {
     var prefix = _locPrefix();
