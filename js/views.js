@@ -5,6 +5,9 @@
 
 var Views = (function () {
 
+  // ── App Version (update on each deploy so users can verify they have the latest) ──
+  var APP_VERSION = "v91 · Apr 2 2026";
+
   // ── Helpers ────────────────────────────────────────────────────
   function esc(s) {
     if (s === null || s === undefined) return "";
@@ -577,13 +580,14 @@ var Views = (function () {
       return DB.getMeta("exported_at").then(function (exportedAt) {
         var h = '<div class="view">';
 
-        // How to use + Updated timestamp row (above search)
-        if (exportedAt) {
-          h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
-            + '<a href="#help" style="font-size:12px;color:#8899aa;text-decoration:none;">&#8505; How to Use</a>'
-            + '<span style="font-size:12px;color:#8899aa;">Updated ' + esc(exportedAt) + '</span>'
-            + '</div>';
-        }
+        // How to use + Updated timestamp + App version row (above search)
+        h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
+          + '<a href="#help" style="font-size:12px;color:#8899aa;text-decoration:none;">&#8505; How to Use</a>'
+          + '<span style="font-size:12px;color:#8899aa;">'
+          + (exportedAt ? 'Updated ' + esc(exportedAt) : '')
+          + '</span>'
+          + '</div>';
+        h += '<div style="text-align:right;font-size:10px;color:#556677;margin:-4px 0 6px;letter-spacing:0.3px;">' + APP_VERSION + '</div>';
 
         // Search box
         h += '<div class="search-box">'
