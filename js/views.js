@@ -12,14 +12,23 @@ var Views = (function () {
       .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
 
-  // Strip location prefix generically: "AMA-DSP01" → "DSP01", "CLE-DISP01" → "DISP01"
-  // Also normalises legacy CLE "DSP" → "DISP" inconsistency
+  // Strip location prefix generically: "AMA-DSP-01" → "DSP-01", "CLE-DISP01" → "DSP-01"
+  // DSP is canonical — normalize DISP variants
   function stripLotPrefix(raw) {
     if (!raw) return "";
     var upper = raw.toUpperCase().trim();
     var dash = upper.indexOf("-");
     var stripped = dash > 0 ? upper.substring(dash + 1) : upper;
-    return stripped.replace(/^DSP(\d)/, "DISP$1");
+    // Normalize DISP → DSP (DSP is canonical)
+    stripped = stripped.replace(/^DISP/, "DSP");
+    // Normalize missing hyphen: DSP01 → DSP-01
+    stripped = stripped.replace(/^(DSP|SHR|OVR|PDI|QAC|WLK|SVC|RCL|XFR|SLP|TCI|HIT|MGR)(\d)/, "$1-$2");
+    return stripped;
+  }
+
+  // Get the current location prefix (e.g., "CLE", "AMA") for lot code construction
+  function _locPrefix() {
+    try { return (Gate.getLocation().location || "").toUpperCase(); } catch(e) { return ""; }
   }
 
   // ── Status Categories ────────────────────────────────────────
@@ -417,51 +426,58 @@ var Views = (function () {
   // ── Zone Data ────────────────────────────────────────────────
   // Static fallback labels (used before inventory is loaded)
   var ZONE_INFO_STATIC = {
-    "DISP01": "Zone 1", "DISP02": "Zone 2", "DISP03": "Zone 3",
-    "DISP04": "Zone 4", "DISP05": "Zone 5", "DISP06": "Zone 6",
-    "DISP07": "Zone 7", "DISP08": "Zone 8",
-    "SHR01": "Showroom 1", "SHR02": "Showroom 2", "SHR03": "Showroom 3",
+    "DSP-01": "Zone 1", "DSP-02": "Zone 2", "DSP-03": "Zone 3",
+    "DSP-04": "Zone 4", "DSP-05": "Zone 5", "DSP-06": "Zone 6",
+    "DSP-07": "Zone 7", "DSP-08": "Zone 8",
+    "SHR-01": "Showroom 1", "SHR-02": "Showroom 2", "SHR-03": "Showroom 3",
   };
   var _zoneInfoCache = null;
 
-  // Build dynamic zone descriptions from actual inventory
+  // Build dynamic zone descriptions from actual inventory (location-agnostic)
   function buildZoneInfo(units) {
     if (_zoneInfoCache) return _zoneInfoCache;
-    var zoneCounts = {}; // zoneCode → { vehType → count }
+    var zoneCounts = {}; // stripped zoneCode → { vehType → count }
     for (var i = 0; i < units.length; i++) {
       var u = units[i];
-      var lot = (u.lot_location || "").toUpperCase().replace("CLE-", "");
+      var stripped = stripLotPrefix(u.lot_location || "");
       var vt = u.veh_type || "Other";
-      // Match zone prefix (e.g., "DISP01A" → "DISP01")
-      var zc = "";
-      if (lot.match(/^(DISP\d+|SHR\d+)/)) zc = lot.match(/^(DISP\d+|SHR\d+)/)[1];
-      if (!zc) continue;
+      // Match zone prefix: "DSP-01A" → "DSP-01", "SHR-02" → "SHR-02"
+      var m = stripped.match(/^(DSP-\d+|SHR-\d+|DISP\d+|SHR\d+)/);
+      if (!m) continue;
+      var zc = m[1];
+      // Normalize old format: DISP01 → DSP-01, SHR01 → SHR-01
+      zc = zc.replace(/^DISP(\d+)/, function(_, n) { return "DSP-" + (n.length < 2 ? "0" + n : n); });
+      zc = zc.replace(/^SHR(\d+)/, function(_, n) { return "SHR-" + (n.length < 2 ? "0" + n : n); });
       if (!zoneCounts[zc]) zoneCounts[zc] = {};
       zoneCounts[zc][vt] = (zoneCounts[zc][vt] || 0) + 1;
     }
     var info = {};
-    var zoneNums = { "DISP": "Zone", "SHR": "Showroom" };
-    var keys = Object.keys(ZONE_INFO_STATIC);
-    for (var k = 0; k < keys.length; k++) {
-      var zc = keys[k];
-      var prefix = zc.replace(/\d+/g, "");
+    var zoneNums = { "DSP": "Zone", "SHR": "Showroom" };
+    // Build from actual data, not just static list
+    var allZones = Object.keys(ZONE_INFO_STATIC);
+    var dataZones = Object.keys(zoneCounts);
+    for (var d = 0; d < dataZones.length; d++) {
+      if (allZones.indexOf(dataZones[d]) === -1) allZones.push(dataZones[d]);
+    }
+    allZones.sort();
+    for (var k = 0; k < allZones.length; k++) {
+      var zc = allZones[k];
+      var prefix = zc.replace(/[-\d]+/g, "");
       var num = zc.replace(/\D/g, "");
       var baseName = (zoneNums[prefix] || prefix) + " " + parseInt(num);
       var counts = zoneCounts[zc];
       if (!counts) { info[zc] = baseName; continue; }
-      // Find dominant type
       var types = Object.keys(counts).sort(function(a, b) { return counts[b] - counts[a]; });
       var total = 0;
       for (var t = 0; t < types.length; t++) total += counts[types[t]];
       var topType = types[0];
       var topPct = Math.round(counts[topType] / total * 100);
-      // Label with dominant type; if mixed (top < 60%), show top two
       if (topPct >= 60) {
-        info[zc] = baseName + " — " + topType + "s";
+        info[zc] = baseName + " \u2014 " + topType + "s";
       } else if (types.length >= 2) {
-        info[zc] = baseName + " — " + topType + " / " + types[1];
+        info[zc] = baseName + " \u2014 " + topType + " / " + types[1];
       } else {
-        info[zc] = baseName + " — " + topType + "s";
+        info[zc] = baseName + " \u2014 " + topType + "s";
       }
     }
     _zoneInfoCache = info;
@@ -476,19 +492,19 @@ var Views = (function () {
   }
 
   var ZONE_GROUPS = [
-    { type: "SHR",  label: "Showroom", codes: ["SHR01","SHR02","SHR03","SHR04","SHR05"] },
-    { type: "DISP", label: "Display",  codes: ["DISP01","DISP02","DISP03","DISP04","DISP05","DISP06","DISP07","DISP08","DISP10","DISP11"] },
-    { type: "OVR",  label: "Overflow", codes: ["OVR01","OVR02","OVR03","OVR20","OVR21"] },
-    { type: "PDI",  label: "PDI Bay",  codes: ["PDI01","PDI02","PDI03","PDI04","PDI05","PDI06","PDI07","PDI08","PDI09","PDI10","PDI11","PDI12","PDI13","PDI14","PDI15","PDI16","PDI17","PDI18","PDI19","PDI20"] },
-    { type: "QAC",  label: "QAC Bay",  codes: ["QAC01","QAC02","QAC03","QAC04","QAC05","QAC06","QAC07","QAC08","QAC09","QAC10"] },
-    { type: "SVC",  label: "Service",  codes: ["SVC01"] },
-    { type: "WLK",  label: "Walk Thru", codes: ["WLK01","WLK02","WLK03","WLK04","WLK05","WLK06","WLK07","WLK08","WLK09","WLK10","WLK11","WLK12","WLK13","WLK14","WLK15","WLK16","WLK17","WLK20","WLK21","WLK22","WLK23"] },
-    { type: "RCL",  label: "Receiving", codes: ["RCL01","RCL02"] },
-    { type: "XFR",  label: "Transfer", codes: ["XFR01","XFR20"] },
-    { type: "SLP",  label: "Sold/Pending", codes: ["SLP01","SLP20"] },
-    { type: "TCI",  label: "Trade Check-In", codes: ["TCI01","TCI02","TCI20"] },
-    { type: "HIT",  label: "Hitch Bay", codes: ["HIT01","HIT02"] },
-    { type: "MGR",  label: "Manager Special", codes: ["MGR20"] },
+    { type: "SHR",  label: "Showroom", codes: ["SHR-01","SHR-02","SHR-03","SHR-04","SHR-05"] },
+    { type: "DSP",  label: "Display",  codes: ["DSP-01","DSP-02","DSP-03","DSP-04","DSP-05","DSP-06","DSP-07","DSP-08","DSP-10","DSP-11"] },
+    { type: "OVR",  label: "Overflow", codes: ["OVR-01","OVR-02","OVR-03","OVR-20","OVR-21"] },
+    { type: "PDI",  label: "PDI Bay",  codes: ["PDI-01","PDI-02","PDI-03","PDI-04","PDI-05","PDI-06","PDI-07","PDI-08","PDI-09","PDI-10","PDI-11","PDI-12","PDI-13","PDI-14","PDI-15","PDI-16","PDI-17","PDI-18","PDI-19","PDI-20"] },
+    { type: "QAC",  label: "QAC Bay",  codes: ["QAC-01","QAC-02","QAC-03","QAC-04","QAC-05","QAC-06","QAC-07","QAC-08","QAC-09","QAC-10"] },
+    { type: "SVC",  label: "Service",  codes: ["SVC-01"] },
+    { type: "WLK",  label: "Walk Thru", codes: ["WLK-01","WLK-02","WLK-03","WLK-04","WLK-05","WLK-06","WLK-07","WLK-08","WLK-09","WLK-10","WLK-11","WLK-12","WLK-13","WLK-14","WLK-15","WLK-16","WLK-17","WLK-20","WLK-21","WLK-22","WLK-23"] },
+    { type: "RCL",  label: "Receiving", codes: ["RCL-01","RCL-02"] },
+    { type: "XFR",  label: "Transfer", codes: ["XFR-01","XFR-20"] },
+    { type: "SLP",  label: "Sold/Pending", codes: ["SLP-01","SLP-20"] },
+    { type: "TCI",  label: "Trade Check-In", codes: ["TCI-01","TCI-02","TCI-20"] },
+    { type: "HIT",  label: "Hitch Bay", codes: ["HIT-01","HIT-02"] },
+    { type: "MGR",  label: "Manager Special", codes: ["MGR-20"] },
     { type: "OFF",  label: "Off Lot",  codes: ["OFF"] },
   ];
 
@@ -511,7 +527,8 @@ var Views = (function () {
       for (var zi = 0; zi < g.codes.length; zi++) {
         var code = g.codes[zi];
         var info = ZONE_INFO[code] || g.label + " " + code.replace(g.type, "#");
-        h += '<option value="' + code + '">CLE-' + code + ' — ' + esc(info) + '</option>';
+        var prefix = _locPrefix();
+        h += '<option value="' + code + '">' + (prefix ? prefix + '-' : '') + code + ' \u2014 ' + esc(info) + '</option>';
       }
       h += '</optgroup>';
     }
@@ -651,8 +668,13 @@ var Views = (function () {
         h += '<a class="quick-nav-tile" href="#status"><div class="quick-nav-label">Status</div><div class="quick-nav-sub">Stock, dead, transit</div></a>';
         h += '<a class="quick-nav-tile" href="#makes"><div class="quick-nav-label">Makes</div><div class="quick-nav-sub">By manufacturer</div></a>';
         h += '<a class="quick-nav-tile" href="#shop"><div class="quick-nav-label">Type</div><div class="quick-nav-sub">By vehicle type</div></a>';
-        h += '<a class="quick-nav-tile" href="#location-zones"><div class="quick-nav-label">Zones</div><div class="quick-nav-sub">Location zone map</div></a>';
         h += '</div>';
+
+        // ── Zones button (standalone) ──
+        h += '<a href="#location-zones" style="display:block;margin:12px 0;padding:14px 16px;background:var(--surface-2);border-radius:10px;border:1px solid var(--border);text-decoration:none;color:inherit;">'
+          + '<div style="font-size:18px;font-weight:600;color:var(--text-1);">Zone Map</div>'
+          + '<div style="font-size:13px;color:var(--text-3);margin-top:2px;">FTRV master zone alignment \u2014 locations, zone managers, and store assignments</div>'
+          + '</a>';
 
         // ── Section C: Attention Needed ──
         // Compute overflow-only (display holes) count
@@ -683,7 +705,7 @@ var Views = (function () {
 
         h += '<div class="attn-card">'
           + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#94a3b8;margin-bottom:10px;">Attention Needed</div>'
-          + '<a href="#overflow-only" class="attn-row" style="text-decoration:none;color:inherit;cursor:pointer;"><div><span class="attn-label">Display Holes</span><div style="font-size:11px;color:#8899aa;margin-top:2px;">Models needing display placement</div></div><span class="attn-val" style="color:var(--orange);">' + displayHoles + '</span></a>'
+          + '<a href="#overflow-only" class="attn-row" style="text-decoration:none;color:inherit;cursor:pointer;"><div><span class="attn-label">Display Holes</span><div style="font-size:11px;color:#8899aa;margin-top:2px;">Models sitting in overflow with no unit on display or showroom floor</div></div><span class="attn-val" style="color:var(--orange);">' + displayHoles + '</span></a>'
           + '<a href="#audit-status" class="attn-row" style="text-decoration:none;color:inherit;cursor:pointer;"><div><span class="attn-label">Audit Flags</span><div style="font-size:11px;color:#8899aa;margin-top:2px;">Data quality issues to resolve</div></div><span class="attn-val" style="color:var(--yellow);">' + auditFlags.length + '</span></a>'
           + '<a href="#all-inventory/dead-display=1" class="attn-row" style="border-bottom:none;text-decoration:none;color:inherit;cursor:pointer;"><div><span class="attn-label">Dead in Display</span><div style="font-size:11px;color:#8899aa;margin-top:2px;">Non-sellable units in customer areas</div></div><span class="attn-val" style="color:var(--red);">' + deadOnDisplay + '</span></a>'
           + '</div>';
@@ -1659,9 +1681,10 @@ var Views = (function () {
       var h = '<div class="view">';
 
       h += '<div class="stats-row">'
-        + '<div class="stat-pill"><div class="stat-val text-blue">' + totalModels + '</div><div class="stat-label">Models</div></div>'
-        + '<div class="stat-pill"><div class="stat-val text-orange">' + gapCount + '</div><div class="stat-label">Gaps</div></div>'
+        + '<div class="stat-pill"><div class="stat-val text-blue">' + totalModels + '</div><div class="stat-label">Unique Models</div></div>'
+        + '<div class="stat-pill"><div class="stat-val text-orange">' + gapCount + '</div><div class="stat-label">Coverage Gaps</div></div>'
         + '</div>';
+      h += '<div style="font-size:12px;color:var(--text-3);text-align:center;margin:-4px 0 8px;">A coverage gap is a model missing from showroom or display floor</div>';
 
       h += '<div class="section-header">Coverage Tools</div>';
 
@@ -1725,36 +1748,53 @@ var Views = (function () {
   // COVERAGE MATRIX — Model placement analysis with two modes
   // ══════════════════════════════════════════════════════════════
 
-  // Classify lot_location into a bucket
-  var SHR_PREFIXES = ["CLE-SHR"];
-  var DISP_ZONES = ["CLE-DISP01","CLE-DISP02","CLE-DISP03","CLE-DISP04","CLE-DISP05",
-                     "CLE-DISP06","CLE-DISP07","CLE-DISP08","CLE-DISP10","CLE-DISP11"];
-  var DISP_LABELS = ["DISP01","DISP02","DISP03","DISP04","DISP05","DISP06","DISP07","DISP08","DISP10","DISP11"];
+  // Classify lot_location into a bucket (location-agnostic, DSP canonical)
   var TRANSIT_STATUSES = ["SHIPPED","DISPATCHED","TRANSFER","STORE-TO-STORE TRANSFER","DRIVER NEEDED","IN TRANSIT",
                           "ORDERED","PO ISSUED","RETAIL ORDERED"];
 
+  // Dynamic zone discovery — built from actual inventory data
+  var _discoveredDispZones = null; // sorted array of stripped DSP zone codes found in data
+  var _discoveredDispLabels = null;
+
+  function _discoverZones(units) {
+    if (_discoveredDispZones) return;
+    var seen = {};
+    for (var i = 0; i < units.length; i++) {
+      var s = stripLotPrefix(units[i].lot_location || "");
+      // Match DSP-## or legacy DISP## patterns
+      var m = s.match(/^(DSP-\d+|DISP\d+)/);
+      if (m) {
+        var code = m[1];
+        // Normalize DISP01 → DSP-01
+        code = code.replace(/^DISP(\d+)/, function(_, n) { return "DSP-" + (n.length < 2 ? "0" + n : n); });
+        seen[code] = true;
+      }
+    }
+    _discoveredDispZones = Object.keys(seen).sort();
+    _discoveredDispLabels = _discoveredDispZones.map(function(z) { return z; }); // e.g., "DSP-01"
+  }
+
   function lotBucket(lot) {
     if (!lot) return "OTHER";
-    var lc = lot.toUpperCase().trim();
-    // Normalize DSP → DISP
-    if (lc.indexOf("CLE-DSP") === 0 && lc.indexOf("CLE-DISP") !== 0) {
-      lc = lc.replace("CLE-DSP", "CLE-DISP");
-    }
+    var stripped = stripLotPrefix(lot);
     // Showroom
-    for (var si = 0; si < SHR_PREFIXES.length; si++) {
-      if (lc.indexOf(SHR_PREFIXES[si]) === 0) return "SHOWROOM";
+    if (/^SHR/.test(stripped)) return "SHOWROOM";
+    // Display — match against discovered zones
+    if (_discoveredDispZones) {
+      for (var di = 0; di < _discoveredDispZones.length; di++) {
+        if (stripped.indexOf(_discoveredDispZones[di]) === 0) return _discoveredDispZones[di];
+      }
     }
-    // Individual display zones
-    for (var di = 0; di < DISP_ZONES.length; di++) {
-      if (lc.indexOf(DISP_ZONES[di]) === 0) return DISP_ZONES[di];
-    }
+    // Fallback for DSP prefix not yet discovered
+    if (/^DSP/.test(stripped)) return "DISPLAY";
     // Overflow
-    if (lc.indexOf("CLE-OVR") === 0) return "OVERFLOW";
+    if (/^OVR/.test(stripped)) return "OVERFLOW";
     return "OTHER";
   }
 
   // Shared: build coverage model data from units
   function buildCoverageData(units) {
+    _discoverZones(units); // ensure zones are discovered from data
     var TYPE_ORDER = { "TT": 0, "FW": 1, "TH": 2, "MH": 3, "FD": 4 };
     var active = [];
     for (var i = 0; i < units.length; i++) {
@@ -1931,11 +1971,14 @@ var Views = (function () {
       }
       h += '</div>';
 
+      var dspZones = _discoveredDispZones || [];
+      var dspLabels = _discoveredDispLabels || [];
+
       h += '<div class="cov-table-wrap"><table class="cov-table cov-table-zone">';
       h += '<thead><tr><th class="cov-th-sticky">Model</th>'
         + '<th>SHR</th>';
-      for (var di = 0; di < DISP_LABELS.length; di++) {
-        h += '<th>' + DISP_LABELS[di].replace("DISP", "D") + '</th>';
+      for (var di = 0; di < dspLabels.length; di++) {
+        h += '<th>' + dspLabels[di].replace("DSP-", "D") + '</th>';
       }
       h += '<th>OVR</th><th>OTH</th>'
         + '</tr></thead><tbody>';
@@ -1948,7 +1991,7 @@ var Views = (function () {
         var gTotal = 0;
         for (var ki = 0; ki < gKeys.length; ki++) gTotal += modelData[gKeys[ki]].total;
 
-        var nCols = 3 + DISP_LABELS.length;
+        var nCols = 3 + dspLabels.length;
         h += '<tr class="cov-make-row" data-vt="' + esc(gVt) + '"><td colspan="' + nCols + '" class="cov-th-sticky">'
           + '<span class="cov-vt-badge">' + esc(gVt) + '</span> '
           + esc(gMake) + ' <span class="cov-make-count">(' + gTotal + ')</span></td></tr>';
@@ -1962,8 +2005,8 @@ var Views = (function () {
             + '<td class="cov-th-sticky cov-model-name">' + esc(md.model) + '</td>'
             + '<td class="cov-num' + (md.showroom > 0 ? ' cov-shr' : '') + '">' + (md.showroom || '') + '</td>';
 
-          for (var di = 0; di < DISP_ZONES.length; di++) {
-            var zoneCount = md.zones[DISP_ZONES[di]] || 0;
+          for (var di = 0; di < dspZones.length; di++) {
+            var zoneCount = md.zones[dspZones[di]] || 0;
             h += '<td class="cov-num' + (zoneCount > 0 ? ' cov-has' : '') + '">' + (zoneCount || '') + '</td>';
           }
 
@@ -2380,6 +2423,16 @@ var Views = (function () {
         + (hierCount > 0 ? ' <span style="color:var(--purple);font-weight:700;">(' + hierCount + ')</span>' : '')
         + '</div></div></a>';
 
+      var lotFlags = computeLotAuditFlags(units);
+      var lotFlagCount = lotFlags.length;
+
+      h += '<a class="note-type-card" href="#lot-audit">'
+        + '<div class="note-type-icon" style="background:var(--orange-dim,#fff3e0);color:var(--orange);"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>'
+        + '<div><div class="note-type-label">Lot Location Codes</div>'
+        + '<div class="note-type-desc">Non-standard lot codes to rename in DMS'
+        + (lotFlagCount > 0 ? ' <span style="color:var(--orange);font-weight:700;">(' + lotFlagCount + ')</span>' : '')
+        + '</div></div></a>';
+
       h += '</div>';
       return h;
     });
@@ -2482,6 +2535,174 @@ var Views = (function () {
     return flags;
   }
 
+
+  // ══════════════════════════════════════════════════════════════
+  // LOT LOCATION AUDIT — Flags non-standard lot codes to rename in DMS
+  // ══════════════════════════════════════════════════════════════
+
+  var LOT_VARIANT_CORRECTIONS = {
+    "DISP": "DSP", "DISPLAY": "DSP",
+    "SHOW": "SHR", "SHOWROOM": "SHR",
+    "OVER": "OVR", "OVERFLOW": "OVR", "OF": "OVR",
+    "SERVICE": "SVC", "SR": "SHR", "WT": "WLK"
+  };
+  var LOT_KNOWN_ABBREVS = ["DSP","SHR","OVR","PDI","QAC","WLK","SVC","RCL","XFR","SLP","TCI","HIT","MGR","OFF","FIN","RVP","WSH"];
+
+  function computeLotAuditFlags(units) {
+    var prefix = _locPrefix();
+    var prefixDash = prefix ? prefix + "-" : "";
+    var TERMINAL = ["SOLD","WHOLESALE","WHOLESALE - USED","TEMPLATE","BUYBACK","DELETED","TRADE IN"];
+    var STOCK = ["READY FOR SALE","RVASAP","SHOWROOM","RESTOCK","RV SHOW UNIT","RV SHOW BACKUP","AS IS","STORM DAMAGE"];
+    var DEAD = ["PRE PDI","IN SERVICE","AWAITING PARTS","DRIVER DAMAGE","LOT DAMAGE","INSURANCE CLAIM","FACTORY REVIEW",
+      "SALE PENDING","FLEET PENDING","AWAITING TITLE"];
+    var TRANSIT = ["SHIPPED","DISPATCHED","TRANSFER","STORE-TO-STORE TRANSFER","DRIVER NEEDED","IN TRANSIT"];
+    var ORDERED = ["ORDERED","PO ISSUED","RETAIL ORDERED"];
+
+    var flags = [];
+    for (var i = 0; i < units.length; i++) {
+      var u = units[i];
+      var st = (u.status || "").toUpperCase();
+      // Skip terminal
+      var isTerminal = false;
+      for (var t = 0; t < TERMINAL.length; t++) { if (st === TERMINAL[t]) { isTerminal = true; break; } }
+      if (isTerminal) continue;
+
+      var lot = (u.lot_location || "").toUpperCase().trim();
+
+      if (!lot) {
+        // Only flag sellable/constrained units
+        var needsLot = false;
+        for (var s = 0; s < STOCK.length; s++) { if (st === STOCK[s]) { needsLot = true; break; } }
+        if (!needsLot) { for (var d = 0; d < DEAD.length; d++) { if (st === DEAD[d]) { needsLot = true; break; } } }
+        if (needsLot) {
+          flags.push({ severity: "WARNING", flag: "NO_LOT_CODE", stock_num: u.stock_num,
+            make: u.make, model: u.model, current: "", suggested: "Assign lot code",
+            description: st + " with no lot location" });
+        }
+        continue;
+      }
+
+      // Check store prefix
+      if (prefixDash && lot.indexOf(prefixDash) !== 0) {
+        var isTransit = false;
+        for (var ti = 0; ti < TRANSIT.length; ti++) { if (st === TRANSIT[ti]) { isTransit = true; break; } }
+        var isOrdered = false;
+        for (var oi = 0; oi < ORDERED.length; oi++) { if (st === ORDERED[oi]) { isOrdered = true; break; } }
+        if (!isTransit && !isOrdered) {
+          flags.push({ severity: "WARNING", flag: "MISSING_PREFIX", stock_num: u.stock_num,
+            make: u.make, model: u.model, current: lot, suggested: prefixDash + lot,
+            description: "Missing " + prefix + "- prefix" });
+        }
+        continue;
+      }
+
+      var suffix = lot.substring(prefixDash.length);
+      // Strip spaces, hyphens, slashes to extract abbreviation
+      var normalized = suffix.replace(/[\s\-\/]+/g, "");
+      var abbrev = normalized.replace(/[0-9]+.*$/, "");
+      var numPart = normalized.substring(abbrev.length);
+
+      if (LOT_VARIANT_CORRECTIONS[abbrev]) {
+        var canonical = LOT_VARIANT_CORRECTIONS[abbrev];
+        var numFmt = numPart ? (numPart.length < 2 ? "0" + numPart : numPart) : "";
+        var suggested = numFmt ? prefixDash + canonical + "-" + numFmt : prefixDash + canonical;
+        flags.push({ severity: "INFO", flag: "NON_STANDARD", stock_num: u.stock_num,
+          make: u.make, model: u.model, current: u.lot_location || lot,
+          suggested: suggested,
+          description: abbrev + " should be " + canonical + " \u2014 rename to " + suggested });
+      } else {
+        var isKnown = false;
+        for (var k = 0; k < LOT_KNOWN_ABBREVS.length; k++) { if (abbrev === LOT_KNOWN_ABBREVS[k]) { isKnown = true; break; } }
+        if (!isKnown && abbrev) {
+          flags.push({ severity: "WARNING", flag: "UNRECOGNIZED", stock_num: u.stock_num,
+            make: u.make, model: u.model, current: u.lot_location || lot,
+            suggested: "Check lot map",
+            description: "Abbreviation '" + abbrev + "' not recognized" });
+        } else if (isKnown && numPart) {
+          // Check format: should have hyphen before number
+          var parts = lot.split("-");
+          if (parts.length === 2 && numPart) {
+            var numFmt2 = numPart.length < 2 ? "0" + numPart : numPart;
+            var suggested2 = prefixDash + abbrev + "-" + numFmt2;
+            if (lot !== suggested2) {
+              flags.push({ severity: "INFO", flag: "MISSING_HYPHEN", stock_num: u.stock_num,
+                make: u.make, model: u.model, current: u.lot_location || lot,
+                suggested: suggested2,
+                description: "Format should be " + suggested2 });
+            }
+          }
+        }
+      }
+    }
+
+    var SEV = { CRITICAL: 0, WARNING: 1, INFO: 2 };
+    flags.sort(function (a, b) { return (SEV[a.severity] || 9) - (SEV[b.severity] || 9); });
+    return flags;
+  }
+
+  function lotAuditView() {
+    return DB.getAllUnits().then(function (units) {
+      var flags = computeLotAuditFlags(units);
+
+      var h = '<div class="view">';
+      h += backBtn("audit", "Audit");
+
+      var warning = flags.filter(function (f) { return f.severity === "WARNING"; }).length;
+      var info = flags.filter(function (f) { return f.severity === "INFO"; }).length;
+
+      h += '<div class="section-header" style="margin-top:0;">Lot Location Audit</div>'
+        + '<div style="font-size:18px;color:#8899aa;margin-bottom:12px;">Lot codes that need renaming in Motility DMS to match the standard format</div>';
+
+      h += '<div class="stats-row">'
+        + '<div class="stat-pill"><div class="stat-val text-orange">' + warning + '</div><div class="stat-label">Warning</div></div>'
+        + '<div class="stat-pill"><div class="stat-val text-blue">' + info + '</div><div class="stat-label">Info</div></div>'
+        + '<div class="stat-pill"><div class="stat-val" style="color:var(--text-2);">' + flags.length + '</div><div class="stat-label">Total</div></div>'
+        + '</div>';
+
+      h += '<div class="chip-row">'
+        + '<div class="chip active" data-filter="all">All (' + flags.length + ')</div>'
+        + '<div class="chip" data-filter="WARNING">Warning (' + warning + ')</div>'
+        + '<div class="chip" data-filter="INFO">Info (' + info + ')</div>'
+        + '</div>';
+
+      h += '<div id="lotAuditList">';
+      h += _renderLotAuditFlags(flags, "all");
+      h += '</div>';
+
+      h += '</div>';
+      return h;
+    });
+  }
+
+  function _renderLotAuditFlags(flags, filter) {
+    var filtered = filter === "all" ? flags
+      : flags.filter(function (f) { return f.severity === filter; });
+    if (filtered.length === 0) {
+      return '<div class="empty-state"><div class="empty-icon">&#9989;</div>'
+        + '<div class="empty-title">All codes are standard</div></div>';
+    }
+    var h = '';
+    for (var i = 0; i < filtered.length; i++) {
+      var f = filtered[i];
+      var sevClass = f.severity === "WARNING" ? "flag-warning" : "flag-info";
+      h += '<div class="card" style="padding:14px 16px;">'
+        + '<div class="gap-row mb-8">'
+        + '<span class="flag-badge ' + sevClass + '">' + esc(f.severity) + '</span>'
+        + '<span class="flag-badge" style="background:var(--surface-3);color:var(--text-2);">' + esc(f.flag.replace(/_/g, " ")) + '</span>'
+        + '</div>'
+        + '<div style="font-size:20px;font-weight:700;">' + esc(f.stock_num) + ' \u2014 ' + esc(f.make) + ' ' + esc(f.model) + '</div>'
+        + '<div style="font-size:18px;color:var(--text-2);margin-top:4px;">' + esc(f.description) + '</div>';
+      if (f.current && f.suggested) {
+        h += '<div style="margin-top:8px;display:flex;gap:8px;align-items:center;">'
+          + '<span style="font-size:18px;padding:4px 10px;background:var(--red-dim);color:var(--red);border-radius:6px;font-weight:600;">' + esc(f.current) + '</span>'
+          + '<span style="font-size:18px;color:var(--text-3);">\u2192</span>'
+          + '<span style="font-size:18px;padding:4px 10px;background:var(--green-dim);color:var(--green);border-radius:6px;font-weight:600;">' + esc(f.suggested) + '</span>'
+          + '</div>';
+      }
+      h += '</div>';
+    }
+    return h;
+  }
 
   // ══════════════════════════════════════════════════════════════
   // OVERFLOW ONLY VIEW — Units in overflow with no SHR/DSP presence
@@ -2766,8 +2987,20 @@ var Views = (function () {
     return mm + '/' + dd + '/' + d.getFullYear();
   }
 
+  var _cachedDataDate = null;
   function _todayStr() {
+    // Use cached data date from exported_at if available
+    if (_cachedDataDate) return _cachedDataDate;
     return _todayStrLocal();
+  }
+  // Call this once when loading activity data to set the data date
+  function _setDataDate(exportedAt) {
+    if (exportedAt) {
+      var parts = exportedAt.split(" ");
+      if (parts.length >= 1 && parts[0].indexOf("/") !== -1) {
+        _cachedDataDate = parts[0];
+      }
+    }
   }
 
   function _normalizeDate(val) {
@@ -2817,15 +3050,16 @@ var Views = (function () {
   function activityView() {
     return Promise.all([
       DB.getAllUnits(),
-      DB.getMeta("retail_sold_today"),
+      DB.getMeta("retail_sold_month"),
       DB.getMeta("exported_at")
     ]).then(function (results) {
       var units = results[0];
       var retailSold = results[1] || [];
       var exportedAt = results[2] || "";
+      _setDataDate(exportedAt); // use pipeline date for "today" calculations
 
       var spToday = _getSalePendingToday(units);
-      var soldToday = retailSold;
+      var soldMonth = retailSold;
       var incoming = _getIncomingUnits(units);
 
       // Sale pending in display/showroom — need to pull & replace
@@ -2838,13 +3072,12 @@ var Views = (function () {
         }
       }
 
-      // Retail ordered today — uses order_date field
-      var roToday = [];
-      var todayStr = _todayStr();
+      // All units with RETAIL ORDERED status at this location
+      var retailOrders = [];
       for (var i = 0; i < units.length; i++) {
         var u = units[i];
-        if (u.order_date && _normalizeDate(u.order_date) === todayStr) {
-          roToday.push(u);
+        if ((u.status || "").toUpperCase() === "RETAIL ORDERED") {
+          retailOrders.push(u);
         }
       }
 
@@ -2860,7 +3093,7 @@ var Views = (function () {
       // ── KPI pills ──
       h += '<div class="stats-row">';
       h += '<div class="stat-pill"><div class="stat-val" style="color:var(--orange);">' + allSP.length + '</div><div class="stat-label">SALE PEND</div></div>';
-      h += '<div class="stat-pill"><div class="stat-val" style="color:var(--green);">' + soldToday.length + '</div><div class="stat-label">SOLD</div></div>';
+      h += '<div class="stat-pill"><div class="stat-val" style="color:var(--green);">' + soldMonth.length + '</div><div class="stat-label">SOLD MTD</div></div>';
       h += '<div class="stat-pill"><div class="stat-val" style="color:var(--blue);">' + incoming.length + '</div><div class="stat-label">INCOMING</div></div>';
       h += '</div>';
 
@@ -2888,17 +3121,17 @@ var Views = (function () {
       // ── Other Activity ──
       h += '<div class="section-title" style="margin-top:20px;">OTHER ACTIVITY</div>';
 
-      // Retail Ordered Today
+      // Retail Orders (all current)
       h += '<a class="card card-interactive" href="#sales-section/retail-ordered/ALL" style="display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:#1a1a2e;">'
-        + '<div><div style="font-size:18px;font-weight:600;">Retail Ordered Today</div>'
-        + '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Customer orders placed today</div></div>'
-        + '<span class="stat-val" style="font-size:28px;color:#a855f7;">' + roToday.length + '</span></a>';
+        + '<div><div style="font-size:18px;font-weight:600;">Retail Orders</div>'
+        + '<div style="font-size:13px;color:var(--text-3);margin-top:4px;">Customer-ordered units pending delivery</div></div>'
+        + '<span class="stat-val" style="font-size:28px;color:#a855f7;">' + retailOrders.length + '</span></a>';
 
       // Retail Sold tile — expanded with make/condition breakdown + revenue
       var soldNew = 0, soldUsed = 0, soldRevenue = 0;
       var soldMakes = {};
-      for (var si = 0; si < soldToday.length; si++) {
-        var sv = soldToday[si];
+      for (var si = 0; si < soldMonth.length; si++) {
+        var sv = soldMonth[si];
         if ((sv.condition || "").toUpperCase() === "USED") soldUsed++; else soldNew++;
         if (sv.deal_selling_price) soldRevenue += (sv.deal_selling_price || 0);
         var mk = sv.make || sv.manufacturer || "Unknown";
@@ -2907,11 +3140,11 @@ var Views = (function () {
       var topMakes = Object.keys(soldMakes).sort(function(a,b){ return soldMakes[b]-soldMakes[a]; }).slice(0,3);
       h += '<div class="card" style="padding:14px 16px;">';
       h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">'
-        + '<div><div style="font-size:18px;font-weight:600;">Retail Sold Today</div>'
-        + '<div style="font-size:13px;color:var(--text-3);margin-top:2px;">Deals closed today</div></div>'
-        + '<a href="#sales-section/sold/ALL" style="font-size:24px;font-weight:800;color:var(--green);text-decoration:none;">' + soldToday.length + '</a>'
+        + '<div><div style="font-size:18px;font-weight:600;">Retail Sold This Month</div>'
+        + '<div style="font-size:13px;color:var(--text-3);margin-top:2px;">Deals closed this month</div></div>'
+        + '<a href="#sales-section/sold/ALL" style="font-size:24px;font-weight:800;color:var(--green);text-decoration:none;">' + soldMonth.length + '</a>'
         + '</div>';
-      if (soldToday.length > 0) {
+      if (soldMonth.length > 0) {
         // New / Used split
         h += '<div style="display:flex;gap:8px;margin-bottom:8px;">';
         h += '<div style="flex:1;background:var(--surface-2);border-radius:6px;padding:8px;text-align:center;">'
@@ -3013,7 +3246,7 @@ var Views = (function () {
         return results;
       });
     } else {
-      return DB.getMeta("retail_sold_today").then(function (sold) {
+      return DB.getMeta("retail_sold_month").then(function (sold) {
         return sold || [];
       });
     }
@@ -3056,8 +3289,8 @@ var Views = (function () {
         return DB.getAllUnits().then(function (all) { return renderUnitDetail(u, all); });
       });
     } else {
-      // Sold unit — may not be in active inventory, render from retail_sold_today
-      return DB.getMeta("retail_sold_today").then(function (sold) {
+      // Sold unit — may not be in active inventory, render from retail_sold_month
+      return DB.getMeta("retail_sold_month").then(function (sold) {
         var unit = null;
         for (var i = 0; i < (sold || []).length; i++) {
           if (sold[i].stock_num === stockNum) { unit = sold[i]; break; }
@@ -3314,7 +3547,7 @@ var Views = (function () {
 
     h += '<div style="padding:16px 16px 12px;border-bottom:1px solid var(--border);">';
     h += '<div style="font-size:22px;font-weight:800;color:var(--text-1);letter-spacing:-0.3px;">Location Zones</div>';
-    h += '<div style="font-size:12px;color:var(--text-3);margin-top:3px;">Master Zone Alignment \u00B7 Q2 2026 \u00B7 Effective 03/29/26</div>';
+    h += '<div style="font-size:12px;color:var(--text-3);margin-top:3px;">FTRV Master Zone Alignment</div>';
     h += '</div>';
 
     h += '<div style="padding:16px;">';
@@ -4067,7 +4300,7 @@ var Views = (function () {
     h += featureRow('Makes View', 'Manufacturer &#x2192; Make &#x2192; Model hierarchy with type dropdown');
     h += featureRow('Type View', 'Vehicle type &#x2192; Floor layout &#x2192; Sub-floorplan grouping');
     h += featureRow('View All Inventory', 'Full list with multi-select filters for Location, Type, Status, Manufacturer');
-    h += featureRow('Lot Map', 'Visual reference of the CLE lot layout (pinch to zoom)');
+    h += featureRow('Lot Map', 'Visual reference of your location lot layout (pinch to zoom)');
     h += '</div>';
 
     // ── 4. UNIT DETAIL ──
@@ -4167,7 +4400,7 @@ var Views = (function () {
     h += secHeader('help-coverage', '8', 'Coverage & Analysis');
     h += '<div class="card">';
     h += featureRow('Coverage Matrix', 'Every model&#x2019;s placement: SHR (blue), DSP (green), OVR, INC, OTH. Gap column flags missing coverage.');
-    h += featureRow('Display Distribution', 'Per-zone column grid (DISP01-11). Shows which models are in each zone.');
+    h += featureRow('Display Distribution', 'Per-zone column grid showing which models are in each display zone at your location.');
     h += featureRow('Overflow Only', 'Units in overflow with no display/showroom presence &mdash; candidates to move onto the floor.');
     h += featureRow('Replacement Log', 'Track replacement picks, mark complete or cancel.');
     h += featureRow('Type Filters', 'Both Coverage Matrix and Display Distribution have type filter buttons at the top.');
@@ -4638,6 +4871,9 @@ var Views = (function () {
     renderAuditFlags: renderAuditFlags,
     renderUnitPreviewCard: renderUnitPreviewCard,
     computeAuditFlags: computeAuditFlags,
+    lotAuditView: lotAuditView,
+    computeLotAuditFlags: computeLotAuditFlags,
+    _renderLotAuditFlags: _renderLotAuditFlags,
     esc: esc,
   };
 })();

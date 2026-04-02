@@ -89,7 +89,7 @@ var Sync = (function () {
             seen[u.stock_num] = true;
             unitList.push(u);
           }
-          soldList = (data.retail_sold_today || []).filter(function (s) {
+          soldList = (data.retail_sold_month || []).filter(function (s) {
             return _matchesFilter(s, filter);
           });
         }
@@ -100,7 +100,7 @@ var Sync = (function () {
             DB.setMeta("last_sync", ts),
             DB.setMeta("unit_count", count),
             DB.setMeta("exported_at", data.exported_at || ""),
-            DB.setMeta("retail_sold_today", soldList),
+            DB.setMeta("retail_sold_month", soldList),
             DB.setMeta("location_summary", data.location_summary || {}),
             DB.setMeta("corp_pool", data.corp_pool || []),
             DB.setMeta("on_order", data.on_order || []),
@@ -183,6 +183,45 @@ var Sync = (function () {
     });
   }
 
+  // ── Direct Note Submit (alloc/order requests) ─────────────────
+  // Attempts an immediate POST; queues for retry if offline or fetch fails.
+  // Resolves true on server success, false if queued.
+  function submitNote(data) {
+    var payload = Object.assign({}, data);
+    payload.key = API_KEY;
+    if (!payload.action) payload.action = "submit_field_note";
+
+    if (!SUBMIT_URL || !navigator.onLine) {
+      return DB.queueNote(data).then(function () { return false; });
+    }
+
+    return fetch(SUBMIT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      redirect: "follow",
+      body: JSON.stringify(payload),
+    })
+      .then(function (res) { return res.json(); })
+      .then(function (result) {
+        if (result && result.success) {
+          return DB.addToHistory({
+            timestamp: new Date().toISOString(),
+            user: data.user || "",
+            entry_type: data.entry_type || "",
+            stock: data.stock || "",
+            description: data.reason || data.description || "",
+            status: "Submitted",
+          }).then(function () { return true; });
+        }
+        console.warn("submitNote rejected by server:", result && result.error);
+        return DB.queueNote(data).then(function () { return false; });
+      })
+      .catch(function (err) {
+        console.warn("submitNote failed:", err.message);
+        return DB.queueNote(data).then(function () { return false; });
+      });
+  }
+
   // ── Full Sync (pull + push) ────────────────────────────────────
   function fullSync(silent) {
     updateOnlineIndicator();
@@ -257,6 +296,7 @@ var Sync = (function () {
     stopAutoSync: stopAutoSync,
     updateQueueBadge: updateQueueBadge,
     hideSyncBar: hideSyncBar,
+    submitNote: submitNote,
     init: init,
   };
 })();

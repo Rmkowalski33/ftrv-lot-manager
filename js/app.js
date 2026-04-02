@@ -34,7 +34,7 @@ var App = (function () {
     "notes": "notes", "note-form": "notes",
     "alloc-request": "notes", "alloc-form": "notes",
     "order-request": "notes",
-    "audit": "audit", "audit-status": "audit", "hierarchy": "audit", "hierarchy-detail": "audit",
+    "audit": "audit", "audit-status": "audit", "hierarchy": "audit", "hierarchy-detail": "audit", "lot-audit": "audit",
     "activity": "activity", "sales-section": "activity", "sales-make": "activity", "sales-units": "activity",
     "incoming": "activity", "incoming-status": "activity", "incoming-make": "activity", "incoming-units": "activity",
     "replace-picker": "activity", "repl-log": "coverage",
@@ -254,6 +254,9 @@ var App = (function () {
         break;
       case "audit-status":
         renderPromise = Views.auditStatusView();
+        break;
+      case "lot-audit":
+        renderPromise = Views.lotAuditView();
         break;
       case "activity":
         renderPromise = Views.activityView();
@@ -552,8 +555,16 @@ var App = (function () {
       chip.classList.add("active");
 
       DB.getAllUnits().then(function (units) {
-        var flags = Views.computeAuditFlags(units);
-        document.getElementById("auditList").innerHTML = Views.renderAuditFlags(flags, filter);
+        var auditListEl = document.getElementById("auditList");
+        var lotAuditListEl = document.getElementById("lotAuditList");
+        if (auditListEl) {
+          var flags = Views.computeAuditFlags(units);
+          auditListEl.innerHTML = Views.renderAuditFlags(flags, filter);
+        }
+        if (lotAuditListEl) {
+          var lotFlags = Views.computeLotAuditFlags(units);
+          lotAuditListEl.innerHTML = Views._renderLotAuditFlags(lotFlags, filter);
+        }
       });
       return;
     }

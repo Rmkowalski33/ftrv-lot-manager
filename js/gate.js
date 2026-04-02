@@ -103,7 +103,8 @@ var Gate = (function () {
     // Derive from saved code
     var code = getSavedCode();
     if (code && _codeMap[code]) return _codeMap[code];
-    return FALLBACK_MAP["FTRV-CLE-2026"];
+    // No saved code — return null to trigger access code prompt
+    return null;
   }
 
   // ── Admin helpers ───────────────────────────────────────────────
